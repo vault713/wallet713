@@ -1,0 +1,29 @@
+[package]
+name = "wallet713"
+version = "0.1.0"
+authors = ["vault713 devs"]
+description = "A wallet that makes it easy to send, store, and swap Grin."
+keywords = [ "grin", "mimblewimble", "rust", "crypto", "cryptocurrency" ]
+license = "Apache-2.0"
+readme = "README.md"
+
+[dependencies]
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+toml = "0.4"
+clap = "2"
+colored = "1.6"
+ws = "*"
+dirs = "1"
+futures = "0.1"
+tokio = "*"
+rand = "0.4"
+secp256k1 = { version="0.11", features=["rand"] }
+sha2 = "0.8.0"
+digest = "0.7"
+
+grin_core = { git = "https://github.com/mimblewimble/grin"}
+grin_wallet = { git = "https://github.com/mimblewimble/grin"}
+grin_keychain = { git = "https://github.com/mimblewimble/grin"}
+grin_util = { git = "https://github.com/mimblewimble/grin"}

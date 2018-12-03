@@ -1,0 +1,275 @@
+use std::sync::Arc;
+
+use grin_util::Mutex;
+
+use common::config::Wallet713Config;
+use grinbox::protocol::ProtocolResponse;
+use grinbox::client::{GrinboxClient, GrinboxClientHandler, GrinboxClientOut};
+use common::error::Error;
+
+use grin_wallet::{display, controller, instantiate_wallet, WalletInst, WalletConfig, WalletSeed, HTTPNodeClient, LMDBBackend};
+use grin_wallet::libtx::slate::Slate;
+use grin_keychain::keychain::ExtKeychain;
+use grin_core::core;
+
+pub struct Wallet {
+    pub client: GrinboxClient,
+}
+
+impl Wallet {
+    pub fn new() -> Self {
+        Wallet {
+            client: GrinboxClient::new(),
+        }
+    }
+
+    pub fn init(&self, password: &str) -> Result<WalletSeed, Error> {
+        let config = Wallet713Config::from_file()?;
+        let wallet_config = config.as_wallet_config()?;
+        let seed = self.init_seed(&wallet_config, password)?;
+        self.init_backend(&wallet_config, &config, password)?;
+        Ok(seed)
+    }
+
+    pub fn start_client(&mut self, password: &str, grinbox_uri: &str, grinbox_private_key: &str) -> Result<(), Error> {
+        if !self.client.is_started() {
+            let wallet = self.get_wallet_instance(password)?;
+            let handler = Box::new(MessageHandler {
+                wallet
+            });
+            self.client.start(grinbox_uri, grinbox_private_key, handler)?;
+            Ok(())
+        } else {
+            let public_key = self.client.get_listening_address().unwrap_or("...".to_owned());
+            let description = format!("already listening on [{}]!", public_key);
+            Err(Error::generic(&description[..]))
+        }
+    }
+
+    pub fn stop_client(&self) -> Result<(), Error> {
+        self.client.stop()
+    }
+
+    pub fn info(&self, password: &str, account: &str) -> Result<(), Error> {
+        let wallet = self.get_wallet_instance(password)?;
+        let result = controller::owner_single_use(wallet.clone(), |api| {
+            let (validated, wallet_info) = api.retrieve_summary_info(true, 10)?;
+            display::info(
+                account,
+                &wallet_info,
+                validated,
+                true,
+            );
+            Ok(())
+        })?;
+        Ok(result)
+    }
+
+    pub fn txs(&self, password: &str, account: &str) -> Result<(), Error> {
+        let wallet = self.get_wallet_instance(password)?;
+        let result = controller::owner_single_use(wallet.clone(), |api| {
+            let (height, _) = api.node_height()?;
+            let (validated, txs) = api.retrieve_txs(true, None, None)?;
+            display::txs(
+                account,
+                height,
+                validated,
+                txs,
+                true,
+                true,
+            )?;
+            Ok(())
+        })?;
+        Ok(result)
+    }
+
+    pub fn outputs(&self, password: &str, account: &str, show_spent: bool) -> Result<(), Error> {
+        let wallet = self.get_wallet_instance(password)?;
+        let result = controller::owner_single_use(wallet.clone(), |api| {
+            let (height, _) = api.node_height()?;
+            let (validated, outputs) = api.retrieve_outputs(show_spent, true, None)?;
+            display::outputs(
+                account,
+                height,
+                validated,
+                outputs,
+                true,
+            )?;
+            Ok(())
+        })?;
+        Ok(result)
+    }
+
+    pub fn subscribe(&self) -> Result<(), Error> {
+        if !self.client.is_started() {
+            Err(Error::generic("listener is closed! consider using `listen` first"))
+        } else {
+            self.client.subscribe()
+        }
+    }
+
+    pub fn unsubscribe(&self) -> Result<(), Error> {
+        if !self.client.is_started() {
+            Err(Error::generic("listener is closed! consider using `listen` first"))
+        } else {
+            self.client.unsubscribe()
+        }
+    }
+
+    pub fn send(&self, password: &str, account: &str, to: &str, amount: u64, minimum_confirmations: u64, selection_strategy: &str, change_outputs: usize, max_outputs: usize) -> Result<Slate, Error> {
+        if !self.client.is_started() {
+            Err(Error::generic("listener is closed! consider using `listen` first"))
+        } else {
+            let wallet = self.get_wallet_instance(password)?;
+            let mut s: Slate = Slate::blank(0);
+            controller::owner_single_use(wallet.clone(), |api| {
+                let (slate, lock_fn) = api.initiate_tx(
+                    Some(account),
+                    amount,
+                    minimum_confirmations,
+                    max_outputs,
+                    change_outputs,
+                    selection_strategy == "all"
+                )?;
+                api.tx_lock_outputs(&slate, lock_fn)?;
+                s = slate;
+                Ok(())
+            })?;
+
+            self.client.post_slate(to, &s)?;
+            Ok(s)
+        }
+    }
+
+    pub fn repost(&self, password: &str, id: u32, fluff: bool) -> Result<(), Error> {
+        let wallet = self.get_wallet_instance(password)?;
+        controller::owner_single_use(wallet.clone(), |api| {
+            api.post_stored_tx(id, fluff)
+        })?;
+        Ok(())
+    }
+
+    pub fn cancel(&self, password: &str, id: u32) -> Result<(), Error> {
+        let wallet = self.get_wallet_instance(password)?;
+        controller::owner_single_use(wallet.clone(), |api| {
+            api.cancel_tx(Some(id), None)
+        })?;
+        Ok(())
+    }
+
+    pub fn restore(&self, password: &str) -> Result<(), Error> {
+        let wallet = self.get_wallet_instance(password)?;
+        controller::owner_single_use(wallet.clone(), |api| {
+            api.restore()
+        })?;
+        Ok(())
+    }
+
+    fn init_seed(&self, wallet_config: &WalletConfig, password: &str) -> Result<WalletSeed, Error> {
+        let result = WalletSeed::from_file(&wallet_config, password);
+        match result {
+            Err(_) => {
+                // could not load from file, let's create a new one
+                let seed = WalletSeed::init_file(&wallet_config, 32, password)?;
+                if password.is_empty() {
+                    cli_message!("{}: wallet with no password.", "WARNING".bright_yellow());
+                };
+                Ok(seed)
+            }
+            Ok(seed) => {
+                cli_message!("{}: seed file already exists.", "WARNING".bright_yellow());
+                Ok(seed)
+            }
+        }
+    }
+
+    fn init_backend(&self, wallet_config: &WalletConfig, wallet713_config: &Wallet713Config, password: &str) -> Result<LMDBBackend<HTTPNodeClient, ExtKeychain>, Error> {
+        let node_api_client = HTTPNodeClient::new(&wallet_config.check_node_api_http_addr, wallet713_config.grin_node_secret.clone());
+
+        let backend = LMDBBackend::new(wallet_config.clone(), &password, node_api_client)?;
+        Ok(backend)
+    }
+
+    fn get_wallet_instance(&self, password: &str) -> Result<Arc<Mutex<WalletInst<HTTPNodeClient, ExtKeychain>>>, Error> {
+        let config = Wallet713Config::from_file()?;
+        let wallet_config = config.as_wallet_config()?;
+        let wallet = instantiate_wallet(
+            wallet_config,
+            password,
+            "default",
+            config.grin_node_secret.clone(),
+        ).map_err(|_| {
+            Error::generic("could not find a wallet! consider using `init`.")
+        })?;
+        Ok(wallet)
+    }
+}
+
+#[derive(Clone)]
+struct MessageHandler {
+    wallet: Arc<Mutex<WalletInst<HTTPNodeClient, ExtKeychain>>>,
+}
+
+impl MessageHandler {
+    pub fn process_slate(&self, account: &str, slate: &mut Slate) -> Result<bool, Error> {
+        let is_finalized = if slate.num_participants > slate.participant_data.len() {
+            controller::foreign_single_use(self.wallet.clone(), |api| {
+                api.receive_tx(slate, Some(account))?;
+                Ok(())
+            })?;
+            false
+        } else {
+            controller::owner_single_use(self.wallet.clone(), |api| {
+                api.finalize_tx(slate)?;
+                api.post_tx(slate, false)?;
+                Ok(())
+            })?;
+            true
+        };
+        Ok(is_finalized)
+    }
+}
+
+impl GrinboxClientHandler for MessageHandler {
+    fn on_response(&self, response: &ProtocolResponse, out: &GrinboxClientOut) {
+        match response {
+            ProtocolResponse::Slate { from, str, challenge: _, signature: _ } => {
+                let mut slate: Slate = serde_json::from_str(&str).unwrap();
+                if slate.num_participants > slate.participant_data.len() {
+                    cli_message!("slate [{}] received from [{}] for [{}] grins",
+                             slate.id.to_string().bright_green(),
+                             from.bright_green(),
+                             core::amount_to_hr_string(slate.amount, false).bright_green()
+                    );
+                } else {
+                    cli_message!("slate [{}] received back from [{}] for [{}] grins",
+                             slate.id.to_string().bright_green(),
+                             from.bright_green(),
+                             core::amount_to_hr_string(slate.amount, false).bright_green()
+                    );
+                };
+                let is_finalized = self.process_slate("", &mut slate).expect("failed processing slate!");
+
+                if !is_finalized {
+                    out.post_slate(&from, &slate).expect("failed posting slate!");
+                    cli_message!("slate [{}] sent back to [{}] successfully",
+                             slate.id.to_string().bright_green(),
+                             from.bright_green()
+                    );
+                } else {
+                    cli_message!("slate [{}] finalized successfully",
+                             slate.id.to_string().bright_green()
+                    );
+                }
+            },
+            ProtocolResponse::Error { kind: _, description: _ } => {
+                cli_message!("{}", response);
+            },
+            _ => {},
+        };
+    }
+
+    fn on_close(&self, reason: &str) {
+        cli_message!("{}: grinbox client closed with reason: {}", "WARNING".bright_yellow(), reason);
+    }
+}
