@@ -97,7 +97,7 @@ To import an existing grin wallet to use in wallet713 follow these steps:
 
 * **The relay does not store data.** 713.grinbox does not store any data on completed transactions by design, but it would be possible for the relay to do so and as a result build a graph of activity between addresses.
 
-* **Your IP is your responsibility.** When you communicate to the 713.grinbox relay service, you are exposing your IP to the relay. You can hide obfuscate your real IP address using services such as a VPN and/or TOR or i2p.
+* **Your IP is your responsibility.** When you communicate to the 713.grinbox relay service, you are exposing your IP to the relay. You can obfuscate your real IP address using services such as a VPN and/or TOR or i2p.
 
 ## Credits
 
