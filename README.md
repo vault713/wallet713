@@ -89,7 +89,7 @@ wallet713> $ exit
 To import an existing grin wallet to use in wallet713 follow these steps:
 1. Ensure you have the previous wallet's `wallet.seed`. In the default config of the grin wallet, this is stored in `~/.grin/wallet_data`.
 1. Build wallet713, run it, run `init`. Exit the wallet.  
-1. Copy and replace `wallet713/wallet713_data/wallet.seed` with the `wallet.seed` of the wallet you want to restore.
+1. Copy and replace `wallet713/target/release/wallet713_data/wallet.seed` with the `wallet.seed` of the wallet you want to restore.
 1. Run wallet713, and then run `restore`.
 1. Your previous wallet should now have been restored, and you can validate this by running `info`.
 
