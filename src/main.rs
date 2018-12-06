@@ -17,6 +17,7 @@ extern crate grin_util;
 extern crate grin_core;
 extern crate grin_store;
 
+use std::sync::{Arc, Mutex};
 use clap::ArgMatches;
 use colored::*;
 
@@ -38,7 +39,7 @@ use cli::Parser;
 
 use contacts::AddressBook;
 
-fn config(args: &ArgMatches, silent: bool) -> Result<Wallet713Config, Error> {
+fn do_config(args: &ArgMatches, silent: bool) -> Result<Wallet713Config, Error> {
 	let mut config;
 	let mut any_matches = false;
     let exists = Wallet713Config::exists();
@@ -88,7 +89,7 @@ fn config(args: &ArgMatches, silent: bool) -> Result<Wallet713Config, Error> {
     Ok(config)
 }
 
-fn listen(wallet: &mut Wallet, password: &str) -> Result<(), Error> {
+fn do_listen(wallet: &mut Wallet, password: &str) -> Result<(), Error> {
 	if Wallet713Config::exists() {
 		let config = Wallet713Config::from_file().map_err(|_| {
             Error::generic("could not load config!")
@@ -120,8 +121,8 @@ Use `config` command to set one up
 const WELCOME_FOOTER: &str = r#"Use `listen` to connect to grinbox or `help` to see available commands
 "#;
 
-fn welcome() -> Result<(), Error> {
-    let config = config(&ArgMatches::new(), true)?;
+fn welcome() -> Result<Wallet713Config, Error> {
+    let config = do_config(&ArgMatches::new(), true)?;
 
     let secret_key = SecretKey::from_hex(&config.grinbox_private_key)?;
     let public_key = common::crypto::public_key_from_secret_key(&secret_key);
@@ -131,22 +132,18 @@ fn welcome() -> Result<(), Error> {
     println!("{}: {}", "Your 713.grinbox address".bright_yellow(), public_key.bright_green());
 	println!("{}", WELCOME_FOOTER.bright_blue().bold());
 
-    Ok(())
+    Ok(config)
 }
 
-fn handle<T>(result: Result<T, Error>) {
-    if let Err(e) = result {
-        cli_message!("{}", e);
-    }
-}
-
-fn contacts(args: &ArgMatches) -> Result<(), Error> {
-    let mut address_book = AddressBook::new("")?;
-
+fn do_contacts(args: &ArgMatches, address_book: Arc<Mutex<AddressBook>>) -> Result<(), Error> {
+    let mut address_book = address_book.lock().unwrap();
     if let Some(add_args) = args.subcommand_matches("add") {
         let name = add_args.value_of("name").unwrap();
         let public_key = add_args.value_of("public-key").unwrap();
-        address_book.add_contact(&Contact { name: name.to_string(), public_key: public_key.to_string() })?;
+        address_book.add_contact(&Contact::new(public_key, name))?;
+    } else if let Some(add_args) = args.subcommand_matches("remove") {
+        let name = add_args.value_of("name").unwrap();
+        address_book.remove_contact_by_name(name)?;
     } else {
         let iter = address_book.contact_iter();
         for contact in iter {
@@ -156,12 +153,21 @@ fn contacts(args: &ArgMatches) -> Result<(), Error> {
     Ok(())
 }
 
+fn handle<T>(result: Result<T, Error>) {
+    if let Err(e) = result {
+        cli_message!("{}", e);
+    }
+}
+
 fn main() {
-	welcome().unwrap_or_else(|e| {
+	let config = welcome().unwrap_or_else(|e| {
         panic!("{}: could not read or create config! {}", "ERROR".bright_red(), e);
     });
 
-    let mut wallet = Wallet::new();
+    let address_book = AddressBook::new(&config).expect("could not create an address book!");
+    let address_book = Arc::new(Mutex::new(address_book));
+    let mut wallet = Wallet::new(address_book.clone());
+
     let account = "default".to_owned();
     loop {
         let account = account.clone();
@@ -176,7 +182,7 @@ fn main() {
                     None => {},
                     Some("exit") => std::process::exit(0),
                     Some("config") => {
-                        handle(config(matches.subcommand_matches("config").unwrap(), false));
+                        handle(do_config(matches.subcommand_matches("config").unwrap(), false));
                     },
                     Some("init") => {
                         let password = matches.subcommand_matches("init").unwrap().value_of("password").unwrap_or("");
@@ -184,7 +190,7 @@ fn main() {
                     },
                     Some("listen") => {
                         let password = matches.subcommand_matches("listen").unwrap().value_of("password").unwrap_or("");
-                        handle(listen(&mut wallet, password));
+                        handle(do_listen(&mut wallet, password));
                     },
                     Some("subscribe") => {
                         handle(wallet.subscribe());
@@ -205,7 +211,7 @@ fn main() {
                     },
                     Some("contacts") => {
                         let arg_matches = matches.subcommand_matches("contacts").unwrap();
-                        handle(contacts(&arg_matches));
+                        handle(do_contacts(&arg_matches, address_book.clone()));
                     },
                     Some("outputs") => {
                         let password = matches.subcommand_matches("outputs").unwrap().value_of("password").unwrap_or("");

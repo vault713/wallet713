@@ -1,8 +1,3 @@
-use std::sync::Arc;
-
-use grin_wallet::HTTPNodeClient;
-use grin_keychain::keychain::ExtKeychain;
-
 use common::config::Wallet713Config;
 use common::error::Error;
 use common::types::Contact;
@@ -10,15 +5,12 @@ use common::crypto::{PublicKey, Base58};
 use storage::lmdb::{LMDBBackend, Wallet713Backend};
 
 pub struct AddressBook {
-    backend: LMDBBackend<HTTPNodeClient, ExtKeychain>
+    backend: LMDBBackend
 }
 
 impl AddressBook {
-    pub fn new(password: &str) -> Result<Self, Error> {
-        let config = Wallet713Config::from_file()?;
-        let wallet_config = config.as_wallet_config()?;
-        let node_api_client = HTTPNodeClient::new(&wallet_config.check_node_api_http_addr, config.grin_node_secret.clone());
-        let backend = LMDBBackend::new(wallet_config.clone(), &password, node_api_client)?;
+    pub fn new(config: &Wallet713Config) -> Result<Self, Error> {
+        let backend = LMDBBackend::new(&config)?;
         let address_book = Self {
             backend
         };
@@ -26,13 +18,31 @@ impl AddressBook {
     }
 
     pub fn add_contact(&mut self, contact: &Contact) -> Result<(), Error> {
-        let key = PublicKey::from_base58_check(&contact.public_key, 2).map_err(|_| {
+        PublicKey::from_base58_check(&contact.public_key, 2).map_err(|_| {
             Error::generic("invalid public key given!")
         })?;
-        let mut batch = self.backend.wallet713_batch()?;
+
+        let result = self.get_contact_by_name(&contact.name);
+        if result.is_ok() {
+            return Err(Error::generic("contact with a similar name already exists!"));
+        }
+
+        let mut batch = self.backend.batch()?;
         batch.save_contact(contact)?;
         batch.commit()?;
         Ok(())
+    }
+
+    pub fn remove_contact(&mut self, public_key: &str) -> Result<(), Error> {
+        let mut batch = self.backend.batch()?;
+        batch.delete_contact(public_key.as_bytes())?;
+        batch.commit()?;
+        Ok(())
+    }
+
+    pub fn remove_contact_by_name(&mut self, name: &str) -> Result<(), Error> {
+        let contact = self.get_contact_by_name(name)?;
+        self.remove_contact(&contact.public_key)
     }
 
     pub fn get_contact(&mut self, public_key: &str) -> Result<Contact, Error> {

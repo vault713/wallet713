@@ -71,6 +71,13 @@ impl<'a, 'b> Parser {
                                 Arg::from_usage("<public-key> 'the contact public key'")
                             )
                     )
+                    .subcommand(
+                        SubCommand::with_name("remove")
+                            .about("removes an existing contact")
+                            .arg(
+                                Arg::from_usage("<name> 'the contact name'")
+                            )
+                    )
             )
             .subcommand(
                 SubCommand::with_name("txs")

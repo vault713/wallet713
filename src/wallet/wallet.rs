@@ -6,22 +6,24 @@ use common::config::Wallet713Config;
 use grinbox::protocol::ProtocolResponse;
 use grinbox::client::{GrinboxClient, GrinboxClientHandler, GrinboxClientOut};
 use common::error::Error;
+use common::crypto::{PublicKey, Base58};
 
-use grin_wallet::{display, controller, instantiate_wallet, WalletInst, WalletConfig, WalletSeed, HTTPNodeClient};
+use grin_wallet::{display, controller, instantiate_wallet, WalletInst, WalletConfig, WalletSeed, HTTPNodeClient, LMDBBackend};
 use grin_core::libtx::slate::Slate;
 use grin_keychain::keychain::ExtKeychain;
 use grin_core::core;
-use storage::lmdb::LMDBBackend;
 use contacts::AddressBook;
 
 pub struct Wallet {
     pub client: GrinboxClient,
+    pub address_book: Arc<std::sync::Mutex<AddressBook>>,
 }
 
 impl Wallet {
-    pub fn new() -> Self {
+    pub fn new(address_book: Arc<std::sync::Mutex<AddressBook>>) -> Self {
         Wallet {
             client: GrinboxClient::new(),
+            address_book,
         }
     }
 
@@ -36,8 +38,10 @@ impl Wallet {
     pub fn start_client(&mut self, password: &str, grinbox_uri: &str, grinbox_private_key: &str) -> Result<(), Error> {
         if !self.client.is_started() {
             let wallet = self.get_wallet_instance(password)?;
+            let address_book = self.address_book.clone();
             let handler = Box::new(MessageHandler {
-                wallet
+                wallet,
+                address_book,
             });
             self.client.start(grinbox_uri, grinbox_private_key, handler)?;
             Ok(())
@@ -118,16 +122,20 @@ impl Wallet {
         }
     }
 
-    pub fn send(&self, password: &str, account: &str, to: &str, amount: u64, minimum_confirmations: u64, selection_strategy: &str, change_outputs: usize, max_outputs: usize) -> Result<Slate, Error> {
+    pub fn send(&mut self, password: &str, account: &str, to: &str, amount: u64, minimum_confirmations: u64, selection_strategy: &str, change_outputs: usize, max_outputs: usize) -> Result<Slate, Error> {
         if !self.client.is_started() {
             Err(Error::generic("listener is closed! consider using `listen` first"))
         } else {
             let mut to = to.to_string();
             if to.starts_with("@") {
-                let mut address_book = AddressBook::new(password)?;
-                let contact = address_book.get_contact_by_name(&to[1..])?;
+                let mut guard = self.address_book.lock().unwrap();
+                let contact = guard.get_contact_by_name(&to[1..])?;
                 to = contact.public_key.clone();
             }
+
+            PublicKey::from_base58_check(&to, 2).map_err(|_| {
+                Error::generic("invalid public key given!")
+            })?;
 
             let wallet = self.get_wallet_instance(password)?;
             let mut s: Slate = Slate::blank(0);
@@ -233,6 +241,7 @@ impl Wallet {
 #[derive(Clone)]
 struct MessageHandler {
     wallet: Arc<Mutex<WalletInst<HTTPNodeClient, ExtKeychain>>>,
+    address_book: Arc<std::sync::Mutex<AddressBook>>,
 }
 
 impl MessageHandler {
@@ -260,16 +269,21 @@ impl GrinboxClientHandler for MessageHandler {
         match response {
             ProtocolResponse::Slate { from, str, challenge: _, signature: _ } => {
                 let mut slate: Slate = serde_json::from_str(&str).unwrap();
+                let mut guard = self.address_book.lock().unwrap();
+                let mut display_from = from.clone();
+                if let Ok(contact) = guard.get_contact(&from) {
+                    display_from = format!("@{}", contact.name);
+                }
                 if slate.num_participants > slate.participant_data.len() {
                     cli_message!("slate [{}] received from [{}] for [{}] grins",
                              slate.id.to_string().bright_green(),
-                             from.bright_green(),
+                             display_from.bright_green(),
                              core::amount_to_hr_string(slate.amount, false).bright_green()
                     );
                 } else {
                     cli_message!("slate [{}] received back from [{}] for [{}] grins",
                              slate.id.to_string().bright_green(),
-                             from.bright_green(),
+                             display_from.bright_green(),
                              core::amount_to_hr_string(slate.amount, false).bright_green()
                     );
                 };
@@ -279,7 +293,7 @@ impl GrinboxClientHandler for MessageHandler {
                     out.post_slate(&from, &slate).expect("failed posting slate!");
                     cli_message!("slate [{}] sent back to [{}] successfully",
                              slate.id.to_string().bright_green(),
-                             from.bright_green()
+                             display_from.bright_green()
                     );
                 } else {
                     cli_message!("slate [{}] finalized successfully",

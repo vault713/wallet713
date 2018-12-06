@@ -5,6 +5,7 @@ pub enum Error {
     Generic { description: String },
     GrinLibWallet { e: grin_wallet::libwallet::Error },
     GrinWallet { e: grin_wallet::Error },
+    GrinStore { e: grin_store::Error },
     Toml,
     IO { e: std::io::Error },
     Cli { e: clap::Error },
@@ -64,6 +65,12 @@ impl From<grin_wallet::libwallet::Error> for Error {
 impl From<grin_wallet::Error> for Error {
     fn from(e: grin_wallet::Error) -> Self {
         Error::GrinWallet { e }
+    }
+}
+
+impl From<grin_store::Error> for Error {
+    fn from(e: grin_store::Error) -> Self {
+        Error::GrinStore { e }
     }
 }
 
