@@ -22,8 +22,12 @@ rand = "0.4"
 secp256k1 = { version="0.11", features=["rand"] }
 sha2 = "0.8.0"
 digest = "0.7"
+lmdb-zero = "0.4"
+failure = "0.1"
+uuid = { version = "0.6", features = ["serde", "v4"] }
 
 grin_core = { git = "https://github.com/mimblewimble/grin"}
 grin_wallet = { git = "https://github.com/mimblewimble/grin"}
 grin_keychain = { git = "https://github.com/mimblewimble/grin"}
 grin_util = { git = "https://github.com/mimblewimble/grin"}
+grin_store = { git = "https://github.com/mimblewimble/grin"}

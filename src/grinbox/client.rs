@@ -3,8 +3,7 @@ use std::str::FromStr;
 
 use ws::{connect, Sender};
 
-use grin_wallet::libtx::slate::Slate;
-
+use grin_core::libtx::slate::Slate;
 use common::Error;
 use common::crypto::{SecretKey, PublicKey, Signature, public_key_from_secret_key, verify_signature, sign_challenge, Hex, Base58, BASE58_CHECK_VERSION_GRIN_TX};
 use super::protocol::{ProtocolRequest, ProtocolResponse};

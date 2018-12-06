@@ -7,10 +7,12 @@ use grinbox::protocol::ProtocolResponse;
 use grinbox::client::{GrinboxClient, GrinboxClientHandler, GrinboxClientOut};
 use common::error::Error;
 
-use grin_wallet::{display, controller, instantiate_wallet, WalletInst, WalletConfig, WalletSeed, HTTPNodeClient, LMDBBackend};
-use grin_wallet::libtx::slate::Slate;
+use grin_wallet::{display, controller, instantiate_wallet, WalletInst, WalletConfig, WalletSeed, HTTPNodeClient};
+use grin_core::libtx::slate::Slate;
 use grin_keychain::keychain::ExtKeychain;
 use grin_core::core;
+use storage::lmdb::LMDBBackend;
+use contacts::AddressBook;
 
 pub struct Wallet {
     pub client: GrinboxClient,
@@ -120,6 +122,13 @@ impl Wallet {
         if !self.client.is_started() {
             Err(Error::generic("listener is closed! consider using `listen` first"))
         } else {
+            let mut to = to.to_string();
+            if to.starts_with("@") {
+                let mut address_book = AddressBook::new(password)?;
+                let contact = address_book.get_contact_by_name(&to[1..])?;
+                to = contact.public_key.clone();
+            }
+
             let wallet = self.get_wallet_instance(password)?;
             let mut s: Slate = Slate::blank(0);
             controller::owner_single_use(wallet.clone(), |api| {
@@ -129,14 +138,15 @@ impl Wallet {
                     minimum_confirmations,
                     max_outputs,
                     change_outputs,
-                    selection_strategy == "all"
+                    selection_strategy == "all",
+                    None,
                 )?;
                 api.tx_lock_outputs(&slate, lock_fn)?;
                 s = slate;
                 Ok(())
             })?;
 
-            self.client.post_slate(to, &s)?;
+            self.client.post_slate(&to, &s)?;
             Ok(s)
         }
     }
@@ -144,7 +154,22 @@ impl Wallet {
     pub fn repost(&self, password: &str, id: u32, fluff: bool) -> Result<(), Error> {
         let wallet = self.get_wallet_instance(password)?;
         controller::owner_single_use(wallet.clone(), |api| {
-            api.post_stored_tx(id, fluff)
+            let (_, txs) = api.retrieve_txs(true, Some(id), None)?;
+            if txs.len() == 0 {
+                return Err(grin_wallet::libwallet::ErrorKind::GenericError(
+                    format!("could not find transaction with id {}!", id)
+                ))?
+            }
+
+            let tx = txs[0].get_stored_tx();
+            if tx.is_none() {
+                return Err(grin_wallet::libwallet::ErrorKind::GenericError(
+                    format!("no transaction data stored for id {}, can not repost!", id)
+                ))?
+            }
+
+            api.post_tx(&tx.unwrap(), fluff)?;
+            Ok(())
         })?;
         Ok(())
     }
@@ -214,14 +239,14 @@ impl MessageHandler {
     pub fn process_slate(&self, account: &str, slate: &mut Slate) -> Result<bool, Error> {
         let is_finalized = if slate.num_participants > slate.participant_data.len() {
             controller::foreign_single_use(self.wallet.clone(), |api| {
-                api.receive_tx(slate, Some(account))?;
+                api.receive_tx(slate, Some(account), None)?;
                 Ok(())
             })?;
             false
         } else {
             controller::owner_single_use(self.wallet.clone(), |api| {
                 api.finalize_tx(slate)?;
-                api.post_tx(slate, false)?;
+                api.post_tx(&slate.tx, false)?;
                 Ok(())
             })?;
             true

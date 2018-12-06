@@ -2,6 +2,7 @@ pub mod error;
 pub mod config;
 pub mod base58;
 pub mod crypto;
+pub mod types;
 pub use self::error::Error;
 
 macro_rules! cli_message {

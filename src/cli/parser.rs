@@ -59,6 +59,20 @@ impl<'a, 'b> Parser {
                     )
             )
             .subcommand(
+                SubCommand::with_name("contacts")
+                    .about("manages your list of known contacts")
+                    .subcommand(
+                        SubCommand::with_name("add")
+                            .about("adds a new contact")
+                            .arg(
+                                Arg::from_usage("<name> 'the contact name'")
+                            )
+                            .arg(
+                                Arg::from_usage("<public-key> 'the contact public key'")
+                            )
+                    )
+            )
+            .subcommand(
                 SubCommand::with_name("txs")
                     .about("displays transactions")
             )

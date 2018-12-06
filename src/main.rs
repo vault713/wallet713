@@ -8,11 +8,14 @@ extern crate secp256k1;
 extern crate rand;
 extern crate sha2;
 extern crate digest;
+extern crate failure;
+extern crate uuid;
 
 extern crate grin_wallet;
 extern crate grin_keychain;
 extern crate grin_util;
 extern crate grin_core;
+extern crate grin_store;
 
 use clap::ArgMatches;
 use colored::*;
@@ -22,13 +25,18 @@ use grin_core::{core};
 #[macro_use] mod common;
 mod grinbox;
 mod wallet;
+mod storage;
+mod contacts;
 mod cli;
 
 use common::config::Wallet713Config;
 use common::error::Error;
 use common::crypto::*;
+use common::types::Contact;
 use wallet::Wallet;
 use cli::Parser;
+
+use contacts::AddressBook;
 
 fn config(args: &ArgMatches, silent: bool) -> Result<Wallet713Config, Error> {
 	let mut config;
@@ -132,6 +140,22 @@ fn handle<T>(result: Result<T, Error>) {
     }
 }
 
+fn contacts(args: &ArgMatches) -> Result<(), Error> {
+    let mut address_book = AddressBook::new("")?;
+
+    if let Some(add_args) = args.subcommand_matches("add") {
+        let name = add_args.value_of("name").unwrap();
+        let public_key = add_args.value_of("public-key").unwrap();
+        address_book.add_contact(&Contact { name: name.to_string(), public_key: public_key.to_string() })?;
+    } else {
+        let iter = address_book.contact_iter();
+        for contact in iter {
+            println!("@{} = {}", contact.name, contact.public_key);
+        }
+    }
+    Ok(())
+}
+
 fn main() {
 	welcome().unwrap_or_else(|e| {
         panic!("{}: could not read or create config! {}", "ERROR".bright_red(), e);
@@ -178,6 +202,10 @@ fn main() {
                     Some("txs") => {
                         let password = matches.subcommand_matches("txs").unwrap().value_of("password").unwrap_or("");
                         handle(wallet.txs(password, &account[..]));
+                    },
+                    Some("contacts") => {
+                        let arg_matches = matches.subcommand_matches("contacts").unwrap();
+                        handle(contacts(&arg_matches));
                     },
                     Some("outputs") => {
                         let password = matches.subcommand_matches("outputs").unwrap().value_of("password").unwrap_or("");
