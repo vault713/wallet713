@@ -1,11 +1,11 @@
 use clap::{App, AppSettings, SubCommand, Arg, ArgMatches};
-use common::Error;
+use common::Result;
 
 #[derive(Clone)]
 pub struct Parser {}
 
 impl<'a, 'b> Parser {
-    pub fn parse(command: &str) -> Result<ArgMatches, Error> {
+    pub fn parse(command: &str) -> Result<ArgMatches> {
         let command = command.trim();
         let matches = Parser::parser().get_matches_from_safe(command.split_whitespace())?;
         Ok(matches)

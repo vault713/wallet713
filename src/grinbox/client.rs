@@ -4,7 +4,7 @@ use std::str::FromStr;
 use ws::{connect, Sender};
 
 use grin_core::libtx::slate::Slate;
-use common::Error;
+use common::{Wallet713Error, Result};
 use common::crypto::{SecretKey, PublicKey, Signature, public_key_from_secret_key, verify_signature, sign_challenge, Hex, Base58, BASE58_CHECK_VERSION_GRIN_TX};
 use super::protocol::{ProtocolRequest, ProtocolResponse};
 
@@ -16,20 +16,20 @@ pub struct GrinboxClientOut {
 }
 
 impl GrinboxClientOut {
-    pub fn subscribe(&self) -> Result<(), Error> {
+    pub fn subscribe(&self) -> Result<()> {
         let signature = self.generate_signature(&self.challenge);
         let request = ProtocolRequest::Subscribe { address: self.public_key.to_string(), signature };
         self.send(&request).expect("could not send subscribe request!");
         Ok(())
     }
 
-    pub fn unsubscribe(&self) -> Result<(), Error> {
+    pub fn unsubscribe(&self) -> Result<()> {
         let request = ProtocolRequest::Unsubscribe { address: self.public_key.to_string() };
         self.send(&request).expect("could not send unsubscribe request!");
         Ok(())
     }
 
-    pub fn post_slate(&self, to: &str, slate: &Slate) -> Result<(), Error> {
+    pub fn post_slate(&self, to: &str, slate: &Slate) -> Result<()> {
         let mut to = to.to_string();
         if to == "self" {
             to = self.public_key.clone();
@@ -45,8 +45,6 @@ impl GrinboxClientOut {
             to,
             str,
             signature
-        }).map_err(|_| {
-            Error::generic("failed to send slate!");
         }).expect("could not send slate!");
         Ok(())
     }
@@ -61,7 +59,7 @@ impl GrinboxClientOut {
         signature.to_hex()
     }
 
-    fn verify_slate_signature(&self, from: &str, str: &str, challenge: &str, signature: &str) -> Result<(), Error> {
+    fn verify_slate_signature(&self, from: &str, str: &str, challenge: &str, signature: &str) -> Result<()> {
         let public_key = PublicKey::from_base58_check(from, 2)?;
         let signature = Signature::from_hex(signature)?;
         let mut challenge_builder = String::new();
@@ -71,13 +69,13 @@ impl GrinboxClientOut {
         Ok(())
     }
 
-    fn send(&self, request: &ProtocolRequest) -> Result<(), Error> {
+    fn send(&self, request: &ProtocolRequest) -> Result<()> {
         let request = serde_json::to_string(&request).unwrap();
         self.sender.send(request)?;
         Ok(())
     }
 
-    fn process_incoming(&mut self, msg: ws::Message, handler: Box<GrinboxClientHandler + Send>) -> Result<(), Error> {
+    fn process_incoming(&mut self, msg: ws::Message, handler: Box<GrinboxClientHandler + Send>) -> Result<()> {
         let response = serde_json::from_str::<ProtocolResponse>(&msg.to_string())?;
         match response {
             ProtocolResponse::Challenge { str } => {
@@ -127,46 +125,46 @@ impl GrinboxClient {
         }
     }
 
-    pub fn post_slate(&self, to: &str, slate: &Slate) -> Result<(), Error> {
+    pub fn post_slate(&self, to: &str, slate: &Slate) -> Result<()> {
         let guard = self.out.lock().unwrap();
         if let Some(ref out) = *guard {
             out.post_slate(to, slate)?;
             Ok(())
         } else {
-            Err(Error::generic("error posting slate!"))
+            Err(Wallet713Error::PostSlate)?
         }
     }
 
-    pub fn subscribe(&self) -> Result<(), Error> {
+    pub fn subscribe(&self) -> Result<()> {
         let guard = self.out.lock().unwrap();
         if let Some(ref out) = *guard {
             out.subscribe()?;
             Ok(())
         } else {
-            Err(Error::generic("error subscribing!"))
+            Err(Wallet713Error::Subscribe)?
         }
     }
 
-    pub fn unsubscribe(&self) -> Result<(), Error> {
+    pub fn unsubscribe(&self) -> Result<()> {
         let guard = self.out.lock().unwrap();
         if let Some(ref out) = *guard {
             out.unsubscribe()?;
             Ok(())
         } else {
-            Err(Error::generic("error unsubscribing!"))
+            Err(Wallet713Error::Unsubscribe)?
         }
     }
 
-    pub fn get_listening_address(&self) -> Result<String, Error> {
+    pub fn get_listening_address(&self) -> Result<String> {
         let guard = self.out.lock().unwrap();
         if let Some(ref out) = *guard {
             Ok(out.public_key.clone())
         } else {
-            Err(Error::generic("not listening!"))
+            Err(Wallet713Error::ClosedListener)?
         }
     }
 
-    pub fn start(&mut self, uri: &str, private_key: &str, handler: Box<GrinboxClientHandler + Send>) -> Result<(), Error> {
+    pub fn start(&mut self, uri: &str, private_key: &str, handler: Box<GrinboxClientHandler + Send>) -> Result<()> {
         let key = SecretKey::from_hex(private_key)?;
         let public_key = public_key_from_secret_key(&key).to_base58_check(BASE58_CHECK_VERSION_GRIN_TX.to_vec());
         let private_key = private_key.to_string();
@@ -205,7 +203,7 @@ impl GrinboxClient {
         Ok(())
     }
 
-    pub fn stop(&self) -> Result<(), Error> {
+    pub fn stop(&self) -> Result<()> {
         if let Some(ref out) = *self.out.lock().unwrap() {
             out.sender.close(ws::CloseCode::Normal)?;
         }

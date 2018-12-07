@@ -3,29 +3,28 @@ use secp256k1::{Secp256k1, Message};
 pub use secp256k1::{SecretKey, PublicKey, Signature};
 
 use super::base58::{ToBase58, FromBase58};
-use common::Error;
+use common::{Wallet713Error, Result};
 use sha2::{Sha256, Digest};
 
 pub const BASE58_CHECK_VERSION_GRIN_TX: [u8; 2] = [1, 120];
 
 pub trait Hex<T> {
-    fn from_hex(str: &str) -> Result<T, Error>;
+    fn from_hex(str: &str) -> Result<T>;
     fn to_hex(&self) -> String;
 }
 
 pub trait Base58<T> {
-    fn from_base58(str: &str) -> Result<T, Error>;
+    fn from_base58(str: &str) -> Result<T>;
     fn to_base58(&self) -> String;
 
-    fn from_base58_check(str: &str, version_bytes: usize) -> Result<T, Error>;
+    fn from_base58_check(str: &str, version_bytes: usize) -> Result<T>;
     fn to_base58_check(&self, version: Vec<u8>) -> String;
 }
 
 impl Hex<PublicKey> for PublicKey {
-    fn from_hex(str: &str) -> Result<PublicKey, Error> {
+    fn from_hex(str: &str) -> Result<PublicKey> {
         let secp = Secp256k1::new();
-        let hex = from_hex(str.to_string())
-            .map_err(|_| Error::generic("parse error"))?;
+        let hex = from_hex(str.to_string())?;
         let key = PublicKey::from_slice(&secp, &hex)?;
         Ok(key)
     }
@@ -36,7 +35,7 @@ impl Hex<PublicKey> for PublicKey {
 }
 
 impl Base58<PublicKey> for PublicKey {
-    fn from_base58(str: &str) -> Result<PublicKey, Error> {
+    fn from_base58(str: &str) -> Result<PublicKey> {
         let secp = Secp256k1::new();
         let str = str::from_base58(str)?;
         let key = PublicKey::from_slice(&secp, &str)?;
@@ -47,7 +46,7 @@ impl Base58<PublicKey> for PublicKey {
         self.serialize().to_base58()
     }
 
-    fn from_base58_check(str: &str, version_bytes: usize) -> Result<PublicKey, Error> {
+    fn from_base58_check(str: &str, version_bytes: usize) -> Result<PublicKey> {
         let secp = Secp256k1::new();
         let str = str::from_base58_check(str, version_bytes)?;
         let key = PublicKey::from_slice(&secp, &str.1)?;
@@ -60,12 +59,11 @@ impl Base58<PublicKey> for PublicKey {
 }
 
 impl Hex<Signature> for Signature {
-    fn from_hex(str: &str) -> Result<Signature, Error> {
+    fn from_hex(str: &str) -> Result<Signature> {
         let secp = Secp256k1::new();
-        let hex = from_hex(str.to_string())
-            .map_err(|_| Error::generic("parse error"))?;
-        Signature::from_der(&secp, &hex).
-            map_err(|_| Error::generic("parse error!"))
+        let hex = from_hex(str.to_string())?;
+        let signature = Signature::from_der(&secp, &hex)?;
+        Ok(signature)
     }
 
     fn to_hex(&self) -> String {
@@ -76,10 +74,9 @@ impl Hex<Signature> for Signature {
 }
 
 impl Hex<SecretKey> for SecretKey {
-    fn from_hex(str: &str) -> Result<SecretKey, Error> {
+    fn from_hex(str: &str) -> Result<SecretKey> {
         let secp = Secp256k1::new();
-        let data = from_hex(str.to_string())
-            .map_err(|_| Error::generic("parse error!"))?;
+        let data = from_hex(str.to_string())?;
         let key = SecretKey::from_slice(&secp, &data)?;
         Ok(key)
     }
@@ -100,7 +97,7 @@ pub fn public_key_from_secret_key(secret_key: &SecretKey) -> PublicKey {
     PublicKey::from_secret_key(&secp, secret_key)
 }
 
-pub fn sign_challenge(challenge: &str, secret_key: &SecretKey) -> Result<Signature, Error> {
+pub fn sign_challenge(challenge: &str, secret_key: &SecretKey) -> Result<Signature> {
     let mut hasher = Sha256::new();
     hasher.input(challenge.as_bytes());
     let message = Message::from_slice(hasher.result().as_slice())?;
@@ -109,7 +106,7 @@ pub fn sign_challenge(challenge: &str, secret_key: &SecretKey) -> Result<Signatu
     Ok(signature)
 }
 
-pub fn verify_signature(challenge: &str, signature: &Signature, public_key: &PublicKey) -> Result<(), Error> {
+pub fn verify_signature(challenge: &str, signature: &Signature, public_key: &PublicKey) -> Result<()> {
     let mut hasher = Sha256::new();
     hasher.input(challenge.as_bytes());
     let message = Message::from_slice(hasher.result().as_slice())?;
@@ -130,22 +127,24 @@ pub fn to_hex(bytes: Vec<u8>) -> String {
 }
 
 /// Decode a hex string into bytes.
-pub fn from_hex(hex_str: String) -> Result<Vec<u8>, std::num::ParseIntError> {
+pub fn from_hex(hex_str: String) -> Result<Vec<u8>> {
     if hex_str.len() % 2 == 1 {
-        let err = ("QQQ").parse::<u64>();
-        if let Err(e) = err {
-            return Err(e);
-        }
+        Err(Wallet713Error::NumberParsingError)?;
     }
     let hex_trim = if &hex_str[..2] == "0x" {
         hex_str[2..].to_owned()
     } else {
         hex_str.clone()
     };
-    split_n(&hex_trim.trim()[..], 2)
+    let vec = split_n(&hex_trim.trim()[..], 2)
         .iter()
-        .map(|b| u8::from_str_radix(b, 16))
-        .collect::<Result<Vec<u8>, _>>()
+        .map(|b| {
+            u8::from_str_radix(b, 16).map_err(|_| {
+                Wallet713Error::NumberParsingError
+            })
+        })
+        .collect::<std::result::Result<Vec<u8>, Wallet713Error>>()?;
+    Ok(vec)
 }
 
 fn split_n(s: &str, n: usize) -> Vec<&str> {

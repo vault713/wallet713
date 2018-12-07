@@ -4,6 +4,9 @@ pub mod base58;
 pub mod crypto;
 pub mod types;
 pub use self::error::Error;
+pub use self::error::Wallet713Error;
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 macro_rules! cli_message {
     () => {

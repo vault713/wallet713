@@ -5,7 +5,7 @@ use grin_util::Mutex;
 use common::config::Wallet713Config;
 use grinbox::protocol::ProtocolResponse;
 use grinbox::client::{GrinboxClient, GrinboxClientHandler, GrinboxClientOut};
-use common::error::Error;
+use common::{Wallet713Error, Result};
 use common::crypto::{PublicKey, Base58};
 
 use grin_wallet::{display, controller, instantiate_wallet, WalletInst, WalletConfig, WalletSeed, HTTPNodeClient, LMDBBackend};
@@ -27,7 +27,7 @@ impl Wallet {
         }
     }
 
-    pub fn init(&self, password: &str) -> Result<WalletSeed, Error> {
+    pub fn init(&self, password: &str) -> Result<WalletSeed> {
         let config = Wallet713Config::from_file()?;
         let wallet_config = config.as_wallet_config()?;
         let seed = self.init_seed(&wallet_config, password)?;
@@ -35,7 +35,7 @@ impl Wallet {
         Ok(seed)
     }
 
-    pub fn start_client(&mut self, password: &str, grinbox_uri: &str, grinbox_private_key: &str) -> Result<(), Error> {
+    pub fn start_client(&mut self, password: &str, grinbox_uri: &str, grinbox_private_key: &str) -> Result<()> {
         if !self.client.is_started() {
             let wallet = self.get_wallet_instance(password)?;
             let address_book = self.address_book.clone();
@@ -47,16 +47,15 @@ impl Wallet {
             Ok(())
         } else {
             let public_key = self.client.get_listening_address().unwrap_or("...".to_owned());
-            let description = format!("already listening on [{}]!", public_key);
-            Err(Error::generic(&description[..]))
+            Err(Wallet713Error::AlreadyListening(public_key))?
         }
     }
 
-    pub fn stop_client(&self) -> Result<(), Error> {
+    pub fn stop_client(&self) -> Result<()> {
         self.client.stop()
     }
 
-    pub fn info(&self, password: &str, account: &str) -> Result<(), Error> {
+    pub fn info(&self, password: &str, account: &str) -> Result<()> {
         let wallet = self.get_wallet_instance(password)?;
         let result = controller::owner_single_use(wallet.clone(), |api| {
             let (validated, wallet_info) = api.retrieve_summary_info(true, 10)?;
@@ -71,7 +70,7 @@ impl Wallet {
         Ok(result)
     }
 
-    pub fn txs(&self, password: &str, account: &str) -> Result<(), Error> {
+    pub fn txs(&self, password: &str, account: &str) -> Result<()> {
         let wallet = self.get_wallet_instance(password)?;
         let result = controller::owner_single_use(wallet.clone(), |api| {
             let (height, _) = api.node_height()?;
@@ -89,7 +88,7 @@ impl Wallet {
         Ok(result)
     }
 
-    pub fn outputs(&self, password: &str, account: &str, show_spent: bool) -> Result<(), Error> {
+    pub fn outputs(&self, password: &str, account: &str, show_spent: bool) -> Result<()> {
         let wallet = self.get_wallet_instance(password)?;
         let result = controller::owner_single_use(wallet.clone(), |api| {
             let (height, _) = api.node_height()?;
@@ -106,25 +105,25 @@ impl Wallet {
         Ok(result)
     }
 
-    pub fn subscribe(&self) -> Result<(), Error> {
+    pub fn subscribe(&self) -> Result<()> {
         if !self.client.is_started() {
-            Err(Error::generic("listener is closed! consider using `listen` first"))
+            Err(Wallet713Error::ClosedListener)?
         } else {
             self.client.subscribe()
         }
     }
 
-    pub fn unsubscribe(&self) -> Result<(), Error> {
+    pub fn unsubscribe(&self) -> Result<()> {
         if !self.client.is_started() {
-            Err(Error::generic("listener is closed! consider using `listen` first"))
+            Err(Wallet713Error::ClosedListener)?
         } else {
             self.client.unsubscribe()
         }
     }
 
-    pub fn send(&mut self, password: &str, account: &str, to: &str, amount: u64, minimum_confirmations: u64, selection_strategy: &str, change_outputs: usize, max_outputs: usize) -> Result<Slate, Error> {
+    pub fn send(&mut self, password: &str, account: &str, to: &str, amount: u64, minimum_confirmations: u64, selection_strategy: &str, change_outputs: usize, max_outputs: usize) -> Result<Slate> {
         if !self.client.is_started() {
-            Err(Error::generic("listener is closed! consider using `listen` first"))
+            Err(Wallet713Error::ClosedListener)?
         } else {
             let mut to = to.to_string();
             if to.starts_with("@") {
@@ -134,7 +133,7 @@ impl Wallet {
             }
 
             PublicKey::from_base58_check(&to, 2).map_err(|_| {
-                Error::generic("invalid public key given!")
+                Wallet713Error::InvalidPublicKey(to.clone())
             })?;
 
             let wallet = self.get_wallet_instance(password)?;
@@ -159,7 +158,7 @@ impl Wallet {
         }
     }
 
-    pub fn repost(&self, password: &str, id: u32, fluff: bool) -> Result<(), Error> {
+    pub fn repost(&self, password: &str, id: u32, fluff: bool) -> Result<()> {
         let wallet = self.get_wallet_instance(password)?;
         controller::owner_single_use(wallet.clone(), |api| {
             let (_, txs) = api.retrieve_txs(true, Some(id), None)?;
@@ -182,7 +181,7 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn cancel(&self, password: &str, id: u32) -> Result<(), Error> {
+    pub fn cancel(&self, password: &str, id: u32) -> Result<()> {
         let wallet = self.get_wallet_instance(password)?;
         controller::owner_single_use(wallet.clone(), |api| {
             api.cancel_tx(Some(id), None)
@@ -190,7 +189,7 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn restore(&self, password: &str) -> Result<(), Error> {
+    pub fn restore(&self, password: &str) -> Result<()> {
         let wallet = self.get_wallet_instance(password)?;
         controller::owner_single_use(wallet.clone(), |api| {
             api.restore()
@@ -198,7 +197,7 @@ impl Wallet {
         Ok(())
     }
 
-    fn init_seed(&self, wallet_config: &WalletConfig, password: &str) -> Result<WalletSeed, Error> {
+    fn init_seed(&self, wallet_config: &WalletConfig, password: &str) -> Result<WalletSeed> {
         let result = WalletSeed::from_file(&wallet_config, password);
         match result {
             Err(_) => {
@@ -216,14 +215,14 @@ impl Wallet {
         }
     }
 
-    fn init_backend(&self, wallet_config: &WalletConfig, wallet713_config: &Wallet713Config, password: &str) -> Result<LMDBBackend<HTTPNodeClient, ExtKeychain>, Error> {
+    fn init_backend(&self, wallet_config: &WalletConfig, wallet713_config: &Wallet713Config, password: &str) -> Result<LMDBBackend<HTTPNodeClient, ExtKeychain>> {
         let node_api_client = HTTPNodeClient::new(&wallet_config.check_node_api_http_addr, wallet713_config.grin_node_secret.clone());
 
         let backend = LMDBBackend::new(wallet_config.clone(), &password, node_api_client)?;
         Ok(backend)
     }
 
-    fn get_wallet_instance(&self, password: &str) -> Result<Arc<Mutex<WalletInst<HTTPNodeClient, ExtKeychain>>>, Error> {
+    fn get_wallet_instance(&self, password: &str) -> Result<Arc<Mutex<WalletInst<HTTPNodeClient, ExtKeychain>>>> {
         let config = Wallet713Config::from_file()?;
         let wallet_config = config.as_wallet_config()?;
         let wallet = instantiate_wallet(
@@ -232,7 +231,7 @@ impl Wallet {
             "default",
             config.grin_node_secret.clone(),
         ).map_err(|_| {
-            Error::generic("could not find a wallet! consider using `init`.")
+            Wallet713Error::NoWallet
         })?;
         Ok(wallet)
     }
@@ -245,7 +244,7 @@ struct MessageHandler {
 }
 
 impl MessageHandler {
-    pub fn process_slate(&self, account: &str, slate: &mut Slate) -> Result<bool, Error> {
+    pub fn process_slate(&self, account: &str, slate: &mut Slate) -> Result<bool> {
         let is_finalized = if slate.num_participants > slate.participant_data.len() {
             controller::foreign_single_use(self.wallet.clone(), |api| {
                 api.receive_tx(slate, Some(account), None)?;

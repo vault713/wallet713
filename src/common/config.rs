@@ -7,7 +7,7 @@ use colored::*;
 
 use grin_wallet::{WalletConfig};
 
-use super::error::Error;
+use super::Result;
 
 const WALLET713_CONFIG_PATH: &str = "wallet713.toml";
 
@@ -36,14 +36,14 @@ impl Wallet713Config {
         Path::new(WALLET713_CONFIG_PATH).exists()
     }
 
-    pub fn from_file() -> Result<Wallet713Config, Error> {
+    pub fn from_file() -> Result<Wallet713Config> {
         let mut file = File::open(WALLET713_CONFIG_PATH)?;
         let mut toml_str = String::new();
         file.read_to_string(&mut toml_str)?;
         Ok(toml::from_str(&toml_str[..])?)
     }
 
-    pub fn default() -> Result<Wallet713Config, Error> {
+    pub fn default() -> Result<Wallet713Config> {
         let mut config: Wallet713Config = toml::from_str(DEFAULT_CONFIG)?;
         config.grin_node_secret = None;
         if let Some(mut home_path) = dirs::home_dir() {
@@ -58,14 +58,14 @@ impl Wallet713Config {
         Ok(config)
     }
 
-    pub fn to_file(&self) -> Result<(), Error> {
+    pub fn to_file(&self) -> Result<()> {
         let toml_str = toml::to_string(&self)?;
         let mut f = File::create(WALLET713_CONFIG_PATH)?;
         f.write_all(toml_str.as_bytes())?;
         Ok(())
     }
 
-    pub fn as_wallet_config(&self) -> Result<WalletConfig, Error> {
+    pub fn as_wallet_config(&self) -> Result<WalletConfig> {
         let mut wallet_config = WalletConfig::default();
         wallet_config.data_file_dir = self.wallet713_data_path.clone();
         wallet_config.check_node_api_http_addr = self.grin_node_uri.clone();

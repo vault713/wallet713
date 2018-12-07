@@ -533,7 +533,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "grin_api"
 version = "0.4.2"
-source = "git+https://github.com/mimblewimble/grin#b8c8840cec6c4ad4db88fab2cfff7c97087fb2e9"
+source = "git+https://github.com/mimblewimble/grin#4573c0f1eee18a0ff97af49138d84410529da67d"
 dependencies = [
  "failure 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure_derive 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -565,7 +565,7 @@ dependencies = [
 [[package]]
 name = "grin_chain"
 version = "0.4.2"
-source = "git+https://github.com/mimblewimble/grin#b8c8840cec6c4ad4db88fab2cfff7c97087fb2e9"
+source = "git+https://github.com/mimblewimble/grin#4573c0f1eee18a0ff97af49138d84410529da67d"
 dependencies = [
  "bitflags 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -587,7 +587,7 @@ dependencies = [
 [[package]]
 name = "grin_core"
 version = "0.4.2"
-source = "git+https://github.com/mimblewimble/grin#b8c8840cec6c4ad4db88fab2cfff7c97087fb2e9"
+source = "git+https://github.com/mimblewimble/grin#4573c0f1eee18a0ff97af49138d84410529da67d"
 dependencies = [
  "bitflags 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "blake2-rfc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -613,7 +613,7 @@ dependencies = [
 [[package]]
 name = "grin_keychain"
 version = "0.4.2"
-source = "git+https://github.com/mimblewimble/grin#b8c8840cec6c4ad4db88fab2cfff7c97087fb2e9"
+source = "git+https://github.com/mimblewimble/grin#4573c0f1eee18a0ff97af49138d84410529da67d"
 dependencies = [
  "blake2-rfc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -635,7 +635,7 @@ dependencies = [
 [[package]]
 name = "grin_p2p"
 version = "0.4.2"
-source = "git+https://github.com/mimblewimble/grin#b8c8840cec6c4ad4db88fab2cfff7c97087fb2e9"
+source = "git+https://github.com/mimblewimble/grin#4573c0f1eee18a0ff97af49138d84410529da67d"
 dependencies = [
  "bitflags 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "bytes 0.4.11 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -656,7 +656,7 @@ dependencies = [
 [[package]]
 name = "grin_pool"
 version = "0.4.2"
-source = "git+https://github.com/mimblewimble/grin#b8c8840cec6c4ad4db88fab2cfff7c97087fb2e9"
+source = "git+https://github.com/mimblewimble/grin#4573c0f1eee18a0ff97af49138d84410529da67d"
 dependencies = [
  "blake2-rfc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -672,7 +672,7 @@ dependencies = [
 
 [[package]]
 name = "grin_secp256k1zkp"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "arrayvec 0.3.25 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -687,7 +687,7 @@ dependencies = [
 [[package]]
 name = "grin_store"
 version = "0.4.2"
-source = "git+https://github.com/mimblewimble/grin#b8c8840cec6c4ad4db88fab2cfff7c97087fb2e9"
+source = "git+https://github.com/mimblewimble/grin#4573c0f1eee18a0ff97af49138d84410529da67d"
 dependencies = [
  "byteorder 1.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "croaring 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -707,12 +707,12 @@ dependencies = [
 [[package]]
 name = "grin_util"
 version = "0.4.2"
-source = "git+https://github.com/mimblewimble/grin#b8c8840cec6c4ad4db88fab2cfff7c97087fb2e9"
+source = "git+https://github.com/mimblewimble/grin#4573c0f1eee18a0ff97af49138d84410529da67d"
 dependencies = [
  "backtrace 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "base64 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "grin_secp256k1zkp 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "grin_secp256k1zkp 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "log4rs 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -727,11 +727,12 @@ dependencies = [
 [[package]]
 name = "grin_wallet"
 version = "0.4.2"
-source = "git+https://github.com/mimblewimble/grin#b8c8840cec6c4ad4db88fab2cfff7c97087fb2e9"
+source = "git+https://github.com/mimblewimble/grin#4573c0f1eee18a0ff97af49138d84410529da67d"
 dependencies = [
  "blake2-rfc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure_derive 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -745,6 +746,7 @@ dependencies = [
  "prettytable-rs 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "ring 0.13.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rpassword 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.80 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.80 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.33 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1563,6 +1565,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rpassword"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.44 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2056,7 +2068,7 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.4.9"
+version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "serde 1.0.80 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2207,7 +2219,7 @@ dependencies = [
  "serde_json 1.0.33 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
- "toml 0.4.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toml 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "uuid 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "ws 0.7.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2413,7 +2425,7 @@ dependencies = [
 "checksum grin_keychain 0.4.2 (git+https://github.com/mimblewimble/grin)" = "<none>"
 "checksum grin_p2p 0.4.2 (git+https://github.com/mimblewimble/grin)" = "<none>"
 "checksum grin_pool 0.4.2 (git+https://github.com/mimblewimble/grin)" = "<none>"
-"checksum grin_secp256k1zkp 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "42fd2759f1fb49fcbbf74fc9a818a0a32be49622395e82d88a26bba42a9bdd71"
+"checksum grin_secp256k1zkp 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)" = "aea95f8b846440f6a9caf0fd4c22c91c124f2a896d69d781f7dc0fa88e33b0ff"
 "checksum grin_store 0.4.2 (git+https://github.com/mimblewimble/grin)" = "<none>"
 "checksum grin_util 0.4.2 (git+https://github.com/mimblewimble/grin)" = "<none>"
 "checksum grin_wallet 0.4.2 (git+https://github.com/mimblewimble/grin)" = "<none>"
@@ -2505,6 +2517,7 @@ dependencies = [
 "checksum regex-syntax 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)" = "4e47a2ed29da7a9e1960e1639e7a982e6edc6d49be308a3b02daf511504a16d1"
 "checksum ring 0.13.5 (registry+https://github.com/rust-lang/crates.io-index)" = "2c4db68a2e35f3497146b7e4563df7d4773a2433230c5e4b448328e31740458a"
 "checksum ripemd160 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "482aa56cc68aaeccdaaff1cc5a72c247da8bbad3beb174ca5741f274c22883fb"
+"checksum rpassword 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d37473170aedbe66ffa3ad3726939ba677d83c646ad4fd99e5b4bc38712f45ec"
 "checksum rustc-demangle 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)" = "bcfe5b13211b4d78e5c2cadfebd7769197d95c639c35a50057eb4c05de811395"
 "checksum rustc-serialize 0.3.24 (registry+https://github.com/rust-lang/crates.io-index)" = "dcf128d1287d2ea9d80910b5f1120d0b8eede3fbf1abe91c40d39ea7d51e6fda"
 "checksum rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
@@ -2559,7 +2572,7 @@ dependencies = [
 "checksum tokio-timer 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "4f37f0111d76cc5da132fe9bc0590b9b9cfd079bc7e75ac3846278430a299ff8"
 "checksum tokio-udp 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "66268575b80f4a4a710ef83d087fdfeeabdce9b74c797535fbac18a2cb906e92"
 "checksum tokio-uds 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)" = "99ce87382f6c1a24b513a72c048b2c8efe66cb5161c9061d00bee510f08dc168"
-"checksum toml 0.4.9 (registry+https://github.com/rust-lang/crates.io-index)" = "19782e145d5abefb03758958f06ea35f7b1d8421b534140e0238fd3d0bfd66e3"
+"checksum toml 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)" = "758664fc71a3a69038656bee8b6be6477d2a6c315a6b81f7081f591bffa4111f"
 "checksum traitobject 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "efd1f82c56340fdf16f2a953d7bda4f8fdffba13d93b00844c25572110b26079"
 "checksum try-lock 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "e604eb7b43c06650e854be16a2a03155743d3752dd1c943f6829e26b7a36e382"
 "checksum typemap 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "653be63c80a3296da5551e1bfd2cca35227e13cdd08c6668903ae2f4f77aa1f6"

@@ -4,7 +4,7 @@ use std::path::Path;
 use std::fs::{create_dir_all};
 use grin_store::{self, option_to_not_found, to_key};
 
-use common::error::Error;
+use common::Result;
 use common::types::Contact;
 use common::config::Wallet713Config;
 
@@ -13,15 +13,15 @@ pub const DB_DIR: &'static str = "contacts";
 const CONTACT_PREFIX: u8 = 'X' as u8;
 
 pub trait Wallet713Backend {
-    fn get_contact(&mut self, public_key: &[u8]) -> Result<Contact, Error>;
+    fn get_contact(&mut self, public_key: &[u8]) -> Result<Contact>;
     fn contact_iter(&self) -> Box<Iterator<Item = Contact>>;
-    fn batch<'a>(&'a mut self) -> Result<Box<Wallet713Batch + 'a>, Error>;
+    fn batch<'a>(&'a mut self) -> Result<Box<Wallet713Batch + 'a>>;
 }
 
 pub trait Wallet713Batch {
-    fn save_contact(&mut self, contact: &Contact) -> Result<(), Error>;
-    fn delete_contact(&mut self, public_key: &[u8]) -> Result<(), Error>;
-    fn commit(&self) -> Result<(), Error>;
+    fn save_contact(&mut self, contact: &Contact) -> Result<()>;
+    fn delete_contact(&mut self, public_key: &[u8]) -> Result<()>;
+    fn commit(&self) -> Result<()>;
 }
 
 pub struct LMDBBackend {
@@ -29,7 +29,7 @@ pub struct LMDBBackend {
 }
 
 impl LMDBBackend {
-    pub fn new(config: &Wallet713Config) -> Result<Self, Error> {
+    pub fn new(config: &Wallet713Config) -> Result<Self> {
         let db_path = Path::new(&config.wallet713_data_path).join(DB_DIR);
         create_dir_all(&db_path).expect("Couldn't create wallet backend directory!");
 
@@ -44,7 +44,7 @@ impl LMDBBackend {
 }
 
 impl Wallet713Backend for LMDBBackend {
-    fn get_contact(&mut self, public_key: &[u8]) -> Result<Contact, Error> {
+    fn get_contact(&mut self, public_key: &[u8]) -> Result<Contact> {
         let contact_key = to_key(CONTACT_PREFIX, &mut public_key.to_vec());
         option_to_not_found(
             self.db.get_ser(&contact_key),
@@ -57,7 +57,7 @@ impl Wallet713Backend for LMDBBackend {
     }
 
 
-    fn batch<'a>(&'a mut self) -> Result<Box<Wallet713Batch + 'a>, Error>
+    fn batch<'a>(&'a mut self) -> Result<Box<Wallet713Batch + 'a>>
     {
         Ok(Box::new(Batch {
             _store: self,
@@ -75,14 +75,14 @@ pub struct Batch<'a> {
 }
 
 impl<'a> Wallet713Batch for Batch<'a> {
-    fn save_contact(&mut self, contact: &Contact) -> Result<(), Error> {
+    fn save_contact(&mut self, contact: &Contact) -> Result<()> {
         let mut key = contact.public_key.clone().into_bytes();
         let contact_key = to_key(CONTACT_PREFIX, &mut key);
         self.db.borrow().as_ref().unwrap().put_ser(&contact_key, contact)?;
         Ok(())
     }
 
-    fn delete_contact(&mut self, public_key: &[u8]) -> Result<(), Error> {
+    fn delete_contact(&mut self, public_key: &[u8]) -> Result<()> {
         let ctx_key = to_key(CONTACT_PREFIX, &mut public_key.to_vec());
         self.db
             .borrow()
@@ -92,7 +92,7 @@ impl<'a> Wallet713Batch for Batch<'a> {
             .map_err(|e| e.into())
     }
 
-    fn commit(&self) -> Result<(), Error> {
+    fn commit(&self) -> Result<()> {
         let db = self.db.replace(None);
         db.unwrap().commit()?;
         Ok(())
