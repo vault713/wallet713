@@ -32,7 +32,10 @@ impl<'a, 'b> Parser {
                         Arg::from_usage("[data-path] -d, --data-path=<data path> 'the wallet data directory'")
                     )
                     .arg(
-                        Arg::from_usage("[uri] -u, --uri=<URI> 'the grinbox uri'")
+                        Arg::from_usage("[domain] --domain=<domain> 'the grinbox domain'")
+                    )
+                    .arg(
+                        Arg::from_usage("[port] -p, --port=<port> 'the grinbox port'")
                     )
                     .arg(
                         Arg::from_usage("[private-key] --private-key=<private-key> 'the grinbox private key'")

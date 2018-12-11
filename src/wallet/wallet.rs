@@ -1,17 +1,20 @@
 use std::sync::Arc;
+use std::str::FromStr;
 
 use grin_util::Mutex;
-
-use common::config::Wallet713Config;
-use grinbox::protocol::ProtocolResponse;
-use grinbox::client::{GrinboxClient, GrinboxClientHandler, GrinboxClientOut};
-use common::{Wallet713Error, Result};
-use common::crypto::{PublicKey, Base58};
-
-use grin_wallet::{display, controller, instantiate_wallet, WalletInst, WalletConfig, WalletSeed, HTTPNodeClient, LMDBBackend};
+use grin_wallet::{display, controller, instantiate_wallet, WalletInst, WalletConfig, WalletSeed, HTTPNodeClient, NodeClient};
+use grin_wallet::lmdb_wallet::LMDBBackend;
 use grin_core::libtx::slate::Slate;
 use grin_keychain::keychain::ExtKeychain;
 use grin_core::core;
+
+use common::{Wallet713Error, Result};
+use common::crypto::{PublicKey, Base58};
+use common::config::Wallet713Config;
+use grinbox::protocol::ProtocolResponse;
+use grinbox::client::{GrinboxClient, GrinboxClientHandler, GrinboxClientOut};
+use grinbox::types::GrinboxAddress;
+
 use contacts::AddressBook;
 
 pub struct Wallet {
@@ -35,7 +38,7 @@ impl Wallet {
         Ok(seed)
     }
 
-    pub fn start_client(&mut self, password: &str, grinbox_uri: &str, grinbox_private_key: &str) -> Result<()> {
+    pub fn start_client(&mut self, password: &str, grinbox_domain: &str, grinbox_port: u16, grinbox_private_key: &str) -> Result<()> {
         if !self.client.is_started() {
             let wallet = self.get_wallet_instance(password)?;
             let address_book = self.address_book.clone();
@@ -43,7 +46,7 @@ impl Wallet {
                 wallet,
                 address_book,
             });
-            self.client.start(grinbox_uri, grinbox_private_key, handler)?;
+            self.client.start(grinbox_domain, grinbox_port, grinbox_private_key, handler)?;
             Ok(())
         } else {
             let public_key = self.client.get_listening_address().unwrap_or("...".to_owned());
@@ -132,9 +135,21 @@ impl Wallet {
                 to = contact.public_key.clone();
             }
 
-            PublicKey::from_base58_check(&to, 2).map_err(|_| {
-                Wallet713Error::InvalidPublicKey(to.clone())
+            let mut to = GrinboxAddress::from_str(&to).map_err(|_| {
+                Wallet713Error::InvalidGrinboxAddress(to.clone())
             })?;
+
+            PublicKey::from_base58_check(&to.public_key, 2).map_err(|_| {
+                Wallet713Error::InvalidPublicKey(to.public_key.clone())
+            })?;
+
+            if to.port.is_none() {
+                to.port = Some(self.client.get_port());
+            }
+
+            if to.domain.is_none() {
+                to.domain = Some(self.client.get_domain().clone());
+            }
 
             let wallet = self.get_wallet_instance(password)?;
             let mut s: Slate = Slate::blank(0);
@@ -153,7 +168,7 @@ impl Wallet {
                 Ok(())
             })?;
 
-            self.client.post_slate(&to, &s)?;
+            self.client.post_slate(&to.to_string(), &s)?;
             Ok(s)
         }
     }
@@ -222,14 +237,15 @@ impl Wallet {
         Ok(backend)
     }
 
-    fn get_wallet_instance(&self, password: &str) -> Result<Arc<Mutex<WalletInst<HTTPNodeClient, ExtKeychain>>>> {
+    fn get_wallet_instance(&self, password: &str) -> Result<Arc<Mutex<WalletInst<impl NodeClient + 'static, ExtKeychain>>>> {
         let config = Wallet713Config::from_file()?;
         let wallet_config = config.as_wallet_config()?;
+        let node_client = HTTPNodeClient::new(&wallet_config.check_node_api_http_addr, config.grin_node_secret.clone());
         let wallet = instantiate_wallet(
             wallet_config,
+            node_client,
             password,
             "default",
-            config.grin_node_secret.clone(),
         ).map_err(|_| {
             Wallet713Error::NoWallet
         })?;
@@ -238,12 +254,12 @@ impl Wallet {
 }
 
 #[derive(Clone)]
-struct MessageHandler {
-    wallet: Arc<Mutex<WalletInst<HTTPNodeClient, ExtKeychain>>>,
+struct MessageHandler<T> where T: NodeClient + 'static {
+    wallet: Arc<Mutex<WalletInst<T, ExtKeychain>>>,
     address_book: Arc<std::sync::Mutex<AddressBook>>,
 }
 
-impl MessageHandler {
+impl<T> MessageHandler<T> where T: NodeClient {
     pub fn process_slate(&self, account: &str, slate: &mut Slate) -> Result<bool> {
         let is_finalized = if slate.num_participants > slate.participant_data.len() {
             controller::foreign_single_use(self.wallet.clone(), |api| {
@@ -263,7 +279,7 @@ impl MessageHandler {
     }
 }
 
-impl GrinboxClientHandler for MessageHandler {
+impl<T> GrinboxClientHandler for MessageHandler<T> where T: NodeClient + 'static {
     fn on_response(&self, response: &ProtocolResponse, out: &GrinboxClientOut) {
         match response {
             ProtocolResponse::Slate { from, str, challenge: _, signature: _ } => {

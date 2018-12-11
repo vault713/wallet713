@@ -10,6 +10,7 @@ extern crate rand;
 extern crate sha2;
 extern crate digest;
 extern crate uuid;
+extern crate regex;
 
 extern crate grin_wallet;
 extern crate grin_keychain;
@@ -54,11 +55,18 @@ fn do_config(args: &ArgMatches, silent: bool) -> Result<Wallet713Config> {
         any_matches = true;
     }
 
-	if let Some(uri) = args.value_of("uri") {
-		config.grinbox_uri = uri.to_string();
+	if let Some(domain) = args.value_of("domain") {
+		config.grinbox_domain = domain.to_string();
 		any_matches = true;
 	}
-	
+
+    if let Some(port) = args.value_of("port") {
+        config.grinbox_port = u16::from_str_radix(port, 10).map_err(|_| {
+            Wallet713Error::NumberParsingError
+        })?;
+        any_matches = true;
+    }
+
     if let Some(account) = args.value_of("private-key") {
         config.grinbox_private_key = account.to_string();
         any_matches = true;
@@ -121,10 +129,10 @@ fn do_listen(wallet: &mut Wallet, password: &str) -> Result<()> {
         })?;
 		if config.grinbox_private_key.is_empty() {
             Err(Wallet713Error::ConfigMissingKeys)?
-		} else if config.grinbox_uri.is_empty() {
-            Err(Wallet713Error::ConfigMissingValue("gribox uri".to_string()))?
+		} else if config.grinbox_domain.is_empty() {
+            Err(Wallet713Error::ConfigMissingValue("gribox domain".to_string()))?
 		} else {
-            wallet.start_client(password, &config.grinbox_uri[..], &config.grinbox_private_key[..])?;
+            wallet.start_client(password, &config.grinbox_domain[..], config.grinbox_port, &config.grinbox_private_key[..])?;
 		    Ok(())
         }
 	} else {

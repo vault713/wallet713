@@ -16,7 +16,8 @@ const GRIN_NODE_API_SECRET_FILE: &str = ".api_secret";
 
 const DEFAULT_CONFIG: &str = r#"
 	wallet713_data_path = "wallet713_data"
-	grinbox_uri = "ws://grinbox.io:13420"
+	grinbox_domain = "grinbox.io"
+	grinbox_port = 13420
 	grinbox_private_key = ""
 	grin_node_uri = "http://127.0.0.1:13413"
 	grin_node_secret = ""
@@ -25,7 +26,8 @@ const DEFAULT_CONFIG: &str = r#"
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Wallet713Config {
     pub wallet713_data_path: String,
-    pub grinbox_uri: String,
+    pub grinbox_domain: String,
+    pub grinbox_port: u16,
     pub grinbox_private_key: String,
     pub grin_node_uri: String,
     pub grin_node_secret: Option<String>,
@@ -40,7 +42,21 @@ impl Wallet713Config {
         let mut file = File::open(WALLET713_CONFIG_PATH)?;
         let mut toml_str = String::new();
         file.read_to_string(&mut toml_str)?;
-        Ok(toml::from_str(&toml_str[..])?)
+        let result: std::result::Result<Wallet713Config, toml::de::Error> = toml::from_str(&toml_str[..]);
+        if result.is_err() {
+            // try to load old version of config and convert to new version
+            cli_message!("{}: trying to convert configuration from older version", "WARNING".bright_yellow());
+            let config_v1: Wallet713ConfigV1 = toml::from_str(&toml_str[..])?;
+            let mut config: Wallet713Config = toml::from_str(DEFAULT_CONFIG)?;
+            config.wallet713_data_path = config_v1.wallet713_data_path;
+            config.grinbox_private_key = config_v1.grinbox_private_key;
+            config.grin_node_uri = config_v1.grin_node_uri;
+            config.grin_node_secret = config_v1.grin_node_secret;
+            cli_message!("{}: configuration coverted successfully", "INFO".bright_blue());
+            Ok(config)
+        } else {
+            Ok(result.unwrap())
+        }
     }
 
     pub fn default() -> Result<Wallet713Config> {
@@ -75,15 +91,25 @@ impl Wallet713Config {
 
 impl fmt::Display for Wallet713Config {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "wallet713_data_path={}\ngrinbox_uri={}\ngrinbox_private_key={}\ngrin_node_uri={}\ngrin_node_secret={}",
+        write!(f, "wallet713_data_path={}\ngrinbox_domain={}\ngrinbox_port={}\ngrinbox_private_key={}\ngrin_node_uri={}\ngrin_node_secret={}",
                self.wallet713_data_path,
-               self.grinbox_uri,
+               self.grinbox_domain,
+               self.grinbox_port,
                "{...}",
                self.grin_node_uri,
-               "{...}");
+               "{...}")?;
         if self.grinbox_private_key.is_empty() {
-            write!(f, "\n{}: grinbox keypair not set! consider using `config --generate-keys`", "WARNING".bright_yellow());
+            write!(f, "\n{}: grinbox keypair not set! consider using `config --generate-keys`", "WARNING".bright_yellow())?;
         }
         Ok(())
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Wallet713ConfigV1 {
+    pub wallet713_data_path: String,
+    pub grinbox_uri: String,
+    pub grinbox_private_key: String,
+    pub grin_node_uri: String,
+    pub grin_node_secret: Option<String>,
 }

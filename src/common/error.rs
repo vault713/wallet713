@@ -18,6 +18,8 @@ pub enum Wallet713Error {
     Unsubscribe,
     #[fail(display = "could not post slate!")]
     PostSlate,
+    #[fail(display = "`{}` is not a valid grinbox address. To send to your contacts add `@` before the name.", 0)]
+    InvalidGrinboxAddress(String),
     #[fail(display = "`{}` is not a valid public key. To send to your contacts add `@` before the name.", 0)]
     InvalidPublicKey(String),
     #[fail(display = "`{}` is not a valid public key.", 0)]
@@ -42,4 +44,6 @@ pub enum Wallet713Error {
     InvalidBase58Checksum,
     #[fail(display = "could not parse number from string!")]
     NumberParsingError,
+    #[fail(display = "could not parse `{}` to a grinbox address!", 0)]
+    GrinboxAddressParsingError(String),
 }

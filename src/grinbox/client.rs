@@ -7,8 +7,11 @@ use grin_core::libtx::slate::Slate;
 use common::{Wallet713Error, Result};
 use common::crypto::{SecretKey, PublicKey, Signature, public_key_from_secret_key, verify_signature, sign_challenge, Hex, Base58, BASE58_CHECK_VERSION_GRIN_TX};
 use super::protocol::{ProtocolRequest, ProtocolResponse};
+use super::types::GrinboxAddress;
 
 pub struct GrinboxClientOut {
+    domain: String,
+    port: u16,
     challenge: String,
     sender: Sender,
     public_key: String,
@@ -30,27 +33,85 @@ impl GrinboxClientOut {
     }
 
     pub fn post_slate(&self, to: &str, slate: &Slate) -> Result<()> {
-        let mut to = to.to_string();
-        if to == "self" {
-            to = self.public_key.clone();
-        }
+        let to = GrinboxAddress::from_str(to)?;
+        let from = GrinboxAddress {
+            public_key: self.public_key.clone(),
+            domain: Some(self.domain.clone()),
+            port: Some(self.port)
+        };
 
         let str = serde_json::to_string(&slate).unwrap();
+
+        let is_local = from.local_to(&to);
+
+        if !is_local {
+            self.post_slate_federated(from, to, str)?;
+        } else {
+            self.post_slate_direct(from, to, str)?;
+        }
+        Ok(())
+    }
+
+    fn post_slate_direct(&self, from: GrinboxAddress, to: GrinboxAddress, str: String) -> Result<()> {
         let mut challenge = String::new();
         challenge.push_str(&str);
         challenge.push_str(&self.challenge);
         let signature = self.generate_signature(&challenge);
-        self.send(&ProtocolRequest::PostSlate {
-            from: self.public_key.to_string(),
-            to,
+        let response = ProtocolRequest::PostSlate {
+            from: from.to_string(),
+            to: to.to_string(),
             str,
             signature
-        }).expect("could not send slate!");
+        };
+        self.send(&response).expect("could not send slate!");
+        Ok(())
+    }
+
+    fn post_slate_federated(&self, from: GrinboxAddress, to: GrinboxAddress, str: String) -> Result<()> {
+        let from_clone = from.clone();
+        let to_clone = to.clone();
+        let str_clone = str.clone();
+        let uri = format!("ws://{}:{}", &to.domain.unwrap(), to.port.unwrap());
+        let public_key = self.public_key.clone();
+        let private_key = self.private_key.clone();
+        let domain = self.domain.clone();
+        let port = self.port;
+        std::thread::spawn(move || {
+            if let Err(_) = connect(uri, move |sender| {
+                let str_clone = str_clone.clone();
+                let from_clone = from_clone.clone();
+                let to_clone = to_clone.clone();
+                let client = GrinboxClientOut {
+                    domain: domain.clone(),
+                    port,
+                    sender,
+                    public_key: public_key.clone(),
+                    private_key: private_key.clone(),
+                    challenge: "".to_string(),
+                };
+
+                let client = Arc::new(Mutex::new(client));
+                move |msg| {
+                    let mut guard = client.lock().unwrap();
+                    let ref mut client = *guard;
+                    client.process_incoming(msg, None, false).expect("failed processing incoming message!");
+                    client.post_slate_direct(from_clone.clone(), to_clone.clone(), str_clone.clone()).expect("failed posting slate!");
+                    client.sender.close(ws::CloseCode::Normal)?;
+                    Ok(())
+                }
+            }) {
+                cli_message!("{}: could not connect to grinbox!", "ERROR".bright_red());
+            };
+        });
         Ok(())
     }
 
     pub fn get_challenge(&self) -> String {
         self.challenge.clone()
+    }
+
+    pub fn get_private_key(&self) -> String {
+        self.private_key.clone()
     }
 
     fn generate_signature(&self, challenge: &str) -> String {
@@ -60,7 +121,8 @@ impl GrinboxClientOut {
     }
 
     fn verify_slate_signature(&self, from: &str, str: &str, challenge: &str, signature: &str) -> Result<()> {
-        let public_key = PublicKey::from_base58_check(from, 2)?;
+        let from = GrinboxAddress::from_str(from)?;
+        let public_key = PublicKey::from_base58_check(&from.public_key, 2)?;
         let signature = Signature::from_hex(signature)?;
         let mut challenge_builder = String::new();
         challenge_builder.push_str(str);
@@ -75,22 +137,28 @@ impl GrinboxClientOut {
         Ok(())
     }
 
-    fn process_incoming(&mut self, msg: ws::Message, handler: Box<GrinboxClientHandler + Send>) -> Result<()> {
+    fn process_incoming(&mut self, msg: ws::Message, handler: Option<Box<GrinboxClientHandler + Send>>, subscribe: bool) -> Result<()> {
         let response = serde_json::from_str::<ProtocolResponse>(&msg.to_string())?;
         match response {
             ProtocolResponse::Challenge { str } => {
-                cli_message!("subscribing to [{}]", self.public_key.bright_green());
                 self.challenge = str;
-                self.subscribe()?;
-            },
-            ProtocolResponse::Slate { from, str, challenge, signature } => {
-                if let Ok(_) = self.verify_slate_signature(&from, &str, &challenge, &signature) {
-                    handler.on_response(&ProtocolResponse::Slate { from, str, challenge, signature }, &self);
-                } else {
-                    cli_message!("{}: received slate with invalid signature!", "ERROR".bright_red());
+                if subscribe {
+                    cli_message!("subscribing to [{}]", self.public_key.bright_green());
+                    self.subscribe()?;
                 }
             },
-            _ => handler.on_response(&response, &self),
+            ProtocolResponse::Slate { from, str, challenge, signature } => {
+                if let Some(handler) = handler {
+                    if let Ok(_) = self.verify_slate_signature(&from, &str, &challenge, &signature) {
+                        handler.on_response(&ProtocolResponse::Slate { from, str, challenge, signature }, &self);
+                    } else {
+                        cli_message!("{}: received slate with invalid signature!", "ERROR".bright_red());
+                    }
+                }
+            },
+            _ => if let Some(handler) = handler {
+                handler.on_response(&response, &self)
+            }
         }
 
         Ok(())
@@ -98,14 +166,26 @@ impl GrinboxClientOut {
 }
 
 pub struct GrinboxClient {
+    domain: String,
+    port: u16,
     out: Arc<Mutex<Option<GrinboxClientOut>>>,
 }
 
 impl GrinboxClient {
     pub fn new() -> Self {
         GrinboxClient {
+            domain: "".to_string(),
+            port: 0,
             out: Arc::new(Mutex::new(None)),
         }
+    }
+
+    pub fn get_domain(&self) -> &String {
+        &self.domain
+    }
+
+    pub fn get_port(&self) -> u16 {
+        self.port
     }
 
     pub fn is_started(&self) -> bool {
@@ -164,18 +244,23 @@ impl GrinboxClient {
         }
     }
 
-    pub fn start(&mut self, uri: &str, private_key: &str, handler: Box<GrinboxClientHandler + Send>) -> Result<()> {
+    pub fn start(&mut self, domain: &str, port: u16, private_key: &str, handler: Box<GrinboxClientHandler + Send>) -> Result<()> {
         let key = SecretKey::from_hex(private_key)?;
         let public_key = public_key_from_secret_key(&key).to_base58_check(BASE58_CHECK_VERSION_GRIN_TX.to_vec());
         let private_key = private_key.to_string();
-        let uri = uri.to_string();
+        self.domain = domain.to_string();
+        self.port = port;
+        let uri = format!("ws://{}:{}", domain, port);
         let out = self.out.clone();
         let out2 = self.out.clone();
+        let domain = domain.to_string();
         std::thread::spawn(move || {
             if let Err(_) = connect(uri, move |sender| {
                 cli_message!("connected to grinbox");
                 let handler = handler.clone();
                 let client = GrinboxClientOut {
+                    domain: domain.clone(),
+                    port,
                     sender,
                     public_key: public_key.clone(),
                     private_key: private_key.clone(),
@@ -189,7 +274,7 @@ impl GrinboxClient {
                 move |msg| {
                     let mut guard = out.lock().unwrap();
                     if let Some(ref mut client) = *guard {
-                        client.process_incoming(msg, handler.clone()).expect("failed processing incoming message!");
+                        client.process_incoming(msg, Some(handler.clone()), true).expect("failed processing incoming message!");
                     }
                     Ok(())
                 }
