@@ -1,8 +1,10 @@
+use std::str::FromStr;
 use common::config::Wallet713Config;
 use common::{Wallet713Error, Result};
 use common::types::Contact;
 use common::crypto::{PublicKey, Base58};
 use storage::lmdb::{LMDBBackend, Wallet713Backend};
+use grinbox::types::GrinboxAddress;
 
 pub struct AddressBook {
     backend: LMDBBackend
@@ -18,7 +20,9 @@ impl AddressBook {
     }
 
     pub fn add_contact(&mut self, contact: &Contact) -> Result<()> {
-        PublicKey::from_base58_check(&contact.public_key, 2).map_err(|_| {
+        let address = GrinboxAddress::from_str(&contact.public_key)?;
+
+        PublicKey::from_base58_check(&address.public_key, 2).map_err(|_| {
             Wallet713Error::InvalidContactPublicKey(contact.public_key.clone())
         })?;
 

@@ -71,7 +71,7 @@ impl<'a, 'b> Parser {
                                 Arg::from_usage("<name> 'the contact name'")
                             )
                             .arg(
-                                Arg::from_usage("<public-key> 'the contact public key'")
+                                Arg::from_usage("<grinbox-address> 'the contact grinbox address'")
                             )
                     )
                     .subcommand(
