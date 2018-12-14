@@ -221,7 +221,7 @@ fn start_grinbox_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, 
         let grinbox_subscriber = GrinboxSubscriber::new(&grinbox_address, &grinbox_secret_key).expect("could not start grinbox subscriber!");
         let grinbox_publisher = GrinboxPublisher::new(&grinbox_address, &grinbox_secret_key).expect("could not start grinbox listener!");
         let controller = Controller::new(&grinbox_address.stripped(), wallet.clone(), address_book.clone(),Box::new(grinbox_publisher)).expect("could not start grinbox controller!");
-        grinbox_subscriber.subscribe(Box::new(controller));
+        grinbox_subscriber.subscribe(Box::new(controller)).expect("something went wrong!");
     });
     Ok(grinbox_publisher)
 }
@@ -232,7 +232,7 @@ fn start_keybase_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, 
         let keybase_subscriber = KeybaseSubscriber::new().expect("could not start keybase subscriber!");
         let keybase_publisher = KeybasePublisher::new().expect("could not start keybase publisher!");;
         let controller = Controller::new("keybase", wallet.clone(), address_book.clone(), Box::new(keybase_publisher)).expect("could not start keybase controller!");;
-        keybase_subscriber.subscribe(Box::new(controller));
+        keybase_subscriber.subscribe(Box::new(controller)).expect("something went wrong!");
     });
     Ok(keybase_publisher)
 }

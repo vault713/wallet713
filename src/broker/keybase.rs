@@ -49,9 +49,9 @@ impl Subscriber for KeybaseSubscriber {
                 subscribed = true;
                 handler.on_open();
             }
-            for (msg, channel) in &unread {
+            for (sender, msg) in &unread {
                 let mut slate: Slate = serde_json::from_str(msg)?;
-                let address = KeybaseAddress::from_str(&channel)?;
+                let address = KeybaseAddress::from_str(&sender)?;
                 handler.on_slate(address.borrow(), &mut slate);
             }
             std::thread::sleep(SLEEP_DURATION);
@@ -95,7 +95,7 @@ impl KeybaseBroker {
         Ok(response)
     }
 
-    pub fn read_from_channel(channel: &str, topic: &str) -> Result<Vec<String>, Error> {
+    pub fn read_from_channel(channel: &str, topic: &str) -> Result<Vec<(String, String)>, Error> {
         let payload = json!({
             "method": "read",
             "params": {
@@ -112,20 +112,23 @@ impl KeybaseBroker {
         });
         let payload = serde_json::to_string(&payload)?;
         let response = KeybaseBroker::api_send(&payload)?;
-        let mut unread: Vec<String> = Vec::new();
+        let mut unread: Vec<(String, String)> = Vec::new();
         let messages = response["result"]["messages"].as_array();
         if let Some(messages) = messages {
             for msg in messages.iter() {
                 if (msg["msg"]["content"]["type"] == "text") && (msg["msg"]["unread"] == true) {
                     let message = msg["msg"]["content"]["text"]["body"].as_str().unwrap_or("");
-                    unread.push(message.to_owned());
+                    let sender: &str = msg["msg"]["sender"]["username"].as_str().unwrap_or("");
+                    if !message.is_empty() && !sender.is_empty() {
+                        unread.push((sender.to_owned(), message.to_owned()));
+                    }
                 }
             }
         }
         Ok(unread)
     }
 
-    pub fn get_unread(topic: &str) -> Result<HashMap<String, String>, Error> {
+    pub fn get_unread(topic: &str) -> Result<Vec<(String, String)>, Error> {
         let payload = json!({
 		    "method": "list",
 		    "params": {
@@ -148,12 +151,10 @@ impl KeybaseBroker {
             }
         }
 
-        let mut unread: HashMap<String, String> = HashMap::new();
+        let mut unread: Vec<(String, String)> = Vec::new();
         for channel in channels.iter() {
-            let messages = KeybaseBroker::read_from_channel(channel, topic)?;
-            for msg in messages {
-                unread.insert(msg, channel.to_string());
-            }
+            let mut messages = KeybaseBroker::read_from_channel(channel, topic)?;
+            unread.append(&mut messages);
         }
         Ok(unread)
     }
