@@ -8,7 +8,7 @@ use common::{Error, Wallet713Error};
 use common::crypto::{SecretKey, PublicKey, Signature, verify_signature, sign_challenge, Hex, Base58};
 use contacts::{Address, GrinboxAddress};
 
-use super::types::{Publisher, Subscriber, SubscriptionHandler};
+use super::types::{Publisher, Subscriber, SubscriptionHandler, CloseReason};
 use super::protocol::{ProtocolResponse, ProtocolRequest};
 
 pub struct GrinboxPublisher {
@@ -200,6 +200,7 @@ impl Handler for GrinboxClient {
     }
 
     fn on_close(&mut self, code: CloseCode, reason: &str) {
-        self.handler.lock().unwrap().on_close();
+        //TODO: support abnormal termination here
+        self.handler.lock().unwrap().on_close(CloseReason::Normal);
     }
 }

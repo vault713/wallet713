@@ -112,13 +112,13 @@ fn do_contacts(args: &ArgMatches, address_book: Arc<Mutex<AddressBook>>) -> Resu
         let contacts: Vec<()> = address_book
             .contact_iter()
             .map(|contact| {
-                println!("@{} = {}", contact.get_name(), contact.get_address());
+                cli_message!("@{} = {}", contact.get_name(), contact.get_address());
                 ()
             })
             .collect();
 
         if contacts.len() == 0 {
-            println!("your contact list is empty. consider using `contacts add` to add a new contact.");
+            cli_message!("your contact list is empty. consider using `contacts add` to add a new contact.");
         }
     }
     Ok(())
@@ -146,7 +146,7 @@ fn welcome() -> Result<Wallet713Config> {
     Ok(config)
 }
 
-use broker::{GrinboxSubscriber, GrinboxPublisher, KeybasePublisher, KeybaseSubscriber, SubscriptionHandler, Subscriber, Publisher};
+use broker::{GrinboxSubscriber, GrinboxPublisher, KeybasePublisher, KeybaseSubscriber, SubscriptionHandler, Subscriber, Publisher, CloseReason};
 use grin_core::libtx::slate::Slate;
 use std::borrow::Borrow;
 use contacts::KeybaseAddress;
@@ -208,12 +208,16 @@ impl SubscriptionHandler for Controller {
         }
     }
 
-    fn on_close(&self) {
-        cli_message!("listener [{}] closed", self.name.bright_green());
+    fn on_close(&self, reason: CloseReason) {
+        match reason {
+            CloseReason::Normal => cli_message!("listener [{}] closed", self.name.bright_green()),
+            CloseReason::Abnormal(_) => cli_message!("{}: listener [{}] closed unexpectedly", "WARNING".bright_yellow(), self.name.bright_green()),
+        }
     }
 }
 
 fn start_grinbox_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>) -> Result<GrinboxPublisher> {
+    cli_message!("establishing grinbox listener...");
     let grinbox_address = config.get_grinbox_address()?;
     let grinbox_secret_key = config.get_grinbox_secret_key()?;
     let grinbox_publisher = GrinboxPublisher::new(&grinbox_address, &grinbox_secret_key)?;
@@ -227,6 +231,7 @@ fn start_grinbox_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, 
 }
 
 fn start_keybase_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>) -> Result<KeybasePublisher> {
+    cli_message!("establishing keybase listener...");
     let keybase_publisher = KeybasePublisher::new()?;
     std::thread::spawn(move || {
         let keybase_subscriber = KeybaseSubscriber::new().expect("could not start keybase subscriber!");
@@ -388,7 +393,9 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         },
         Some("restore") => {
             let password = matches.subcommand_matches("restore").unwrap().value_of("password").unwrap_or("");
+            cli_progress_start!("restoring... please wait as this could take a few minutes to complete.");
             wallet.lock().unwrap().restore(password)?;
+            cli_progress_finish!("done!");
         },
         Some(subcommand) => {
             cli_message!("{}: subcommand `{}` not implemented!", "ERROR".bright_red(), subcommand.bright_green());

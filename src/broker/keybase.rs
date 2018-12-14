@@ -9,7 +9,7 @@ use grin_core::libtx::slate::Slate;
 
 use common::{Error, Wallet713Error};
 use contacts::{Address, KeybaseAddress};
-use super::types::{Publisher, Subscriber, SubscriptionHandler};
+use super::types::{Publisher, Subscriber, SubscriptionHandler, CloseReason};
 
 const TOPIC_WALLET713_SLATES: &str = "wallet713_grin_slate";
 const DEFAULT_TTL: &str = "24h";
@@ -43,20 +43,27 @@ impl Publisher for KeybasePublisher {
 impl Subscriber for KeybaseSubscriber {
     fn subscribe(&self, handler: Box<SubscriptionHandler + Send>) -> Result<(), Error> {
         let mut subscribed = false;
-        loop {
-            let unread = KeybaseBroker::get_unread(TOPIC_WALLET713_SLATES).expect("could not retrieve messages!");
-            if !subscribed {
-                subscribed = true;
-                handler.on_open();
+        let result = loop {
+            let result = KeybaseBroker::get_unread(TOPIC_WALLET713_SLATES);
+            if let Ok(unread) = result {
+                if !subscribed {
+                    subscribed = true;
+                    handler.on_open();
+                }
+                for (sender, msg) in &unread {
+                    let mut slate: Slate = serde_json::from_str(msg)?;
+                    let address = KeybaseAddress::from_str(&sender)?;
+                    handler.on_slate(address.borrow(), &mut slate);
+                }
+                std::thread::sleep(SLEEP_DURATION);
+            } else {
+                break result;
             }
-            for (sender, msg) in &unread {
-                let mut slate: Slate = serde_json::from_str(msg)?;
-                let address = KeybaseAddress::from_str(&sender)?;
-                handler.on_slate(address.borrow(), &mut slate);
-            }
-            std::thread::sleep(SLEEP_DURATION);
+        };
+        match result {
+            Err(e) => handler.on_close(CloseReason::Abnormal(e)),
+            _ => handler.on_close(CloseReason::Normal),
         }
-        handler.on_close();
         Ok(())
     }
 
