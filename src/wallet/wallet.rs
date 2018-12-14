@@ -9,8 +9,6 @@ use grin_keychain::keychain::ExtKeychain;
 use common::{Wallet713Error, Result};
 use common::config::Wallet713Config;
 
-use contacts::AddressBook;
-
 pub struct Wallet {}
 
 impl Wallet {

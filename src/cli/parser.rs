@@ -102,6 +102,12 @@ impl<'a, 'b> Parser {
             .subcommand(
                 SubCommand::with_name("stop")
                     .about("stops the slate listener")
+                    .arg(
+                        Arg::from_usage("[grinbox] -g, --grinbox 'stop the grinbox listener'")
+                    )
+                    .arg(
+                        Arg::from_usage("[keybase] -k, --keybase 'stop the keybase listener'")
+                    )
             )
             .subcommand(
                 SubCommand::with_name("send")

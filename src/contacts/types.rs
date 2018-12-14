@@ -218,9 +218,3 @@ impl Display for GrinboxAddress {
         Ok(())
     }
 }
-
-impl GrinboxAddress {
-    pub fn local_to(&self, other: &GrinboxAddress) -> bool {
-        self.domain == other.domain && self.port == other.port
-    }
-}

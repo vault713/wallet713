@@ -31,30 +31,3 @@ macro_rules! cli_message {
             }
         };
     }
-
-macro_rules! cli_progress_start {
-        ($fmt_string:expr) => {
-            {
-                use std::io::Write;
-                use colored::*;
-                print!("\r");
-                print!($fmt_string);
-                print!("\n");
-                print!(".....");
-                std::io::stdout().flush().unwrap();
-            }
-        };
-    }
-
-macro_rules! cli_progress_finish {
-        ($fmt_string:expr) => {
-            {
-                use std::io::Write;
-                use colored::*;
-                print!("\r");
-                print!($fmt_string);
-                print!("\n{}", "wallet713> ".cyan());
-                std::io::stdout().flush().unwrap();
-            }
-        };
-    }

@@ -11,6 +11,7 @@ use contacts::{Address, GrinboxAddress};
 use super::types::{Publisher, Subscriber, SubscriptionHandler, CloseReason};
 use super::protocol::{ProtocolResponse, ProtocolRequest};
 
+#[derive(Clone)]
 pub struct GrinboxPublisher {
     address: GrinboxAddress,
     secret_key: SecretKey,
@@ -18,7 +19,6 @@ pub struct GrinboxPublisher {
 
 impl GrinboxPublisher {
     pub fn new(address: &GrinboxAddress, secert_key: &SecretKey) -> Result<Self, Error> {
-        let broker = GrinboxBroker::new()?;
         Ok(Self {
             address: address.clone(),
             secret_key: secert_key.clone(),
@@ -35,6 +35,7 @@ impl Publisher for GrinboxPublisher {
     }
 }
 
+#[derive(Clone)]
 pub struct GrinboxSubscriber {
     address: GrinboxAddress,
     broker: GrinboxBroker,
@@ -43,7 +44,6 @@ pub struct GrinboxSubscriber {
 
 impl GrinboxSubscriber {
     pub fn new(address: &GrinboxAddress, secret_key: &SecretKey) -> Result<Self, Error> {
-        let broker = GrinboxBroker::new()?;
         Ok(Self {
             address: address.clone(),
             broker: GrinboxBroker::new()?,
@@ -53,24 +53,29 @@ impl GrinboxSubscriber {
 }
 
 impl Subscriber for GrinboxSubscriber {
-    fn subscribe(&self, handler: Box<SubscriptionHandler + Send>) -> Result<(), Error> {
-        self.broker.subscribe(&self.address, &self.secret_key, handler);
+    fn start(&mut self, handler: Box<SubscriptionHandler + Send>) -> Result<(), Error> {
+        self.broker.subscribe(&self.address, &self.secret_key, handler)?;
         Ok(())
     }
 
-    fn unsubscribe(&self) -> Result<(), Error> {
-        Ok(())
+    fn stop(&self) {
+        self.broker.stop();
+    }
+
+    fn is_running(&self) -> bool {
+        self.broker.is_running()
     }
 }
 
+#[derive(Clone)]
 struct GrinboxBroker {
-    inner: Option<Arc<Mutex<GrinboxClient>>>,
+    inner: Arc<Mutex<Option<Sender>>>,
 }
 
 impl GrinboxBroker {
     fn new() -> Result<Self, Error> {
         Ok(Self {
-            inner: None
+            inner: Arc::new(Mutex::new(None))
         })
     }
 
@@ -96,17 +101,17 @@ impl GrinboxBroker {
                             signature,
                         };
                         sender.send(serde_json::to_string(&request).unwrap()).unwrap();
-                        sender.close(CloseCode::Normal);
+                        sender.close(CloseCode::Normal).is_ok();
                     },
                     _ => {}
                 }
                 Ok(())
             }
-        });
+        })?;
         Ok(())
     }
 
-    fn subscribe(&self, address: &GrinboxAddress, secret_key: &SecretKey, handler: Box<SubscriptionHandler + Send>) -> Result<(), Error> {
+    fn subscribe(&mut self, address: &GrinboxAddress, secret_key: &SecretKey, handler: Box<SubscriptionHandler + Send>) -> Result<(), Error> {
         let handler = Arc::new(Mutex::new(handler));
         let url = {
             let cloned_address = address.clone();
@@ -114,16 +119,48 @@ impl GrinboxBroker {
         };
         let secret_key = secret_key.clone();
         let cloned_address = address.clone();
+        let cloned_inner = self.inner.clone();
+        let cloned_handler = handler.clone();
         thread::spawn(move || {
-            connect(url, move |sender| GrinboxClient {
-                sender,
-                handler: handler.clone(),
-                challenge: None,
-                address: cloned_address.clone(),
-                secret_key,
+            let cloned_cloned_inner = cloned_inner.clone();
+            let result = connect(url, move |sender| {
+                if let Ok(mut guard) = cloned_cloned_inner.lock() {
+                    *guard = Some(sender.clone());
+                };
+
+                let client = GrinboxClient {
+                    sender: sender,
+                    handler: cloned_handler.clone(),
+                    challenge: None,
+                    address: cloned_address.clone(),
+                    secret_key,
+                };
+                client
             });
+
+            if let Ok(mut guard) = cloned_inner.lock() {
+                *guard = None;
+            };
+
+            match result {
+                Err(_) => handler.lock().unwrap().on_close(CloseReason::Abnormal(Error::from(Wallet713Error::GrinboxWebsocketAbnormalTermination))),
+                _ => handler.lock().unwrap().on_close(CloseReason::Normal),
+            }
         });
         Ok(())
+    }
+
+    fn stop(&self) {
+        let mut guard = self.inner.lock().unwrap();
+        if let Some(ref sender) = *guard {
+            sender.close(CloseCode::Normal).is_ok();
+        }
+        *guard = None;
+    }
+
+    fn is_running(&self) -> bool {
+        let guard = self.inner.lock().unwrap();
+        guard.is_some()
     }
 }
 
@@ -167,25 +204,30 @@ impl GrinboxClient {
 }
 
 impl Handler for GrinboxClient {
-    fn on_open(&mut self, shake: Handshake) -> WsResult<()> {
+    fn on_open(&mut self, _shake: Handshake) -> WsResult<()> {
         self.handler.lock().unwrap().on_open();
         Ok(())
     }
 
     fn on_message(&mut self, msg: Message) -> WsResult<()> {
-        //TODO: map err
-        let response = serde_json::from_str::<ProtocolResponse>(&msg.to_string()).expect("could not parse response!");
+        let response = serde_json::from_str::<ProtocolResponse>(&msg.to_string()).map_err(|_| {
+            WsError::new(WsErrorKind::Protocol, "could not parse response!")
+        })?;
         match response {
             ProtocolResponse::Challenge { str } => {
                 self.challenge = Some(str.clone());
-                self.subscribe(&str);
+                self.subscribe(&str).map_err(|_| {
+                    WsError::new(WsErrorKind::Protocol, "error attempting to subscribe!")
+                })?;
             },
             ProtocolResponse::Slate { from, str, challenge, signature } => {
                 if let Ok(_) = self.verify_slate_signature(&from, &str, &challenge, &signature) {
-                    //TODO: map err
-                    let mut slate: Slate = serde_json::from_str(&str).expect("could not parse slate!");
-                    //TODO: map err
-                    let from = GrinboxAddress::from_str(&from).expect("could not parse address!");
+                    let mut slate: Slate = serde_json::from_str(&str).map_err(|_| {
+                        WsError::new(WsErrorKind::Protocol, "could not parse slate!")
+                    })?;
+                    let from = GrinboxAddress::from_str(&from).map_err(|_| {
+                        WsError::new(WsErrorKind::Protocol, "could not parse address!")
+                    })?;
                     self.handler.lock().unwrap().on_slate(&from, &mut slate);
                 } else {
                     cli_message!("{}: received slate with invalid signature!", "ERROR".bright_red());
@@ -197,10 +239,5 @@ impl Handler for GrinboxClient {
             _ => {}
         }
         Ok(())
-    }
-
-    fn on_close(&mut self, code: CloseCode, reason: &str) {
-        //TODO: support abnormal termination here
-        self.handler.lock().unwrap().on_close(CloseReason::Normal);
     }
 }

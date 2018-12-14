@@ -1,5 +1,6 @@
 use std::process::{Command, Stdio};
-use std::collections::{HashSet, HashMap};
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::borrow::Borrow;
 
@@ -15,6 +16,7 @@ const TOPIC_WALLET713_SLATES: &str = "wallet713_grin_slate";
 const DEFAULT_TTL: &str = "24h";
 const SLEEP_DURATION: Duration = Duration::from_millis(5000);
 
+#[derive(Clone)]
 pub struct KeybasePublisher {}
 
 impl KeybasePublisher {
@@ -24,12 +26,17 @@ impl KeybasePublisher {
     }
 }
 
-pub struct KeybaseSubscriber {}
+#[derive(Clone)]
+pub struct KeybaseSubscriber {
+    stop_signal: Arc<Mutex<bool>>
+}
 
 impl KeybaseSubscriber {
     pub fn new() -> Result<Self, Error> {
         let _broker = KeybaseBroker::new()?;
-        Ok(Self {})
+        Ok(Self {
+            stop_signal: Arc::new(Mutex::new(true))
+        })
     }
 }
 
@@ -41,24 +48,42 @@ impl Publisher for KeybasePublisher {
 }
 
 impl Subscriber for KeybaseSubscriber {
-    fn subscribe(&self, handler: Box<SubscriptionHandler + Send>) -> Result<(), Error> {
+    fn start(&mut self, handler: Box<SubscriptionHandler + Send>) -> Result<(), Error> {
+        if let Ok(mut guard) = self.stop_signal.lock() {
+            *guard = false;
+        }
         let mut subscribed = false;
-        let result = loop {
+        let mut dropped = false;
+        let result: Result<(), Error> = loop {
+            if *self.stop_signal.lock().unwrap() {
+                break Ok(())
+            };
             let result = KeybaseBroker::get_unread(TOPIC_WALLET713_SLATES);
             if let Ok(unread) = result {
                 if !subscribed {
                     subscribed = true;
                     handler.on_open();
                 }
+                if dropped {
+                    dropped = false;
+                    handler.on_reestablished();
+                }
                 for (sender, msg) in &unread {
                     let mut slate: Slate = serde_json::from_str(msg)?;
                     let address = KeybaseAddress::from_str(&sender)?;
                     handler.on_slate(address.borrow(), &mut slate);
                 }
-                std::thread::sleep(SLEEP_DURATION);
             } else {
-                break result;
+                if !dropped {
+                    dropped = true;
+                    if subscribed {
+                        handler.on_dropped();
+                    } else {
+                        break Err(Error::from(Wallet713Error::KeybaseNotFound));
+                    }
+                }
             }
+            std::thread::sleep(SLEEP_DURATION);
         };
         match result {
             Err(e) => handler.on_close(CloseReason::Abnormal(e)),
@@ -67,8 +92,14 @@ impl Subscriber for KeybaseSubscriber {
         Ok(())
     }
 
-    fn unsubscribe(&self) -> Result<(), Error> {
-        Ok(())
+    fn stop(&self) {
+        let mut guard = self.stop_signal.lock().unwrap();
+        *guard = true;
+    }
+
+    fn is_running(&self) -> bool {
+        let guard = self.stop_signal.lock().unwrap();
+        !*guard
     }
 }
 
