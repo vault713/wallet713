@@ -382,7 +382,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 cli_message!("slate [{}] for [{}] grins sent successfully to [{}]",
                     slate.id.to_string().bright_green(),
                     core::amount_to_hr_string(slate.amount, false).bright_green(),
-                    to.to_string().bright_green()
+                    to.stripped().bright_green()
                 );
             }
         },
