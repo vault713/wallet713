@@ -1,3 +1,3 @@
-pub mod wallet;
+mod wallet;
 
-pub use wallet::wallet::Wallet;
+pub use self::wallet::Wallet;

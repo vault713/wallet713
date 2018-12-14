@@ -1,3 +1,3 @@
-pub mod parser;
+mod parser;
 
 pub use self::parser::Parser;

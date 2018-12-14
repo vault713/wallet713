@@ -8,16 +8,10 @@ pub enum Wallet713Error {
     InvalidAmount(String),
     #[fail(display = "could not find a wallet! consider using `init`.")]
     NoWallet,
-    #[fail(display = "listener is closed! consider using `listen` first.")]
-    ClosedListener,
-    #[fail(display = "already listening on [{}]!", 0)]
+    #[fail(display = "{} listener is closed! consider using `listen` first.", 0)]
+    ClosedListener(String),
+    #[fail(display = "listener for {} already started!", 0)]
     AlreadyListening(String),
-    #[fail(display = "could not subscribe!")]
-    Subscribe,
-    #[fail(display = "could not unsubscribe!")]
-    Unsubscribe,
-    #[fail(display = "could not post slate!")]
-    PostSlate,
     #[fail(display = "`{}` is not a valid grinbox address. To send to your contacts add `@` before the name.", 0)]
     InvalidGrinboxAddress(String),
     #[fail(display = "`{}` is not a valid public key. To send to your contacts add `@` before the name.", 0)]
@@ -44,6 +38,26 @@ pub enum Wallet713Error {
     InvalidBase58Checksum,
     #[fail(display = "could not parse number from string!")]
     NumberParsingError,
+    #[fail(display = "unknown address type `{}`!", 0)]
+    UnknownAddressType(String),
+    #[fail(display = "address `{}` is missing a type!", 0)]
+    MissingAddressType(String),
+    #[fail(display = "could not parse `{}` to an address!", 0)]
+    AddressParsingError(String),
     #[fail(display = "could not parse `{}` to a grinbox address!", 0)]
     GrinboxAddressParsingError(String),
+    #[fail(display = "could not parse `{}` to a keybase address!", 0)]
+    KeybaseAddressParsingError(String),
+    #[fail(display = "could not send keybase message!")]
+    KeybaseMessageSendError,
+    #[fail(display = "failed receiving slate!")]
+    GrinWalletReceiveError,
+    #[fail(display = "failed finalizing slate!")]
+    GrinWalletFinalizeError,
+    #[fail(display = "failed posting transaction!")]
+    GrinWalletPostError,
+    #[fail(display = "keybase not found! consider installing keybase locally first.")]
+    KeybaseNotFound,
+    #[fail(display = "address can not be normalized!")]
+    AddressCannotBeNormalized
 }

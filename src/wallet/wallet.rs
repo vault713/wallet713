@@ -1,33 +1,21 @@
 use std::sync::Arc;
-use std::str::FromStr;
 
 use grin_util::Mutex;
 use grin_wallet::{display, controller, instantiate_wallet, WalletInst, WalletConfig, WalletSeed, HTTPNodeClient, NodeClient};
 use grin_wallet::lmdb_wallet::LMDBBackend;
 use grin_core::libtx::slate::Slate;
 use grin_keychain::keychain::ExtKeychain;
-use grin_core::core;
 
 use common::{Wallet713Error, Result};
-use common::crypto::{PublicKey, Base58};
 use common::config::Wallet713Config;
-use grinbox::protocol::ProtocolResponse;
-use grinbox::client::{GrinboxClient, GrinboxClientHandler, GrinboxClientOut};
-use grinbox::types::GrinboxAddress;
 
 use contacts::AddressBook;
 
-pub struct Wallet {
-    pub client: GrinboxClient,
-    pub address_book: Arc<std::sync::Mutex<AddressBook>>,
-}
+pub struct Wallet {}
 
 impl Wallet {
-    pub fn new(address_book: Arc<std::sync::Mutex<AddressBook>>) -> Self {
-        Wallet {
-            client: GrinboxClient::new(),
-            address_book,
-        }
+    pub fn new() -> Self {
+        Self {}
     }
 
     pub fn init(&self, password: &str) -> Result<WalletSeed> {
@@ -36,26 +24,6 @@ impl Wallet {
         let seed = self.init_seed(&wallet_config, password)?;
         self.init_backend(&wallet_config, &config, password)?;
         Ok(seed)
-    }
-
-    pub fn start_client(&mut self, password: &str, grinbox_domain: &str, grinbox_port: u16, grinbox_private_key: &str) -> Result<()> {
-        if !self.client.is_started() {
-            let wallet = self.get_wallet_instance(password)?;
-            let address_book = self.address_book.clone();
-            let handler = Box::new(MessageHandler {
-                wallet,
-                address_book,
-            });
-            self.client.start(grinbox_domain, grinbox_port, grinbox_private_key, handler)?;
-            Ok(())
-        } else {
-            let public_key = self.client.get_listening_address().unwrap_or("...".to_owned());
-            Err(Wallet713Error::AlreadyListening(public_key))?
-        }
-    }
-
-    pub fn stop_client(&self) -> Result<()> {
-        self.client.stop()
     }
 
     pub fn info(&self, password: &str, account: &str) -> Result<()> {
@@ -108,69 +76,24 @@ impl Wallet {
         Ok(result)
     }
 
-    pub fn subscribe(&self) -> Result<()> {
-        if !self.client.is_started() {
-            Err(Wallet713Error::ClosedListener)?
-        } else {
-            self.client.subscribe()
-        }
-    }
-
-    pub fn unsubscribe(&self) -> Result<()> {
-        if !self.client.is_started() {
-            Err(Wallet713Error::ClosedListener)?
-        } else {
-            self.client.unsubscribe()
-        }
-    }
-
-    pub fn send(&mut self, password: &str, account: &str, to: &str, amount: u64, minimum_confirmations: u64, selection_strategy: &str, change_outputs: usize, max_outputs: usize) -> Result<Slate> {
-        if !self.client.is_started() {
-            Err(Wallet713Error::ClosedListener)?
-        } else {
-            let mut to = to.to_string();
-            if to.starts_with("@") {
-                let mut guard = self.address_book.lock().unwrap();
-                let contact = guard.get_contact_by_name(&to[1..])?;
-                to = contact.public_key.clone();
-            }
-
-            let mut to = GrinboxAddress::from_str(&to).map_err(|_| {
-                Wallet713Error::InvalidGrinboxAddress(to.clone())
-            })?;
-
-            PublicKey::from_base58_check(&to.public_key, 2).map_err(|_| {
-                Wallet713Error::InvalidPublicKey(to.public_key.clone())
-            })?;
-
-            if to.port.is_none() {
-                to.port = Some(self.client.get_port());
-            }
-
-            if to.domain.is_none() {
-                to.domain = Some(self.client.get_domain().clone());
-            }
-
-            let wallet = self.get_wallet_instance(password)?;
-            let mut s: Slate = Slate::blank(0);
-            controller::owner_single_use(wallet.clone(), |api| {
-                let (slate, lock_fn) = api.initiate_tx(
-                    Some(account),
-                    amount,
-                    minimum_confirmations,
-                    max_outputs,
-                    change_outputs,
-                    selection_strategy == "all",
-                    None,
-                )?;
-                api.tx_lock_outputs(&slate, lock_fn)?;
-                s = slate;
-                Ok(())
-            })?;
-
-            self.client.post_slate(&to.to_string(), &s)?;
-            Ok(s)
-        }
+    pub fn initiate_send_tx(&mut self, password: &str, account: &str, amount: u64, minimum_confirmations: u64, selection_strategy: &str, change_outputs: usize, max_outputs: usize) -> Result<Slate> {
+        let wallet = self.get_wallet_instance(password)?;
+        let mut s: Slate = Slate::blank(0);
+        controller::owner_single_use(wallet.clone(), |api| {
+            let (slate, lock_fn) = api.initiate_tx(
+                Some(account),
+                amount,
+                minimum_confirmations,
+                max_outputs,
+                change_outputs,
+                selection_strategy == "all",
+                None,
+            )?;
+            api.tx_lock_outputs(&slate, lock_fn)?;
+            s = slate;
+            Ok(())
+        })?;
+        Ok(s)
     }
 
     pub fn repost(&self, password: &str, id: u32, fluff: bool) -> Result<()> {
@@ -212,6 +135,34 @@ impl Wallet {
         Ok(())
     }
 
+    pub fn process_slate(&self, account: &str, password: &str, slate: &mut Slate) -> Result<bool> {
+        let wallet = self.get_wallet_instance(password)?;
+        let is_finalized = if slate.num_participants > slate.participant_data.len() {
+            controller::foreign_single_use(wallet.clone(), |api| {
+                api.receive_tx(slate, Some(account), None)?;
+                Ok(())
+            }).map_err(|_| {
+                Wallet713Error::GrinWalletReceiveError
+            })?;
+            false
+        } else {
+            controller::owner_single_use(wallet.clone(), |api| {
+                api.finalize_tx(slate)?;
+                Ok(())
+            }).map_err(|_| {
+                Wallet713Error::GrinWalletFinalizeError
+            })?;
+            controller::owner_single_use(wallet.clone(), |api| {
+                api.post_tx(&slate.tx, false)?;
+                Ok(())
+            }).map_err(|_| {
+                Wallet713Error::GrinWalletPostError
+            })?;
+            true
+        };
+        Ok(is_finalized)
+    }
+
     fn init_seed(&self, wallet_config: &WalletConfig, password: &str) -> Result<WalletSeed> {
         let result = WalletSeed::from_file(&wallet_config, password);
         match result {
@@ -250,80 +201,5 @@ impl Wallet {
             Wallet713Error::NoWallet
         })?;
         Ok(wallet)
-    }
-}
-
-#[derive(Clone)]
-struct MessageHandler<T> where T: NodeClient + 'static {
-    wallet: Arc<Mutex<WalletInst<T, ExtKeychain>>>,
-    address_book: Arc<std::sync::Mutex<AddressBook>>,
-}
-
-impl<T> MessageHandler<T> where T: NodeClient {
-    pub fn process_slate(&self, account: &str, slate: &mut Slate) -> Result<bool> {
-        let is_finalized = if slate.num_participants > slate.participant_data.len() {
-            controller::foreign_single_use(self.wallet.clone(), |api| {
-                api.receive_tx(slate, Some(account), None)?;
-                Ok(())
-            })?;
-            false
-        } else {
-            controller::owner_single_use(self.wallet.clone(), |api| {
-                api.finalize_tx(slate)?;
-                api.post_tx(&slate.tx, false)?;
-                Ok(())
-            })?;
-            true
-        };
-        Ok(is_finalized)
-    }
-}
-
-impl<T> GrinboxClientHandler for MessageHandler<T> where T: NodeClient + 'static {
-    fn on_response(&self, response: &ProtocolResponse, out: &GrinboxClientOut) {
-        match response {
-            ProtocolResponse::Slate { from, str, challenge: _, signature: _ } => {
-                let mut slate: Slate = serde_json::from_str(&str).unwrap();
-                let mut guard = self.address_book.lock().unwrap();
-                let mut display_from = from.clone();
-                if let Ok(contact) = guard.get_contact(&from) {
-                    display_from = format!("@{}", contact.name);
-                }
-                if slate.num_participants > slate.participant_data.len() {
-                    cli_message!("slate [{}] received from [{}] for [{}] grins",
-                             slate.id.to_string().bright_green(),
-                             display_from.bright_green(),
-                             core::amount_to_hr_string(slate.amount, false).bright_green()
-                    );
-                } else {
-                    cli_message!("slate [{}] received back from [{}] for [{}] grins",
-                             slate.id.to_string().bright_green(),
-                             display_from.bright_green(),
-                             core::amount_to_hr_string(slate.amount, false).bright_green()
-                    );
-                };
-                let is_finalized = self.process_slate("", &mut slate).expect("failed processing slate!");
-
-                if !is_finalized {
-                    out.post_slate(&from, &slate).expect("failed posting slate!");
-                    cli_message!("slate [{}] sent back to [{}] successfully",
-                             slate.id.to_string().bright_green(),
-                             display_from.bright_green()
-                    );
-                } else {
-                    cli_message!("slate [{}] finalized successfully",
-                             slate.id.to_string().bright_green()
-                    );
-                }
-            },
-            ProtocolResponse::Error { kind: _, description: _ } => {
-                cli_message!("{}", response);
-            },
-            _ => {},
-        };
-    }
-
-    fn on_close(&self, reason: &str) {
-        cli_message!("{}: grinbox client closed with reason: {}", "WARNING".bright_yellow(), reason);
     }
 }

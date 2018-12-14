@@ -4,7 +4,7 @@ macro_rules! cli_message {
             {
                 use std::io::Write;
                 use colored::*;
-                print!("\r{}", "wallet713> ".bright_green());
+                print!("\r{}", "wallet713> ".cyan());
                 std::io::stdout().flush().unwrap();
             }
         };
@@ -15,7 +15,7 @@ macro_rules! cli_message {
                 use colored::*;
                 print!("\r");
                 print!($fmt_string, $( $arg ),*);
-                print!("\n{}", "wallet713> ".bright_green());
+                print!("\n{}", "wallet713> ".cyan());
                 std::io::stdout().flush().unwrap();
             }
         };
@@ -26,7 +26,7 @@ macro_rules! cli_message {
                 use colored::*;
                 print!("\r");
                 print!($fmt_string);
-                print!("\n{}", "wallet713> ".bright_green());
+                print!("\n{}", "wallet713> ".cyan());
                 std::io::stdout().flush().unwrap();
             }
         };

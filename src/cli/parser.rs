@@ -15,10 +15,6 @@ impl<'a, 'b> Parser {
         App::new("")
             .setting(AppSettings::NoBinaryName)
             .subcommand(
-                SubCommand::with_name("challenge")
-                    .about("outputs the current challenge")
-            )
-            .subcommand(
                 SubCommand::with_name("exit")
                     .about("exits wallet713 cli")
             )
@@ -71,7 +67,7 @@ impl<'a, 'b> Parser {
                                 Arg::from_usage("<name> 'the contact name'")
                             )
                             .arg(
-                                Arg::from_usage("<grinbox-address> 'the contact grinbox address'")
+                                Arg::from_usage("<address> 'the contact address'")
                             )
                     )
                     .subcommand(
@@ -95,18 +91,13 @@ impl<'a, 'b> Parser {
             )
             .subcommand(
                 SubCommand::with_name("listen")
-                    .about("listens to incoming slates to your grinbox account")
+                    .about("listens to incoming slates to your grinbox account or keybase")
                     .arg(
-                        Arg::from_usage("[password] -p, --password=<password> 'the password to use'")
+                        Arg::from_usage("[grinbox] -g, --grinbox 'start the grinbox listener'")
                     )
-            )
-            .subcommand(
-                SubCommand::with_name("subscribe")
-                    .about("subscribes to incoming slates")
-            )
-            .subcommand(
-                SubCommand::with_name("unsubscribe")
-                    .about("removes incoming slates subscription")
+                    .arg(
+                        Arg::from_usage("[keybase] -k, --keybase 'start the keybase listener'")
+                    )
             )
             .subcommand(
                 SubCommand::with_name("stop")
@@ -114,9 +105,9 @@ impl<'a, 'b> Parser {
             )
             .subcommand(
                 SubCommand::with_name("send")
-                    .about("sends grins to a grinbox subject")
+                    .about("sends grins to an address")
                     .arg(
-                        Arg::from_usage("-t, --to=<subject> 'the subject to send grins to'")
+                        Arg::from_usage("-t, --to=<address> 'the address to send grins to'")
                     )
                     .arg(
                         Arg::from_usage("<amount> 'the amount of grins to send'")

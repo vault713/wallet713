@@ -9,6 +9,9 @@ use grin_wallet::{WalletConfig};
 
 use super::Result;
 
+use contacts::GrinboxAddress;
+use super::crypto::{SecretKey, PublicKey, public_key_from_secret_key, Hex, Base58, BASE58_CHECK_VERSION_GRIN_TX};
+
 const WALLET713_CONFIG_PATH: &str = "wallet713.toml";
 
 const GRIN_HOME: &str = ".grin";
@@ -86,6 +89,27 @@ impl Wallet713Config {
         wallet_config.data_file_dir = self.wallet713_data_path.clone();
         wallet_config.check_node_api_http_addr = self.grin_node_uri.clone();
         Ok(wallet_config)
+    }
+
+    pub fn get_grinbox_address(&self) -> Result<GrinboxAddress> {
+        let public_key = self.get_grinbox_public_key()?;
+        let public_key = public_key.to_base58_check(BASE58_CHECK_VERSION_GRIN_TX.to_vec());
+        let address = GrinboxAddress {
+            public_key,
+            domain: self.grinbox_domain.clone(),
+            port: self.grinbox_port,
+        };
+        Ok(address)
+    }
+
+    pub fn get_grinbox_public_key(&self) -> Result<PublicKey> {
+        let public_key = public_key_from_secret_key(&self.get_grinbox_secret_key()?);
+        Ok(public_key)
+    }
+
+    pub fn get_grinbox_secret_key(&self) -> Result<SecretKey> {
+        let secret_key = SecretKey::from_hex(&self.grinbox_private_key)?;
+        Ok(secret_key)
     }
 }
 
