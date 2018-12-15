@@ -38,6 +38,8 @@ pub enum Wallet713Error {
     KeybaseMessageSendError,
     #[fail(display = "failed receiving slate!")]
     GrinWalletReceiveError,
+    #[fail(display = "failed verifying slate messages!")]
+    GrinWalletVerifySlateMessagesError,
     #[fail(display = "failed finalizing slate!")]
     GrinWalletFinalizeError,
     #[fail(display = "failed posting transaction!")]

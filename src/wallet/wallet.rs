@@ -16,16 +16,16 @@ impl Wallet {
         Self {}
     }
 
-    pub fn init(&self, password: &str) -> Result<WalletSeed> {
+    pub fn init(&self, passphrase: &str) -> Result<WalletSeed> {
         let config = Wallet713Config::from_file()?;
         let wallet_config = config.as_wallet_config()?;
-        let seed = self.init_seed(&wallet_config, password)?;
-        self.init_backend(&wallet_config, &config, password)?;
+        let seed = self.init_seed(&wallet_config, passphrase)?;
+        self.init_backend(&wallet_config, &config, passphrase)?;
         Ok(seed)
     }
 
-    pub fn info(&self, password: &str, account: &str) -> Result<()> {
-        let wallet = self.get_wallet_instance(password)?;
+    pub fn info(&self, passphrase: &str, account: &str) -> Result<()> {
+        let wallet = self.get_wallet_instance(passphrase, account)?;
         let result = controller::owner_single_use(wallet.clone(), |api| {
             let (validated, wallet_info) = api.retrieve_summary_info(true, 10)?;
             display::info(
@@ -39,8 +39,8 @@ impl Wallet {
         Ok(result)
     }
 
-    pub fn txs(&self, password: &str, account: &str) -> Result<()> {
-        let wallet = self.get_wallet_instance(password)?;
+    pub fn txs(&self, passphrase: &str, account: &str) -> Result<()> {
+        let wallet = self.get_wallet_instance(passphrase, account)?;
         let result = controller::owner_single_use(wallet.clone(), |api| {
             let (height, _) = api.node_height()?;
             let (validated, txs) = api.retrieve_txs(true, None, None)?;
@@ -57,8 +57,8 @@ impl Wallet {
         Ok(result)
     }
 
-    pub fn outputs(&self, password: &str, account: &str, show_spent: bool) -> Result<()> {
-        let wallet = self.get_wallet_instance(password)?;
+    pub fn outputs(&self, passphrase: &str, account: &str, show_spent: bool) -> Result<()> {
+        let wallet = self.get_wallet_instance(passphrase, account)?;
         let result = controller::owner_single_use(wallet.clone(), |api| {
             let (height, _) = api.node_height()?;
             let (validated, outputs) = api.retrieve_outputs(show_spent, true, None)?;
@@ -74,8 +74,8 @@ impl Wallet {
         Ok(result)
     }
 
-    pub fn initiate_send_tx(&mut self, password: &str, account: &str, amount: u64, minimum_confirmations: u64, selection_strategy: &str, change_outputs: usize, max_outputs: usize) -> Result<Slate> {
-        let wallet = self.get_wallet_instance(password)?;
+    pub fn initiate_send_tx(&mut self, passphrase: &str, account: &str, amount: u64, minimum_confirmations: u64, selection_strategy: &str, change_outputs: usize, max_outputs: usize) -> Result<Slate> {
+        let wallet = self.get_wallet_instance(passphrase, account)?;
         let mut s: Slate = Slate::blank(0);
         controller::owner_single_use(wallet.clone(), |api| {
             let (slate, lock_fn) = api.initiate_tx(
@@ -94,8 +94,8 @@ impl Wallet {
         Ok(s)
     }
 
-    pub fn initiate_receive_tx(&mut self, password: &str, account: &str, amount: u64) -> Result<Slate> {
-        let wallet = self.get_wallet_instance(password)?;
+    pub fn initiate_receive_tx(&mut self, passphrase: &str, account: &str, amount: u64) -> Result<Slate> {
+        let wallet = self.get_wallet_instance(passphrase, account)?;
         let mut api = super::api::Wallet713ForeignAPI::new(wallet.clone());
         let (slate, add_fn) = api.initiate_receive_tx(
             Some(account),
@@ -106,8 +106,8 @@ impl Wallet {
         Ok(slate)
     }
 
-    pub fn repost(&self, password: &str, id: u32, fluff: bool) -> Result<()> {
-        let wallet = self.get_wallet_instance(password)?;
+    pub fn repost(&self, account: &str, passphrase: &str, id: u32, fluff: bool) -> Result<()> {
+        let wallet = self.get_wallet_instance(passphrase, account)?;
         controller::owner_single_use(wallet.clone(), |api| {
             let (_, txs) = api.retrieve_txs(true, Some(id), None)?;
             if txs.len() == 0 {
@@ -129,24 +129,24 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn cancel(&self, password: &str, id: u32) -> Result<()> {
-        let wallet = self.get_wallet_instance(password)?;
+    pub fn cancel(&self, account: &str, passphrase: &str, id: u32) -> Result<()> {
+        let wallet = self.get_wallet_instance(passphrase, account)?;
         controller::owner_single_use(wallet.clone(), |api| {
             api.cancel_tx(Some(id), None)
         })?;
         Ok(())
     }
 
-    pub fn restore(&self, password: &str) -> Result<()> {
-        let wallet = self.get_wallet_instance(password)?;
+    pub fn restore(&self, account: &str, passphrase: &str) -> Result<()> {
+        let wallet = self.get_wallet_instance(passphrase, account)?;
         controller::owner_single_use(wallet.clone(), |api| {
             api.restore()
         })?;
         Ok(())
     }
 
-    pub fn process_slate(&self, account: &str, password: &str, slate: &mut Slate) -> Result<bool> {
-        let wallet = self.get_wallet_instance(password)?;
+    pub fn process_slate(&self, account: &str, passphrase: &str, slate: &mut Slate) -> Result<bool> {
+        let wallet = self.get_wallet_instance(passphrase, account)?;
         let is_finalized = if slate.num_participants > slate.participant_data.len() {
             if slate.fee != 0 {
                 controller::foreign_single_use(wallet.clone(), |api| {
@@ -174,6 +174,12 @@ impl Wallet {
             false
         } else {
             controller::owner_single_use(wallet.clone(), |api| {
+                api.verify_slate_messages(&slate)?;
+                Ok(())
+            }).map_err(|_| {
+                Wallet713Error::GrinWalletVerifySlateMessagesError
+            })?;
+            controller::owner_single_use(wallet.clone(), |api| {
                 api.finalize_tx(slate)?;
                 Ok(())
             }).map_err(|_| {
@@ -182,8 +188,7 @@ impl Wallet {
             controller::owner_single_use(wallet.clone(), |api| {
                 api.post_tx(&slate.tx, false)?;
                 Ok(())
-            }).map_err(|e| {
-                println!("{:?}", e);
+            }).map_err(|_| {
                 Wallet713Error::GrinWalletPostError
             })?;
             true
@@ -191,14 +196,14 @@ impl Wallet {
         Ok(is_finalized)
     }
 
-    fn init_seed(&self, wallet_config: &WalletConfig, password: &str) -> Result<WalletSeed> {
-        let result = WalletSeed::from_file(&wallet_config, password);
+    fn init_seed(&self, wallet_config: &WalletConfig, passphrase: &str) -> Result<WalletSeed> {
+        let result = WalletSeed::from_file(&wallet_config, passphrase);
         match result {
             Err(_) => {
                 // could not load from file, let's create a new one
-                let seed = WalletSeed::init_file(&wallet_config, 32, password)?;
-                if password.is_empty() {
-                    cli_message!("{}: wallet with no password.", "WARNING".bright_yellow());
+                let seed = WalletSeed::init_file(&wallet_config, 32, passphrase)?;
+                if passphrase.is_empty() {
+                    cli_message!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
                 };
                 Ok(seed)
             }
@@ -209,22 +214,21 @@ impl Wallet {
         }
     }
 
-    fn init_backend(&self, wallet_config: &WalletConfig, wallet713_config: &Wallet713Config, password: &str) -> Result<LMDBBackend<HTTPNodeClient, ExtKeychain>> {
+    fn init_backend(&self, wallet_config: &WalletConfig, wallet713_config: &Wallet713Config, passphrase: &str) -> Result<LMDBBackend<HTTPNodeClient, ExtKeychain>> {
         let node_api_client = HTTPNodeClient::new(&wallet_config.check_node_api_http_addr, wallet713_config.grin_node_secret.clone());
-
-        let backend = LMDBBackend::new(wallet_config.clone(), &password, node_api_client)?;
+        let backend = LMDBBackend::new(wallet_config.clone(), passphrase, node_api_client)?;
         Ok(backend)
     }
 
-    fn get_wallet_instance(&self, password: &str) -> Result<Arc<Mutex<WalletInst<impl NodeClient + 'static, ExtKeychain>>>> {
+    fn get_wallet_instance(&self, passphrase: &str, account: &str) -> Result<Arc<Mutex<WalletInst<impl NodeClient + 'static, ExtKeychain>>>> {
         let config = Wallet713Config::from_file()?;
         let wallet_config = config.as_wallet_config()?;
         let node_client = HTTPNodeClient::new(&wallet_config.check_node_api_http_addr, config.grin_node_secret.clone());
         let wallet = instantiate_wallet(
             wallet_config,
             node_client,
-            password,
-            "default",
+            passphrase,
+            account,
         ).map_err(|_| {
             Wallet713Error::NoWallet
         })?;
