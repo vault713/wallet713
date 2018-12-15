@@ -120,6 +120,16 @@ impl<'a, 'b> Parser {
                     )
             )
             .subcommand(
+                SubCommand::with_name("invoice")
+                    .about("sends invoice to an address")
+                    .arg(
+                        Arg::from_usage("-t, --to=<address> 'the address to send grins to'")
+                    )
+                    .arg(
+                        Arg::from_usage("<amount> 'the amount of grins to send'")
+                    )
+            )
+            .subcommand(
                 SubCommand::with_name("repost")
                     .about("reposts an existing transaction.")
                     .arg(

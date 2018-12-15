@@ -444,9 +444,63 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 );
             }
         },
+        Some("invoice") => {
+            let args = matches.subcommand_matches("invoice").unwrap();
+            let password = args.value_of("password").unwrap_or("");
+            let to = args.value_of("to").unwrap();
+            let amount = args.value_of("amount").unwrap();
+            let amount = core::amount_from_hr_string(amount).map_err(|_| {
+                Wallet713Error::InvalidAmount(amount.to_string())
+            })?;
+
+            let mut to = to.to_string();
+            if to.starts_with("@") {
+                let contact = address_book.lock().unwrap().get_contact(&to[1..])?;
+                to = contact.get_address().to_string();
+            }
+
+            // try parse as a general address
+            let address = Address::parse(&to);
+            let address: Result<Box<Address>> = match address {
+                Ok(address) => Ok(address),
+                Err(e) => {
+                    Ok(Box::new(GrinboxAddress::from_str(&to).map_err(|_| e)?) as Box<Address>)
+                }
+            };
+
+            let to = address?;
+            let slate: Result<Slate> = match to.address_type() {
+                AddressType::Keybase => {
+                    if let Some((publisher, _)) = keybase_broker {
+                        let slate = wallet.lock().unwrap().initiate_receive_tx(password, &account[..], amount, 10, "all", 1, 500)?;
+                        publisher.post_slate(&slate, to.borrow())?;
+                        Ok(slate)
+                    } else {
+                        Err(Wallet713Error::ClosedListener("keybase".to_string()))?
+                    }
+                },
+                AddressType::Grinbox => {
+                    if let Some((publisher, _)) = grinbox_broker {
+                        let slate = wallet.lock().unwrap().initiate_receive_tx(password, &account[..], amount, 10, "all", 1, 500)?;
+                        publisher.post_slate(&slate, to.borrow())?;
+                        Ok(slate)
+                    } else {
+                        Err(Wallet713Error::ClosedListener("grinbox".to_string()))?
+                    }
+                },
+            };
+
+            if let Ok(slate) = slate {
+                cli_message!("invoice slate [{}] for [{}] grins sent successfully to [{}]",
+                    slate.id.to_string().bright_green(),
+                    core::amount_to_hr_string(slate.amount, false).bright_green(),
+                    to.stripped().bright_green()
+                );
+            }
+        },
         Some("restore") => {
             let password = matches.subcommand_matches("restore").unwrap().value_of("password").unwrap_or("");
-            cli_message!("restoring... please wait as this could take a few minutes to complete.");
+            println!("restoring... please wait as this could take a few minutes to complete.");
             wallet.lock().unwrap().restore(password)?;
             cli_message!("wallet restoration done!");
         },

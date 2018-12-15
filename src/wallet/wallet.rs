@@ -94,6 +94,22 @@ impl Wallet {
         Ok(s)
     }
 
+    pub fn initiate_receive_tx(&mut self, password: &str, account: &str, amount: u64, minimum_confirmations: u64, selection_strategy: &str, change_outputs: usize, max_outputs: usize) -> Result<Slate> {
+        let wallet = self.get_wallet_instance(password)?;
+        let mut api = super::api::Wallet713ForeignAPI::new(wallet.clone());
+        let (slate, add_fn) = api.initiate_receive_tx(
+            Some(account),
+            amount,
+            minimum_confirmations,
+            max_outputs,
+            change_outputs,
+            selection_strategy == "all",
+            None,
+        )?;
+        api.tx_add_outputs(&slate, add_fn);
+        Ok(slate)
+    }
+
     pub fn repost(&self, password: &str, id: u32, fluff: bool) -> Result<()> {
         let wallet = self.get_wallet_instance(password)?;
         controller::owner_single_use(wallet.clone(), |api| {
@@ -104,7 +120,7 @@ impl Wallet {
                 ))?
             }
 
-            let tx = txs[0].get_stored_tx();
+            let tx = api.get_stored_tx(&txs[0])?;
             if tx.is_none() {
                 return Err(grin_wallet::libwallet::ErrorKind::GenericError(
                     format!("no transaction data stored for id {}, can not repost!", id)
@@ -136,12 +152,29 @@ impl Wallet {
     pub fn process_slate(&self, account: &str, password: &str, slate: &mut Slate) -> Result<bool> {
         let wallet = self.get_wallet_instance(password)?;
         let is_finalized = if slate.num_participants > slate.participant_data.len() {
-            controller::foreign_single_use(wallet.clone(), |api| {
-                api.receive_tx(slate, Some(account), None)?;
-                Ok(())
-            }).map_err(|_| {
-                Wallet713Error::GrinWalletReceiveError
-            })?;
+            if slate.fee != 0 {
+                controller::foreign_single_use(wallet.clone(), |api| {
+                    api.receive_tx(slate, Some(account), None)?;
+                    Ok(())
+                }).map_err(|_| {
+                    Wallet713Error::GrinWalletReceiveError
+                })?;
+            } else {
+                let mut api = super::api::Wallet713OwnerAPI::new(wallet.clone());
+                let (lock_fn) = api.invoice_tx(
+                    Some(account),
+                    slate,
+                    10,
+                    500,
+                    1,
+                    true,
+                    None,
+                )?;
+                controller::owner_single_use(wallet.clone(), |api| {
+                    api.tx_lock_outputs(&slate, lock_fn)?;
+                    Ok(())
+                })?;
+            };
             false
         } else {
             controller::owner_single_use(wallet.clone(), |api| {
@@ -153,7 +186,8 @@ impl Wallet {
             controller::owner_single_use(wallet.clone(), |api| {
                 api.post_tx(&slate.tx, false)?;
                 Ok(())
-            }).map_err(|_| {
+            }).map_err(|e| {
+                println!("{:?}", e);
                 Wallet713Error::GrinWalletPostError
             })?;
             true
