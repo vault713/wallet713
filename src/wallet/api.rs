@@ -1,17 +1,16 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
-use uuid::Uuid;
 
 use grin_util::Mutex;
-use grin_wallet::libwallet::internal::{keys, tx, updater, selection};
+use grin_wallet::libwallet::internal::{keys, updater, selection};
 use grin_wallet::libwallet::types::{
-    OutputStatus, Context, AcctPathMapping, BlockFees, CbData, NodeClient, OutputData, TxLogEntry, TxLogEntryType, TxWrapper, WalletBackend, WalletInfo,
+    OutputStatus, Context, NodeClient, OutputData, TxLogEntry, TxLogEntryType, WalletBackend,
 };
 use grin_wallet::libwallet::{Error, ErrorKind};
-use grin_core::core::{Input as TxInput, OutputFeatures, Transaction, TxKernel};
-use grin_keychain::{BlindSum, BlindingFactor, Keychain, Identifier};
+use grin_core::core::Transaction;
+use grin_keychain::{Keychain, Identifier};
 use grin_core::libtx::slate::Slate;
-use grin_core::libtx::{tx_fee, build};
+use grin_core::libtx::build;
 
 pub struct Wallet713OwnerAPI<W: ?Sized, C, K>
     where
@@ -73,7 +72,7 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
             }
             None => w.parent_key_id(),
         };
-        // Don't do this multiple times
+
         let tx = updater::retrieve_txs(&mut *w, None, Some(slate.id), Some(&parent_key_id))?;
         for t in &tx {
             if t.tx_type == TxLogEntryType::TxReceived {
@@ -106,13 +105,12 @@ fn invoice_tx<T: ?Sized, C, K>(
 {
     let current_height = wallet.w2n_client().get_chain_height()?;
 
-    // refresh outputs
     updater::refresh_outputs(wallet, &parent_key_id)?;
 
     let lock_height = slate.lock_height;
     let amount = slate.amount;
 
-    let (elems, inputs, change_amounts_derivations, amount, fee) = selection::select_send_tx(
+    let (elems, inputs, change_amounts_derivations, _amount, fee) = selection::select_send_tx(
         wallet,
         amount,
         current_height,
@@ -131,18 +129,15 @@ fn invoice_tx<T: ?Sized, C, K>(
 
     let blinding = slate.add_transaction_elements(&keychain, elems)?;
 
-    // Create our own private context
     let mut context = Context::new(
         wallet.keychain().secp(),
         blinding.secret_key(&keychain.secp()).unwrap(),
     );
 
-    // Store our private identifiers for each input
     for input in inputs {
         context.add_input(&input.key_id);
     }
 
-    // Store change output(s)
     for (_, id) in &change_amounts_derivations {
         context.add_output(&id);
     }
@@ -170,7 +165,6 @@ fn invoice_tx<T: ?Sized, C, K>(
 
             t.amount_debited = amount_debited;
 
-            // write the output representing our change
             for (change_amount, id) in &change_amounts_derivations {
                 t.num_outputs += 1;
                 t.amount_credited += change_amount;
@@ -204,7 +198,7 @@ fn invoice_tx<T: ?Sized, C, K>(
 
     let _ = slate.fill_round_2(wallet.keychain(), &context.sec_key, &context.sec_nonce, 1)?;
 
-    Ok((update_sender_wallet_fn))
+    Ok(update_sender_wallet_fn)
 }
 
 impl<W: ?Sized, C, K> Wallet713ForeignAPI<W, C, K>
@@ -225,10 +219,6 @@ impl<W: ?Sized, C, K> Wallet713ForeignAPI<W, C, K>
         &mut self,
         src_acct_name: Option<&str>,
         amount: u64,
-        minimum_confirmations: u64,
-        max_outputs: usize,
-        num_change_outputs: usize,
-        selection_strategy_is_use_all: bool,
         message: Option<String>,
     ) -> Result<
         (
@@ -253,10 +243,6 @@ impl<W: ?Sized, C, K> Wallet713ForeignAPI<W, C, K>
         let (slate, context, add_fn) = create_receive_tx(
             &mut *w,
             amount,
-            minimum_confirmations,
-            max_outputs,
-            num_change_outputs,
-            selection_strategy_is_use_all,
             &parent_key_id,
             message,
         )?;
@@ -281,53 +267,11 @@ impl<W: ?Sized, C, K> Wallet713ForeignAPI<W, C, K>
         add_fn(&mut *w, &slate.tx)?;
         Ok(())
     }
-
-    /// Receive a transaction from a sender
-    pub fn receive_invoice_tx(
-        &mut self,
-        slate: &mut Slate,
-        dest_acct_name: Option<&str>,
-        message: Option<String>,
-    ) -> Result<(), Error> {
-        let mut w = self.wallet.lock();
-        w.open_with_credentials()?;
-        let parent_key_id = match dest_acct_name {
-            Some(d) => {
-                let pm = w.get_acct_path(d.to_owned())?;
-                match pm {
-                    Some(p) => p.path,
-                    None => w.parent_key_id(),
-                }
-            }
-            None => w.parent_key_id(),
-        };
-        // Don't do this multiple times
-        let tx = updater::retrieve_txs(&mut *w, None, Some(slate.id), Some(&parent_key_id))?;
-        for t in &tx {
-            if t.tx_type == TxLogEntryType::TxSent {
-                return Err(ErrorKind::TransactionAlreadyReceived(slate.id.to_string()).into());
-            }
-        }
-        let res = tx::receive_tx(&mut *w, slate, &parent_key_id, message);
-        w.close()?;
-
-        if let Err(e) = res {
-            Err(e)
-        } else {
-            Ok(())
-        }
-    }
 }
 
-/// Issue a new transaction to the provided sender by spending some of our
-/// wallet
 fn create_receive_tx<T: ?Sized, C, K>(
     wallet: &mut T,
     amount: u64,
-    minimum_confirmations: u64,
-    max_outputs: usize,
-    num_change_outputs: usize,
-    selection_strategy_is_use_all: bool,
     parent_key_id: &Identifier,
     message: Option<String>,
 ) -> Result<
@@ -345,34 +289,17 @@ fn create_receive_tx<T: ?Sized, C, K>(
 {
     // Get lock height
     let current_height = wallet.w2n_client().get_chain_height()?;
-    // ensure outputs we're selecting are up to date
-///    updater::refresh_outputs(wallet, parent_key_id)?;
-
     let lock_height = current_height;
 
-    // Sender selects outputs into a new slate and save our corresponding keys in
-    // a transaction context. The secret key in our transaction context will be
-    // randomly selected. This returns the public slate, and a closure that locks
-    // our inputs and outputs once we're convinced the transaction exchange went
-    // according to plan
-    // This function is just a big helper to do all of that, in theory
-    // this process can be split up in any way
     let (mut slate, mut context, add_fn) = build_receive_tx_slate(
         wallet,
         2,
         amount,
         current_height,
-        minimum_confirmations,
         lock_height,
-        max_outputs,
-        num_change_outputs,
-        selection_strategy_is_use_all,
         parent_key_id.clone(),
     )?;
 
-    // Generate a kernel offset and subtract from our context's secret key. Store
-    // the offset in the slate's transaction kernel, and adds our public key
-    // information to the slate
     let _ = slate.fill_round_1(
         wallet.keychain(),
         &mut context.sec_key,
@@ -384,21 +311,12 @@ fn create_receive_tx<T: ?Sized, C, K>(
     Ok((slate, context, add_fn))
 }
 
-/// Initialize a transaction on the sender side, returns a corresponding
-/// libwallet transaction slate with the appropriate inputs selected,
-/// and saves the private wallet identifiers of our selected outputs
-/// into our transaction context
-
 fn build_receive_tx_slate<T: ?Sized, C, K>(
     wallet: &mut T,
     num_participants: usize,
     amount: u64,
     current_height: u64,
-    minimum_confirmations: u64,
     lock_height: u64,
-    max_outputs: usize,
-    change_outputs: usize,
-    selection_strategy_is_use_all: bool,
     parent_key_id: Identifier,
 ) -> Result<
     (
@@ -413,10 +331,8 @@ fn build_receive_tx_slate<T: ?Sized, C, K>(
         C: NodeClient,
         K: Keychain,
 {
-    // Create a potential output for this transaction
     let key_id = keys::next_available_key(wallet).unwrap();
 
-    // create a slate
     let mut slate = Slate::blank(num_participants);
     slate.amount = amount;
     slate.height = current_height;
@@ -426,7 +342,6 @@ fn build_receive_tx_slate<T: ?Sized, C, K>(
     let blinding =
         slate.add_transaction_elements(&keychain, vec![build::output(amount, key_id.clone())])?;
 
-    // Add blinding sum to our context
     let mut context = Context::new(
         keychain.secp(),
         blinding
@@ -436,8 +351,6 @@ fn build_receive_tx_slate<T: ?Sized, C, K>(
 
     context.add_output(&key_id);
 
-    // Create closure that adds the output to recipient's wallet
-    // (up to the caller to decide when to do)
     let slate_id = slate.id.clone();
     let key_id_inner = key_id.clone();
     let wallet_add_fn = move |wallet: &mut T, tx: &Transaction| {

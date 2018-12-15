@@ -472,7 +472,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let slate: Result<Slate> = match to.address_type() {
                 AddressType::Keybase => {
                     if let Some((publisher, _)) = keybase_broker {
-                        let slate = wallet.lock().unwrap().initiate_receive_tx(password, &account[..], amount, 10, "all", 1, 500)?;
+                        let slate = wallet.lock().unwrap().initiate_receive_tx(password, &account[..], amount)?;
                         publisher.post_slate(&slate, to.borrow())?;
                         Ok(slate)
                     } else {
@@ -481,7 +481,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 },
                 AddressType::Grinbox => {
                     if let Some((publisher, _)) = grinbox_broker {
-                        let slate = wallet.lock().unwrap().initiate_receive_tx(password, &account[..], amount, 10, "all", 1, 500)?;
+                        let slate = wallet.lock().unwrap().initiate_receive_tx(password, &account[..], amount)?;
                         publisher.post_slate(&slate, to.borrow())?;
                         Ok(slate)
                     } else {

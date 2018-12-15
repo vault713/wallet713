@@ -94,19 +94,15 @@ impl Wallet {
         Ok(s)
     }
 
-    pub fn initiate_receive_tx(&mut self, password: &str, account: &str, amount: u64, minimum_confirmations: u64, selection_strategy: &str, change_outputs: usize, max_outputs: usize) -> Result<Slate> {
+    pub fn initiate_receive_tx(&mut self, password: &str, account: &str, amount: u64) -> Result<Slate> {
         let wallet = self.get_wallet_instance(password)?;
         let mut api = super::api::Wallet713ForeignAPI::new(wallet.clone());
         let (slate, add_fn) = api.initiate_receive_tx(
             Some(account),
             amount,
-            minimum_confirmations,
-            max_outputs,
-            change_outputs,
-            selection_strategy == "all",
             None,
         )?;
-        api.tx_add_outputs(&slate, add_fn);
+        api.tx_add_outputs(&slate, add_fn)?;
         Ok(slate)
     }
 
@@ -161,7 +157,7 @@ impl Wallet {
                 })?;
             } else {
                 let mut api = super::api::Wallet713OwnerAPI::new(wallet.clone());
-                let (lock_fn) = api.invoice_tx(
+                let lock_fn = api.invoice_tx(
                     Some(account),
                     slate,
                     10,
