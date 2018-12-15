@@ -425,34 +425,30 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             };
 
             let to = address?;
-            let slate: Result<Slate> = match to.address_type() {
+            let slate = wallet.lock().unwrap().initiate_send_tx(passphrase, account, amount, 10, "all", 1, 500)?;
+            println!("{}", serde_json::to_string(&slate).unwrap());
+            match to.address_type() {
                 AddressType::Keybase => {
                     if let Some((publisher, _)) = keybase_broker {
-                        let slate = wallet.lock().unwrap().initiate_send_tx(passphrase, account, amount, 10, "all", 1, 500)?;
                         publisher.post_slate(&slate, to.borrow())?;
-                        Ok(slate)
                     } else {
                         Err(Wallet713Error::ClosedListener("keybase".to_string()))?
                     }
                 },
                 AddressType::Grinbox => {
                     if let Some((publisher, _)) = grinbox_broker {
-                        let slate = wallet.lock().unwrap().initiate_send_tx(passphrase, account, amount, 10, "all", 1, 500)?;
                         publisher.post_slate(&slate, to.borrow())?;
-                        Ok(slate)
                     } else {
                         Err(Wallet713Error::ClosedListener("grinbox".to_string()))?
                     }
                 },
             };
 
-            if let Ok(slate) = slate {
-                cli_message!("slate [{}] for [{}] grins sent successfully to [{}]",
-                    slate.id.to_string().bright_green(),
-                    core::amount_to_hr_string(slate.amount, false).bright_green(),
-                    to.stripped().bright_green()
-                );
-            }
+            cli_message!("slate [{}] for [{}] grins sent successfully to [{}]",
+                slate.id.to_string().bright_green(),
+                core::amount_to_hr_string(slate.amount, false).bright_green(),
+                to.stripped().bright_green()
+            );
         },
         Some("invoice") => {
             let args = matches.subcommand_matches("invoice").unwrap();
