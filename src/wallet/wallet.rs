@@ -116,7 +116,7 @@ impl Wallet {
                 ))?
             }
 
-            let tx = api.get_stored_tx(&txs[0])?;
+            let tx = txs[0].get_stored_tx();
             if tx.is_none() {
                 return Err(grin_wallet::libwallet::ErrorKind::GenericError(
                     format!("no transaction data stored for id {}, can not repost!", id)
@@ -145,55 +145,73 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn process_slate(&self, account: &str, passphrase: &str, slate: &mut Slate) -> Result<bool> {
+    pub fn process_sender_initiated_slate(&self, account: &str, passphrase: &str, slate: &mut Slate) -> Result<()> {
         let wallet = self.get_wallet_instance(passphrase, account)?;
-        let is_finalized = if slate.num_participants > slate.participant_data.len() {
-            if slate.fee != 0 {
-                controller::foreign_single_use(wallet.clone(), |api| {
-                    api.receive_tx(slate, Some(account), None)?;
-                    Ok(())
-                }).map_err(|_| {
-                    Wallet713Error::GrinWalletReceiveError
-                })?;
+        controller::foreign_single_use(wallet.clone(), |api| {
+            api.receive_tx(slate, Some(account), None)?;
+            Ok(())
+        }).map_err(|_| {
+            Wallet713Error::GrinWalletReceiveError
+        })?;
+        Ok(())
+    }
+
+    pub fn process_receiver_initiated_slate(&self, account: &str, passphrase: &str, slate: &mut Slate) -> Result<()> {
+        //TODO: request for permission from user to pay for invoice
+        let wallet = self.get_wallet_instance(passphrase, account)?;
+        let mut api = super::api::Wallet713OwnerAPI::new(wallet.clone());
+        let lock_fn = api.invoice_tx(
+            Some(account),
+            slate,
+            10,
+            500,
+            1,
+            true,
+            None,
+        )?;
+        controller::owner_single_use(wallet.clone(), |api| {
+            api.tx_lock_outputs(&slate, lock_fn)?;
+            Ok(())
+        })?;
+        Ok(())
+    }
+
+    pub fn finalize_slate(&self, account: &str, passphrase: &str, slate: &mut Slate) -> Result<()> {
+        let wallet = self.get_wallet_instance(passphrase, account)?;
+        controller::owner_single_use(wallet.clone(), |api| {
+            api.verify_slate_messages(&slate)?;
+            Ok(())
+        }).map_err(|_| {
+            Wallet713Error::GrinWalletVerifySlateMessagesError
+        })?;
+        controller::owner_single_use(wallet.clone(), |api| {
+            api.finalize_tx(slate)?;
+            Ok(())
+        }).map_err(|_| {
+            Wallet713Error::GrinWalletFinalizeError
+        })?;
+        controller::owner_single_use(wallet.clone(), |api| {
+            api.post_tx(&slate.tx, false)?;
+            Ok(())
+        }).map_err(|_| {
+            Wallet713Error::GrinWalletPostError
+        })?;
+        Ok(())
+    }
+
+    pub fn process_slate(&self, account: &str, passphrase: &str, slate: &mut Slate) -> Result<bool> {
+        if slate.num_participants > slate.participant_data.len() {
+            //TODO: this needs to be changed to properly figure out if this slate is an invoice or a send
+            if slate.tx.inputs().len() == 0 {
+                self.process_receiver_initiated_slate(account, passphrase, slate)?;
             } else {
-                let mut api = super::api::Wallet713OwnerAPI::new(wallet.clone());
-                let lock_fn = api.invoice_tx(
-                    Some(account),
-                    slate,
-                    10,
-                    500,
-                    1,
-                    true,
-                    None,
-                )?;
-                controller::owner_single_use(wallet.clone(), |api| {
-                    api.tx_lock_outputs(&slate, lock_fn)?;
-                    Ok(())
-                })?;
-            };
-            false
+                self.process_sender_initiated_slate(account, passphrase, slate)?;
+            }
+            Ok(false)
         } else {
-            controller::owner_single_use(wallet.clone(), |api| {
-                api.verify_slate_messages(&slate)?;
-                Ok(())
-            }).map_err(|_| {
-                Wallet713Error::GrinWalletVerifySlateMessagesError
-            })?;
-            controller::owner_single_use(wallet.clone(), |api| {
-                api.finalize_tx(slate)?;
-                Ok(())
-            }).map_err(|_| {
-                Wallet713Error::GrinWalletFinalizeError
-            })?;
-            controller::owner_single_use(wallet.clone(), |api| {
-                api.post_tx(&slate.tx, false)?;
-                Ok(())
-            }).map_err(|_| {
-                Wallet713Error::GrinWalletPostError
-            })?;
-            true
-        };
-        Ok(is_finalized)
+            self.finalize_slate(account, passphrase, slate)?;
+            Ok(true)
+        }
     }
 
     fn init_seed(&self, wallet_config: &WalletConfig, passphrase: &str) -> Result<WalletSeed> {

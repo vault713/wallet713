@@ -7,10 +7,11 @@ use grin_wallet::libwallet::types::{
     OutputStatus, Context, NodeClient, OutputData, TxLogEntry, TxLogEntryType, WalletBackend,
 };
 use grin_wallet::libwallet::{Error, ErrorKind};
-use grin_core::core::Transaction;
+//use grin_core::core::Transaction;
 use grin_keychain::{Keychain, Identifier};
 use grin_core::libtx::slate::Slate;
 use grin_core::libtx::build;
+use grin_core::ser;
 
 pub struct Wallet713OwnerAPI<W: ?Sized, C, K>
     where
@@ -58,7 +59,7 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
         selection_strategy_is_use_all: bool,
         message: Option<String>,
     ) -> Result<(
-        impl FnOnce(&mut W, &Transaction) -> Result<(), Error>
+        impl FnOnce(&mut W, &str) -> Result<(), Error>
     ), Error> {
         let mut w = self.wallet.lock();
         w.open_with_credentials()?;
@@ -73,10 +74,12 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
             None => w.parent_key_id(),
         };
 
-        let tx = updater::retrieve_txs(&mut *w, None, Some(slate.id), Some(&parent_key_id))?;
+        let tx = updater::retrieve_txs(&mut *w, None, Some(slate.id), &parent_key_id)?;
         for t in &tx {
             if t.tx_type == TxLogEntryType::TxReceived {
-                return Err(ErrorKind::TransactionAlreadyReceived(slate.id.to_string()).into());
+                //TODO: update this line
+                //return Err(ErrorKind::TransactionAlreadyReceived(slate.id.to_string()).into());
+                return Err(ErrorKind::Secp.into());
             }
         }
 
@@ -96,7 +99,7 @@ fn invoice_tx<T: ?Sized, C, K>(
     parent_key_id: Identifier,
     message: Option<String>,
 ) -> Result<(
-    impl FnOnce(&mut T, &Transaction) -> Result<(), Error>
+    impl FnOnce(&mut T, &str) -> Result<(), Error>
 ), Error>
     where
         T: WalletBackend<C, K>,
@@ -145,14 +148,14 @@ fn invoice_tx<T: ?Sized, C, K>(
     let lock_inputs = context.get_inputs().clone();
     let _lock_outputs = context.get_outputs().clone();
 
-    let update_sender_wallet_fn = move |wallet: &mut T, tx: &Transaction| {
+    let update_sender_wallet_fn = move |wallet: &mut T, tx_hex: &str| {
         let tx_entry = {
             let mut batch = wallet.batch()?;
             let log_id = batch.next_tx_log_id(&parent_key_id)?;
             let mut t = TxLogEntry::new(parent_key_id.clone(), TxLogEntryType::TxReceived, log_id);
             t.tx_slate_id = Some(slate_id);
             let filename = format!("{}.grintx", slate_id);
-            t.tx_hex = Some(filename);
+            t.tx_hex = Some(tx_hex.to_owned());
             t.fee = Some(fee);
             let mut amount_debited = 0;
             t.num_inputs = lock_inputs.len();
@@ -184,7 +187,7 @@ fn invoice_tx<T: ?Sized, C, K>(
             batch.commit()?;
             t
         };
-        wallet.store_tx(&format!("{}", tx_entry.tx_slate_id.unwrap()), tx)?;
+        //wallet.store_tx(&format!("{}", tx_entry.tx_slate_id.unwrap()), tx)?;
         Ok(())
     };
 
@@ -223,7 +226,7 @@ impl<W: ?Sized, C, K> Wallet713ForeignAPI<W, C, K>
     ) -> Result<
         (
             Slate,
-            impl FnOnce(&mut W, &Transaction) -> Result<(), Error>,
+            impl FnOnce(&mut W, &str) -> Result<(), Error>,
         ),
         Error,
     > {
@@ -260,11 +263,12 @@ impl<W: ?Sized, C, K> Wallet713ForeignAPI<W, C, K>
     pub fn tx_add_outputs(
         &mut self,
         slate: &Slate,
-        add_fn: impl FnOnce(&mut W, &Transaction) -> Result<(), Error>,
+        add_fn: impl FnOnce(&mut W, &str) -> Result<(), Error>,
     ) -> Result<(), Error> {
         let mut w = self.wallet.lock();
         w.open_with_credentials()?;
-        add_fn(&mut *w, &slate.tx)?;
+        let tx_hex = grin_util::to_hex(ser::ser_vec(&slate.tx).unwrap());
+        add_fn(&mut *w, &tx_hex)?;
         Ok(())
     }
 }
@@ -278,7 +282,7 @@ fn create_receive_tx<T: ?Sized, C, K>(
     (
         Slate,
         Context,
-        impl FnOnce(&mut T, &Transaction) -> Result<(), Error>,
+        impl FnOnce(&mut T, &str) -> Result<(), Error>,
     ),
     Error,
 >
@@ -322,7 +326,7 @@ fn build_receive_tx_slate<T: ?Sized, C, K>(
     (
         Slate,
         Context,
-        impl FnOnce(&mut T, &Transaction) -> Result<(), Error>,
+        impl FnOnce(&mut T, &str) -> Result<(), Error>,
     ),
     Error,
 >
@@ -353,11 +357,12 @@ fn build_receive_tx_slate<T: ?Sized, C, K>(
 
     let slate_id = slate.id.clone();
     let key_id_inner = key_id.clone();
-    let wallet_add_fn = move |wallet: &mut T, tx: &Transaction| {
+    let wallet_add_fn = move |wallet: &mut T, tx_hex: &str| {
         let tx_log_entry = {
             let mut batch = wallet.batch()?;
             let log_id = batch.next_tx_log_id(&parent_key_id)?;
             let mut t = TxLogEntry::new(parent_key_id.clone(), TxLogEntryType::TxSent, log_id);
+            t.tx_hex = Some(tx_hex.to_owned());
             t.tx_slate_id = Some(slate_id);
             t.amount_credited = amount;
             t.num_outputs = 1;
@@ -376,7 +381,7 @@ fn build_receive_tx_slate<T: ?Sized, C, K>(
             batch.commit()?;
             t
         };
-        wallet.store_tx(&format!("{}", tx_log_entry.tx_slate_id.unwrap()), tx)?;
+        //wallet.store_tx(&format!("{}", tx_log_entry.tx_slate_id.unwrap()), tx)?;
         Ok(())
     };
     Ok((slate, context, wallet_add_fn))

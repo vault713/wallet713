@@ -426,7 +426,6 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
 
             let to = address?;
             let slate = wallet.lock().unwrap().initiate_send_tx(passphrase, account, amount, 10, "all", 1, 500)?;
-            println!("{}", serde_json::to_string(&slate).unwrap());
             match to.address_type() {
                 AddressType::Keybase => {
                     if let Some((publisher, _)) = keybase_broker {
