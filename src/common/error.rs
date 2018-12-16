@@ -6,6 +6,8 @@ pub enum Wallet713Error {
     InvalidTxId(String),
     #[fail(display = "invalid amount given: `{}`", 0)]
     InvalidAmount(String),
+    #[fail(display = "invalid number of outputs given: `{}`", 0)]
+    InvalidNumOutputs(String),
     #[fail(display = "could not find a wallet! consider using `init`.")]
     NoWallet,
     #[fail(display = "{} listener is closed! consider using `listen` first.", 0)]

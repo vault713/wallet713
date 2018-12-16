@@ -98,12 +98,13 @@ impl Wallet {
         Ok(s)
     }
 
-    pub fn initiate_receive_tx(&mut self, passphrase: &str, account: &str, amount: u64) -> Result<Slate> {
+    pub fn initiate_receive_tx(&mut self, passphrase: &str, account: &str, amount: u64, num_outputs: usize) -> Result<Slate> {
         let wallet = self.get_wallet_instance(passphrase, account)?;
         let mut api = super::api::Wallet713ForeignAPI::new(wallet.clone());
         let (slate, add_fn) = api.initiate_receive_tx(
             Some(account),
             amount,
+            num_outputs,
             None,
         )?;
         api.tx_add_outputs(&slate, add_fn)?;
@@ -120,15 +121,15 @@ impl Wallet {
                 ))?
             }
 
-            let tx = txs[0].get_stored_tx();
-            if tx.is_none() {
-                return Err(grin_wallet::libwallet::ErrorKind::GenericError(
+            let stored_tx = api.get_stored_tx(&txs[0])?;
+            if let Some(tx) = stored_tx {
+                api.post_tx(&tx, fluff)?;
+                Ok(())
+            } else {
+                Err(grin_wallet::libwallet::ErrorKind::GenericError(
                     format!("no transaction data stored for id {}, can not repost!", id)
                 ))?
             }
-
-            api.post_tx(&tx.unwrap(), fluff)?;
-            Ok(())
         })?;
         Ok(())
     }

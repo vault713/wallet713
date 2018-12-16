@@ -118,6 +118,9 @@ impl<'a, 'b> Parser {
                     .arg(
                         Arg::from_usage("<amount> 'the amount of grins to send'")
                     )
+                    .arg(
+                        Arg::from_usage("[change-outputs] -o, --change-outputs=<change-outputs> 'the number of change outputs'")
+                    )
             )
             .subcommand(
                 SubCommand::with_name("invoice")
@@ -127,6 +130,9 @@ impl<'a, 'b> Parser {
                     )
                     .arg(
                         Arg::from_usage("<amount> 'the amount of grins to send'")
+                    )
+                    .arg(
+                        Arg::from_usage("[outputs] -o, --outputs=<outputs> 'the number of outputs'")
                     )
             )
             .subcommand(
