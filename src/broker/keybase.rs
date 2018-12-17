@@ -46,6 +46,7 @@ impl KeybaseSubscriber {
 impl Publisher for KeybasePublisher {
     fn post_slate(&self, slate: &Slate, to: &Address) -> Result<(), Error> {
         let keybase_address = KeybaseAddress::from_str(&to.to_string()).unwrap();
+
         if let Some(topic) = keybase_address.topic {
             match topic.as_ref() {
                 TOPIC_SLATE_NEW => KeybaseBroker::send(&slate, &to.stripped(), TOPIC_SLATE_SIGNED, DEFAULT_TTL)?,
