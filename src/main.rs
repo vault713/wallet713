@@ -103,8 +103,17 @@ fn do_contacts(args: &ArgMatches, address_book: Arc<Mutex<AddressBook>>) -> Resu
     if let Some(add_args) = args.subcommand_matches("add") {
         let name = add_args.value_of("name").expect("missing argument: name");
         let address = add_args.value_of("address").expect("missing argument: address");
-        let address = Address::parse(address)?;
-        let contact = Contact::new(name, address)?;
+
+        // try parse as a general address and fallback to grinbox address
+        let contact_address = Address::parse(address);
+        let contact_address: Result<Box<Address>> = match contact_address {
+            Ok(address) => Ok(address),
+            Err(e) => {
+                Ok(Box::new(GrinboxAddress::from_str(address).map_err(|_| e)?) as Box<Address>)
+            }
+        };
+
+        let contact = Contact::new(name, contact_address?)?;
         address_book.add_contact(&contact)?;
     } else if let Some(add_args) = args.subcommand_matches("remove") {
         let name = add_args.value_of("name").unwrap();
@@ -455,7 +464,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 to = contact.get_address().to_string();
             }
 
-            // try parse as a general address
+            // try parse as a general address and fallback to grinbox address
             let address = Address::parse(&to);
             let address: Result<Box<Address>> = match address {
                 Ok(address) => Ok(address),
