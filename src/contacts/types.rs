@@ -6,7 +6,7 @@ use common::crypto::{PublicKey, Base58};
 
 const ADDRESS_REGEX: &str = r"^((?P<address_type>keybase|grinbox)://).+$";
 const GRINBOX_ADDRESS_REGEX: &str = r"^(grinbox://)?(?P<public_key>[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{52})(@(?P<domain>[a-zA-Z0-9\.]+)(:(?P<port>[0-9]*))?)?$";
-const KEYBASE_ADDRESS_REGEX: &str = r"^(keybase://)?(?P<username>[0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_]{1,16})$";
+const KEYBASE_ADDRESS_REGEX: &str = r"^(keybase://)?(?P<username>[0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_]{1,16}(:(?P<topic>[a-zA-Z0-9_-]+))?)$";
 const DEFAULT_GRINBOX_DOMAIN: &str = "grinbox.io";
 const DEFAULT_GRINBOX_PORT: u16 = 13420;
 
@@ -133,6 +133,7 @@ impl Display for Contact {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KeybaseAddress {
     pub username: String,
+    pub topic: Option<String>
 }
 
 impl Address for KeybaseAddress {
@@ -145,8 +146,10 @@ impl Address for KeybaseAddress {
 
         let captures = captures.unwrap();
         let username = captures.name("username").unwrap().as_str().to_string();
+        let topic = captures.name("topic").map(|m| m.as_str().to_string());
         Ok(Self {
-            username
+            username,
+            topic
         })
     }
 
@@ -162,6 +165,9 @@ impl Address for KeybaseAddress {
 impl Display for KeybaseAddress {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "keybase://{}", self.username)?;
+        if let Some(ref topic) = self.topic {
+            write!(f, ":{}", topic)?;
+        }
         Ok(())
     }
 }
