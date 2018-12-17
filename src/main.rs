@@ -163,6 +163,21 @@ impl Controller {
             publisher
         })
     }
+
+    fn process_incoming_slate(&self, slate: &mut Slate) -> Result<bool> {
+        if slate.num_participants > slate.participant_data.len() {
+            //TODO: this needs to be changed to properly figure out if this slate is an invoice or a send
+            if slate.tx.inputs().len() == 0 {
+                self.wallet.lock().unwrap().process_receiver_initiated_slate(slate)?;
+            } else {
+                self.wallet.lock().unwrap().process_sender_initiated_slate(slate)?;
+            }
+            Ok(false)
+        } else {
+            self.wallet.lock().unwrap().finalize_slate(slate)?;
+            Ok(true)
+        }
+    }
 }
 
 impl SubscriptionHandler for Controller {
@@ -189,17 +204,25 @@ impl SubscriptionHandler for Controller {
                 core::amount_to_hr_string(slate.amount, false).bright_green()
             );
         };
-        let is_finalized = self.wallet.lock().unwrap().process_slate("default", "", slate).expect("failed processing slate!");
-        if !is_finalized {
-            self.publisher.post_slate(slate, from).expect("failed posting slate!");
-            cli_message!("slate [{}] sent back to [{}] successfully",
-                slate.id.to_string().bright_green(),
-                display_from.bright_green()
-            );
-        } else {
-            cli_message!("slate [{}] finalized successfully",
-                slate.id.to_string().bright_green()
-            );
+
+        let result = self.process_incoming_slate(slate).and_then(|is_finalized| {
+            if !is_finalized {
+                self.publisher.post_slate(slate, from).expect("failed posting slate!");
+                cli_message!("slate [{}] sent back to [{}] successfully",
+                    slate.id.to_string().bright_green(),
+                    display_from.bright_green()
+                );
+            } else {
+                cli_message!("slate [{}] finalized successfully",
+                    slate.id.to_string().bright_green()
+                );
+            }
+            Ok(())
+        });
+
+        match result {
+            Ok(()) => {},
+            Err(e) => cli_message!("failed processing incoming slate: {}", e),
         }
     }
 
@@ -269,11 +292,23 @@ fn main() {
     let address_book = AddressBook::new(Box::new(address_book_backend)).expect("could not create an address book!");
     let address_book = Arc::new(Mutex::new(address_book));
 
-    let wallet = Wallet::new();
+    let wallet = Wallet::new(config.max_auto_accept_invoice);
     let wallet = Arc::new(Mutex::new(wallet));
 
     let mut grinbox_broker: Option<(GrinboxPublisher, GrinboxSubscriber)> = None;
     let mut keybase_broker: Option<(KeybasePublisher, KeybaseSubscriber)> = None;
+
+    if let Some(auto_start) = config.grinbox_listener_auto_start {
+        if auto_start {
+            do_command("listen -g", &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker).unwrap();
+        }
+    }
+
+    if let Some(auto_start) = config.keybase_listener_auto_start {
+        if auto_start {
+            do_command("listen -k", &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker).unwrap();
+        }
+    }
 
     loop {
         cli_message!();
@@ -298,6 +333,15 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         Some("init") => {
             let passphrase = matches.subcommand_matches("init").unwrap().value_of("passphrase").unwrap_or("");
             wallet.lock().unwrap().init(passphrase)?;
+        },
+        Some("lock") => {
+            wallet.lock().unwrap().lock();
+        },
+        Some("unlock") => {
+            let args = matches.subcommand_matches("unlock").unwrap();
+            let account = args.value_of("account").unwrap_or("default");
+            let passphrase = args.value_of("passphrase").unwrap();
+            wallet.lock().unwrap().unlock(account, passphrase)?;
         },
         Some("listen") => {
             let grinbox = matches.subcommand_matches("listen").unwrap().is_present("grinbox");
@@ -360,16 +404,10 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             }
         },
         Some("info") => {
-            let args = matches.subcommand_matches("info").unwrap();
-            let passphrase = args.value_of("passphrase").unwrap_or("");
-            let account = args.value_of("account").unwrap_or("default");
-            wallet.lock().unwrap().info(passphrase, account)?;
+            wallet.lock().unwrap().info()?;
         },
         Some("txs") => {
-            let args = matches.subcommand_matches("txs").unwrap();
-            let passphrase = args.value_of("passphrase").unwrap_or("");
-            let account = args.value_of("account").unwrap_or("default");
-            wallet.lock().unwrap().txs(passphrase, account)?;
+            wallet.lock().unwrap().txs()?;
         },
         Some("contacts") => {
             let arg_matches = matches.subcommand_matches("contacts").unwrap();
@@ -377,35 +415,27 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         },
         Some("outputs") => {
             let args = matches.subcommand_matches("outputs").unwrap();
-            let passphrase = args.value_of("passphrase").unwrap_or("");
-            let account = args.value_of("account").unwrap_or("default");
             let show_spent = args.is_present("show-spent");
-            wallet.lock().unwrap().outputs(passphrase, account, show_spent)?;
+            wallet.lock().unwrap().outputs(show_spent)?;
         },
         Some("repost") => {
             let args = matches.subcommand_matches("repost").unwrap();
-            let passphrase = args.value_of("passphrase").unwrap_or("");
-            let account = args.value_of("account").unwrap_or("default");
             let id = args.value_of("id").unwrap();
             let id = id.parse::<u32>().map_err(|_| {
                 Wallet713Error::InvalidTxId(id.to_string())
             })?;
-            wallet.lock().unwrap().repost(account, passphrase, id, false)?;
+            wallet.lock().unwrap().repost(id, false)?;
         },
         Some("cancel") => {
             let args = matches.subcommand_matches("cancel").unwrap();
-            let passphrase = args.value_of("passphrase").unwrap_or("");
-            let account = args.value_of("account").unwrap_or("default");
             let id = args.value_of("id").unwrap();
             let id = id.parse::<u32>().map_err(|_| {
                 Wallet713Error::InvalidTxId(id.to_string())
             })?;
-            wallet.lock().unwrap().cancel(account, passphrase, id)?;
+            wallet.lock().unwrap().cancel(id)?;
         },
         Some("send") => {
             let args = matches.subcommand_matches("send").unwrap();
-            let account = args.value_of("account").unwrap_or("default");
-            let passphrase = args.value_of("passphrase").unwrap_or("");
             let to = args.value_of("to").unwrap();
 
             let change_outputs = args.value_of("change-outputs").unwrap_or("1");
@@ -438,7 +468,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let slate: Result<Slate> = match to.address_type() {
                 AddressType::Keybase => {
                     if let Some((publisher, _)) = keybase_broker {
-                        let slate = wallet.lock().unwrap().initiate_send_tx(passphrase, account, amount, 10, "smallest", change_outputs, 500)?;
+                        let slate = wallet.lock().unwrap().initiate_send_tx(amount, 10, "smallest", change_outputs, 500)?;
                         publisher.post_slate(&slate, to.borrow())?;
                         Ok(slate)
                     } else {
@@ -447,7 +477,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 },
                 AddressType::Grinbox => {
                     if let Some((publisher, _)) = grinbox_broker {
-                        let slate = wallet.lock().unwrap().initiate_send_tx(passphrase, account, amount, 10, "smallest", change_outputs, 500)?;
+                        let slate = wallet.lock().unwrap().initiate_send_tx(amount, 10, "smallest", change_outputs, 500)?;
                         publisher.post_slate(&slate, to.borrow())?;
                         Ok(slate)
                     } else {
@@ -466,8 +496,6 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         },
         Some("invoice") => {
             let args = matches.subcommand_matches("invoice").unwrap();
-            let passphrase = args.value_of("passphrase").unwrap_or("");
-            let account = args.value_of("account").unwrap_or("default");
             let to = args.value_of("to").unwrap();
             let outputs = args.value_of("outputs").unwrap_or("1");
             let outputs = usize::from_str_radix(outputs, 10)
@@ -498,7 +526,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let slate: Result<Slate> = match to.address_type() {
                 AddressType::Keybase => {
                     if let Some((publisher, _)) = keybase_broker {
-                        let slate = wallet.lock().unwrap().initiate_receive_tx(passphrase, account, amount, outputs)?;
+                        let slate = wallet.lock().unwrap().initiate_receive_tx(amount, outputs)?;
                         publisher.post_slate(&slate, to.borrow())?;
                         Ok(slate)
                     } else {
@@ -507,7 +535,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 },
                 AddressType::Grinbox => {
                     if let Some((publisher, _)) = grinbox_broker {
-                        let slate = wallet.lock().unwrap().initiate_receive_tx(passphrase, account, amount, outputs)?;
+                        let slate = wallet.lock().unwrap().initiate_receive_tx(amount, outputs)?;
                         publisher.post_slate(&slate, to.borrow())?;
                         Ok(slate)
                     } else {
@@ -524,11 +552,8 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             );
         },
         Some("restore") => {
-            let args = matches.subcommand_matches("restore").unwrap();
-            let passphrase = args.value_of("passphrase").unwrap_or("");
-            let account = args.value_of("account").unwrap_or("default");
             println!("restoring... please wait as this could take a few minutes to complete.");
-            wallet.lock().unwrap().restore(account, passphrase)?;
+            wallet.lock().unwrap().restore()?;
             cli_message!("wallet restoration done!");
         },
         Some(subcommand) => {

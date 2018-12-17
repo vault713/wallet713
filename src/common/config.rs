@@ -34,6 +34,9 @@ pub struct Wallet713Config {
     pub grinbox_private_key: String,
     pub grin_node_uri: String,
     pub grin_node_secret: Option<String>,
+    pub grinbox_listener_auto_start: Option<bool>,
+    pub keybase_listener_auto_start: Option<bool>,
+    pub max_auto_accept_invoice: Option<u64>,
 }
 
 impl Wallet713Config {

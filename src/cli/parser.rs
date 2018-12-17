@@ -47,15 +47,26 @@ impl<'a, 'b> Parser {
                 SubCommand::with_name("init")
                     .about("initializes the wallet")
                     .arg(
-                        Arg::from_usage("[password] -p, --password=<password> 'the password to use'")
+                        Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'")
+                    )
+            )
+            .subcommand(
+                SubCommand::with_name("lock")
+                    .about("locks the wallet")
+            )
+            .subcommand(
+                SubCommand::with_name("unlock")
+                    .about("unlocks the wallet")
+                    .arg(
+                        Arg::from_usage("[account] -a, --account=<account> 'the account to use'")
+                    )
+                    .arg(
+                        Arg::from_usage("-p, --passphrase=<passphrase> 'the passphrase to use'")
                     )
             )
             .subcommand(
                 SubCommand::with_name("info")
                     .about("displays wallet info")
-                    .arg(
-                        Arg::from_usage("[password] -p, --password=<password> 'the password to use'")
-                    )
             )
             .subcommand(
                 SubCommand::with_name("contacts")
@@ -141,18 +152,12 @@ impl<'a, 'b> Parser {
                     .arg(
                         Arg::from_usage("-i, --id=<id> 'the transaction id'")
                     )
-                    .arg(
-                        Arg::from_usage("[password] -p, --password=<password> 'the password to use'")
-                    )
             )
             .subcommand(
                 SubCommand::with_name("cancel")
                     .about("cancels an existing transaction.")
                     .arg(
                         Arg::from_usage("-i, --id=<id> 'the transaction id'")
-                    )
-                    .arg(
-                        Arg::from_usage("[password] -p, --password=<password> 'the password to use'")
                     )
             )
             .subcommand(
