@@ -17,7 +17,7 @@ colored = "1.6"
 ws = "*"
 dirs = "1"
 futures = "0.1"
-tokio = "*"
+tokio = "= 0.1.11"
 rand = "0.4"
 secp256k1 = { version="0.11", features=["rand"] }
 sha2 = "0.8.0"
@@ -27,8 +27,8 @@ failure = "0.1"
 uuid = { version = "0.6", features = ["serde", "v4"] }
 regex = "1"
 
-grin_core = { git = "https://github.com/mimblewimble/grin"}
-grin_wallet = { git = "https://github.com/mimblewimble/grin"}
-grin_keychain = { git = "https://github.com/mimblewimble/grin"}
-grin_util = { git = "https://github.com/mimblewimble/grin"}
-grin_store = { git = "https://github.com/mimblewimble/grin"}
+grin_core = { git = "https://github.com/mimblewimble/grin" }
+grin_wallet = { git = "https://github.com/mimblewimble/grin" }
+grin_keychain = { git = "https://github.com/mimblewimble/grin" }
+grin_util = { git = "https://github.com/mimblewimble/grin" }
+grin_store = { git = "https://github.com/mimblewimble/grin" }

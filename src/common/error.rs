@@ -6,7 +6,11 @@ pub enum Wallet713Error {
     InvalidTxId(String),
     #[fail(display = "invalid amount given: `{}`", 0)]
     InvalidAmount(String),
-    #[fail(display = "could not find a wallet! consider using `init`.")]
+    #[fail(display = "invalid number of outputs given: `{}`", 0)]
+    InvalidNumOutputs(String),
+    #[fail(display = "could not unlock wallet! are you using the correct passphrase?.")]
+    WalletUnlockFailed,
+    #[fail(display = "could not open wallet! use `unlock` or `init`.")]
     NoWallet,
     #[fail(display = "{} listener is closed! consider using `listen` first.", 0)]
     ClosedListener(String),
@@ -38,6 +42,8 @@ pub enum Wallet713Error {
     KeybaseMessageSendError,
     #[fail(display = "failed receiving slate!")]
     GrinWalletReceiveError,
+    #[fail(display = "failed verifying slate messages!")]
+    GrinWalletVerifySlateMessagesError,
     #[fail(display = "failed finalizing slate!")]
     GrinWalletFinalizeError,
     #[fail(display = "failed posting transaction!")]
@@ -46,4 +52,8 @@ pub enum Wallet713Error {
     KeybaseNotFound,
     #[fail(display = "grinbox websocket terminated unexpectedly!")]
     GrinboxWebsocketAbnormalTermination,
+    #[fail(display = "rejecting invoice as auto invoice acceptance is turned off!")]
+    DoesNotAcceptInvoices,
+    #[fail(display = "rejecting invoice as amount '{}' is too big!", 0)]
+    InvoiceAmountTooBig(u64),
 }
