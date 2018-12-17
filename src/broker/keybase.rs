@@ -13,6 +13,7 @@ use common::{Error, Wallet713Error};
 use contacts::{Address, KeybaseAddress};
 use super::types::{Publisher, Subscriber, SubscriptionHandler, CloseReason};
 
+const TOPIC_SLATE_TO_GRIN_MARKER: &str = "grin";
 const TOPIC_WALLET713_SLATES: &str = "wallet713_grin_slate";
 const TOPIC_SLATE_NEW: &str = "grin_slate_new";
 const TOPIC_SLATE_SIGNED: &str = "grin_slate_signed";
@@ -49,6 +50,7 @@ impl Publisher for KeybasePublisher {
 
         if let Some(topic) = keybase_address.topic {
             match topic.as_ref() {
+                TOPIC_SLATE_TO_GRIN_MARKER => KeybaseBroker::send(&slate, &to.stripped(), TOPIC_SLATE_NEW, DEFAULT_TTL)?,
                 TOPIC_SLATE_NEW => KeybaseBroker::send(&slate, &to.stripped(), TOPIC_SLATE_SIGNED, DEFAULT_TTL)?,
                 _ => KeybaseBroker::send(&slate, &to.stripped(), TOPIC_WALLET713_SLATES, DEFAULT_TTL)?,
             }
