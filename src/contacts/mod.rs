@@ -1,7 +1,7 @@
 mod types;
 mod backend;
 pub use self::backend::LMDBBackend;
-pub use self::types::{Address, AddressType, GrinboxAddress, KeybaseAddress, Contact, AddressBook};
+pub use self::types::{Address, AddressType, GrinboxAddress, KeybaseAddress, Contact, AddressBook, };
 
 #[cfg(test)]
 mod test {

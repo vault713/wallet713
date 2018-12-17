@@ -478,7 +478,9 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 AddressType::Keybase => {
                     if let Some((publisher, _)) = keybase_broker {
                         let slate = wallet.lock().unwrap().initiate_send_tx(amount, 10, "smallest", change_outputs, 500)?;
-                        publisher.post_slate(&slate, to.borrow())?;
+                        let mut keybase_address = contacts::KeybaseAddress::from_str(&to.to_string())?;
+                        keybase_address.topic = Some(broker::TOPIC_SLATE_NEW.to_string());
+                        publisher.post_slate(&slate, keybase_address.borrow())?;
                         Ok(slate)
                     } else {
                         Err(Wallet713Error::ClosedListener("keybase".to_string()))?
