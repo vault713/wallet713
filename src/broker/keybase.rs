@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::borrow::Borrow;
+use std::iter::FromIterator;
 
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -12,7 +13,9 @@ use common::{Error, Wallet713Error};
 use contacts::{Address, KeybaseAddress};
 use super::types::{Publisher, Subscriber, SubscriptionHandler, CloseReason};
 
-const TOPIC_WALLET713_SLATES: &str = "wallet713_grin_slate";
+pub const TOPIC_SLATE_NEW: &str = "grin_slate_new";
+pub const TOPIC_WALLET713_SLATES: &str = "wallet713_grin_slate";
+const TOPIC_SLATE_SIGNED: &str = "grin_slate_signed";
 const DEFAULT_TTL: &str = "24h";
 const SLEEP_DURATION: Duration = Duration::from_millis(5000);
 
@@ -42,7 +45,12 @@ impl KeybaseSubscriber {
 
 impl Publisher for KeybasePublisher {
     fn post_slate(&self, slate: &Slate, to: &Address) -> Result<(), Error> {
-        KeybaseBroker::send(&slate, &to.stripped(), TOPIC_WALLET713_SLATES, DEFAULT_TTL)?;
+        let keybase_address = KeybaseAddress::from_str(&to.to_string()).unwrap();
+        if let Some(topic) = keybase_address.topic {
+            KeybaseBroker::send(&slate, &to.stripped(), &topic, DEFAULT_TTL)?;
+        } else {
+            KeybaseBroker::send(&slate, &to.stripped(), TOPIC_WALLET713_SLATES, DEFAULT_TTL)?;
+        }
         Ok(())
     }
 }
@@ -58,7 +66,11 @@ impl Subscriber for KeybaseSubscriber {
             if *self.stop_signal.lock().unwrap() {
                 break Ok(())
             };
-            let result = KeybaseBroker::get_unread(TOPIC_WALLET713_SLATES);
+            let result = KeybaseBroker::get_unread(HashSet::from_iter(vec![
+                TOPIC_WALLET713_SLATES,
+                TOPIC_SLATE_NEW,
+                TOPIC_SLATE_SIGNED,
+            ]));
             if let Ok(unread) = result {
                 if !subscribed {
                     subscribed = true;
@@ -68,9 +80,16 @@ impl Subscriber for KeybaseSubscriber {
                     dropped = false;
                     handler.on_reestablished();
                 }
-                for (sender, msg) in &unread {
+                for (sender, topic, msg) in &unread {
+                    let reply_topic = match topic.as_ref() {
+                        TOPIC_SLATE_NEW => TOPIC_SLATE_SIGNED.to_string(),
+                        _ => TOPIC_WALLET713_SLATES.to_string(),
+                    };
                     let mut slate: Slate = serde_json::from_str(msg)?;
-                    let address = KeybaseAddress::from_str(&sender)?;
+                    let address = KeybaseAddress {
+                        username: sender.to_string(),
+                        topic: Some(reply_topic),
+                    };
                     handler.on_slate(address.borrow(), &mut slate);
                 }
             } else {
@@ -133,7 +152,7 @@ impl KeybaseBroker {
         Ok(response)
     }
 
-    pub fn read_from_channel(channel: &str, topic: &str) -> Result<Vec<(String, String)>, Error> {
+    pub fn read_from_channel(channel: &str, topic: &str) -> Result<Vec<(String, String, String)>, Error> {
         let payload = json!({
             "method": "read",
             "params": {
@@ -150,7 +169,7 @@ impl KeybaseBroker {
         });
         let payload = serde_json::to_string(&payload)?;
         let response = KeybaseBroker::api_send(&payload)?;
-        let mut unread: Vec<(String, String)> = Vec::new();
+        let mut unread: Vec<(String, String, String)> = Vec::new();
         let messages = response["result"]["messages"].as_array();
         if let Some(messages) = messages {
             for msg in messages.iter() {
@@ -158,7 +177,7 @@ impl KeybaseBroker {
                     let message = msg["msg"]["content"]["text"]["body"].as_str().unwrap_or("");
                     let sender: &str = msg["msg"]["sender"]["username"].as_str().unwrap_or("");
                     if !message.is_empty() && !sender.is_empty() {
-                        unread.push((sender.to_owned(), message.to_owned()));
+                        unread.push((sender.to_string(), topic.to_string(), message.to_string()));
                     }
                 }
             }
@@ -166,7 +185,7 @@ impl KeybaseBroker {
         Ok(unread)
     }
 
-    pub fn get_unread(topic: &str) -> Result<Vec<(String, String)>, Error> {
+    pub fn get_unread(topics: HashSet<&str>) -> Result<Vec<(String, String, String)>, Error> {
         let payload = json!({
 		    "method": "list",
 		    "params": {
@@ -182,15 +201,16 @@ impl KeybaseBroker {
         let messages = response["result"]["conversations"].as_array();
         if let Some(messages) = messages {
             for msg in messages.iter() {
-                if (msg["unread"] == true) && (msg["channel"]["topic_name"] == topic) {
+                let topic = msg["channel"]["topic_name"].as_str().unwrap();
+                if (msg["unread"] == true) && topics.contains(topic) {
                     let channel = msg["channel"]["name"].as_str().unwrap();
-                    channels.insert(channel.to_string());
+                    channels.insert((channel.to_string(), topic));
                 }
             }
         }
 
-        let mut unread: Vec<(String, String)> = Vec::new();
-        for channel in channels.iter() {
+        let mut unread: Vec<(String, String, String)> = Vec::new();
+        for (channel, topic) in channels.iter() {
             let mut messages = KeybaseBroker::read_from_channel(channel, topic)?;
             unread.append(&mut messages);
         }
