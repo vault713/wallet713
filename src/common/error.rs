@@ -8,7 +8,7 @@ pub enum Wallet713Error {
     InvalidAmount(String),
     #[fail(display = "invalid number of outputs given: `{}`", 0)]
     InvalidNumOutputs(String),
-    #[fail(display = "could not unlock wallet! are you using the correct passphrase?.")]
+    #[fail(display = "could not unlock wallet! are you using the correct passphrase?")]
     WalletUnlockFailed,
     #[fail(display = "could not open wallet! use `unlock` or `init`.")]
     NoWallet,

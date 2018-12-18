@@ -12,7 +12,7 @@ use super::Result;
 use contacts::GrinboxAddress;
 use super::crypto::{SecretKey, PublicKey, public_key_from_secret_key, Hex, Base58, BASE58_CHECK_VERSION_GRIN_TX};
 
-const WALLET713_CONFIG_PATH: &str = "wallet713.toml";
+const WALLET713_DEFAULT_CONFIG_PATH: &str = "wallet713.toml";
 
 const GRIN_HOME: &str = ".grin";
 const GRIN_NODE_API_SECRET_FILE: &str = ".api_secret";
@@ -40,12 +40,12 @@ pub struct Wallet713Config {
 }
 
 impl Wallet713Config {
-    pub fn exists() -> bool {
-        Path::new(WALLET713_CONFIG_PATH).exists()
+    pub fn exists(config_path: Option<&str>) -> bool {
+        Path::new(config_path.unwrap_or(WALLET713_DEFAULT_CONFIG_PATH)).exists()
     }
 
-    pub fn from_file() -> Result<Wallet713Config> {
-        let mut file = File::open(WALLET713_CONFIG_PATH)?;
+    pub fn from_file(config_path: Option<&str>) -> Result<Wallet713Config> {
+        let mut file = File::open(config_path.unwrap_or(WALLET713_DEFAULT_CONFIG_PATH))?;
         let mut toml_str = String::new();
         file.read_to_string(&mut toml_str)?;
         let result: std::result::Result<Wallet713Config, toml::de::Error> = toml::from_str(&toml_str[..]);
@@ -80,9 +80,9 @@ impl Wallet713Config {
         Ok(config)
     }
 
-    pub fn to_file(&self) -> Result<()> {
+    pub fn to_file(&self, config_path: Option<&str>) -> Result<()> {
         let toml_str = toml::to_string(&self)?;
-        let mut f = File::create(WALLET713_CONFIG_PATH)?;
+        let mut f = File::create(config_path.unwrap_or(WALLET713_DEFAULT_CONFIG_PATH))?;
         f.write_all(toml_str.as_bytes())?;
         Ok(())
     }

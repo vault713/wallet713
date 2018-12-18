@@ -21,7 +21,7 @@ extern crate grin_core;
 extern crate grin_store;
 
 use std::sync::{Arc, Mutex};
-use clap::ArgMatches;
+use clap::{App, Arg, ArgMatches};
 use colored::*;
 
 use grin_core::{core};
@@ -44,9 +44,10 @@ use contacts::{Address, AddressType, GrinboxAddress, Contact, AddressBook, LMDBB
 fn do_config(args: &ArgMatches, silent: bool) -> Result<Wallet713Config> {
 	let mut config;
 	let mut any_matches = false;
-    let exists = Wallet713Config::exists();
+    let config_path = args.value_of("config-path");
+    let exists = Wallet713Config::exists(config_path);
 	if exists {
-		config = Wallet713Config::from_file()?;
+		config = Wallet713Config::from_file(config_path)?;
 	} else {
 		config = Wallet713Config::default()?;
 	}
@@ -89,7 +90,7 @@ fn do_config(args: &ArgMatches, silent: bool) -> Result<Wallet713Config> {
         any_matches = exists;
     }
 
-	config.to_file()?;
+	config.to_file(config_path)?;
 
     if !any_matches && !silent {
         cli_message!("{}", config);
@@ -142,8 +143,8 @@ Welcome to wallet713
 const WELCOME_FOOTER: &str = r#"Use `listen` to connect to grinbox or `help` to see available commands
 "#;
 
-fn welcome() -> Result<Wallet713Config> {
-    let config = do_config(&ArgMatches::new(), true)?;
+fn welcome(args: &ArgMatches) -> Result<Wallet713Config> {
+    let config = do_config(args, true)?;
 
 	print!("{}", WELCOME_HEADER.bright_yellow().bold());
     println!("{}: {}", "Your 713.grinbox address".bright_yellow(), config.get_grinbox_address()?.stripped().bright_green());
@@ -252,6 +253,13 @@ impl SubscriptionHandler for Controller {
 }
 
 fn start_grinbox_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>) -> Result<(GrinboxPublisher, GrinboxSubscriber)> {
+    // make sure wallet is not locked, if it is try to unlock with no passphrase
+    if let Ok(mut wallet) = wallet.lock() {
+        if wallet.is_locked() {
+            wallet.unlock(config, "default", "")?;
+        }
+    }
+
     cli_message!("starting grinbox listener...");
     let grinbox_address = config.get_grinbox_address()?;
     let grinbox_secret_key = config.get_grinbox_secret_key()?;
@@ -271,7 +279,14 @@ fn start_grinbox_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, 
     Ok((grinbox_publisher, grinbox_subscriber))
 }
 
-fn start_keybase_listener(_config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>) -> Result<(KeybasePublisher, KeybaseSubscriber)> {
+fn start_keybase_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>) -> Result<(KeybasePublisher, KeybaseSubscriber)> {
+    // make sure wallet is not locked, if it is try to unlock with no passphrase
+    if let Ok(mut wallet) = wallet.lock() {
+        if wallet.is_locked() {
+            wallet.unlock(config, "default", "")?;
+        }
+    }
+
     cli_message!("starting keybase listener...");
     let keybase_subscriber = KeybaseSubscriber::new().expect("could not start keybase subscriber!");
     let keybase_publisher = KeybasePublisher::new().expect("could not start keybase publisher!");;
@@ -291,7 +306,13 @@ fn start_keybase_listener(_config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>,
 }
 
 fn main() {
-	let mut config = welcome().unwrap_or_else(|e| {
+    let matches = App::new("wallet713")
+        .arg(Arg::from_usage("[config-path] -c, --config=<config-path> 'the path to the config file'"))
+        .arg(Arg::from_usage("[account] -a, --account=<account> 'the account to use'"))
+        .arg(Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'"))
+        .get_matches();
+
+	let mut config = welcome(&matches).unwrap_or_else(|e| {
         panic!("{}: could not read or create config! {}", "ERROR".bright_red(), e);
     });
 
@@ -307,15 +328,29 @@ fn main() {
     let mut grinbox_broker: Option<(GrinboxPublisher, GrinboxSubscriber)> = None;
     let mut keybase_broker: Option<(KeybasePublisher, KeybaseSubscriber)> = None;
 
+    if let Some(passphrase) = matches.value_of("passphrase") {
+        let account = matches.value_of("account").unwrap_or("default");
+        let result = wallet.lock().unwrap().unlock(&config, account, passphrase);
+        if let Err(err) = result {
+            cli_message!("{}: {}", "ERROR".bright_red(), err);
+        }
+    }
+
     if let Some(auto_start) = config.grinbox_listener_auto_start {
         if auto_start {
-            do_command("listen -g", &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker).unwrap();
+            let result = do_command("listen -g", &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker);
+            if let Err(err) = result {
+                cli_message!("{}: {}", "ERROR".bright_red(), err);
+            }
         }
     }
 
     if let Some(auto_start) = config.keybase_listener_auto_start {
         if auto_start {
-            do_command("listen -k", &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker).unwrap();
+            let result = do_command("listen -k", &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker);
+            if let Err(err) = result {
+                cli_message!("{}: {}", "ERROR".bright_red(), err);
+            }
         }
     }
 
@@ -341,7 +376,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         },
         Some("init") => {
             let passphrase = matches.subcommand_matches("init").unwrap().value_of("passphrase").unwrap_or("");
-            wallet.lock().unwrap().init(passphrase)?;
+            wallet.lock().unwrap().init(config, passphrase)?;
         },
         Some("lock") => {
             wallet.lock().unwrap().lock();
@@ -350,7 +385,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let args = matches.subcommand_matches("unlock").unwrap();
             let account = args.value_of("account").unwrap_or("default");
             let passphrase = args.value_of("passphrase").unwrap();
-            wallet.lock().unwrap().unlock(account, passphrase)?;
+            wallet.lock().unwrap().unlock(config, account, passphrase)?;
         },
         Some("listen") => {
             let grinbox = matches.subcommand_matches("listen").unwrap().is_present("grinbox");

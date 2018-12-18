@@ -10,8 +10,7 @@ use common::{Wallet713Error, Result};
 use common::config::Wallet713Config;
 
 pub struct Wallet {
-    account: String,
-    passphrase: String,
+    active_account: String,
     backend: Option<Arc<Mutex<LMDBBackend<HTTPNodeClient, ExtKeychain>>>>,
     max_auto_accept_invoice: Option<u64>,
 }
@@ -19,18 +18,15 @@ pub struct Wallet {
 impl Wallet {
     pub fn new(max_auto_accept_invoice: Option<u64>) -> Self {
         Self {
-            account: "default".to_string(),
-            passphrase: "".to_string(),
+            active_account: "default".to_string(),
             backend: None,
             max_auto_accept_invoice,
         }
     }
 
-    pub fn unlock(&mut self, account: &str, passphrase: &str) -> Result<()> {
+    pub fn unlock(&mut self, config: &Wallet713Config, account: &str, passphrase: &str) -> Result<()> {
         self.lock();
-        self.account = account.to_string();
-        self.passphrase = passphrase.to_string();
-        self.get_wallet_instance().map_err(|_| {
+        self.create_wallet_instance(config, account, passphrase).map_err(|_| {
             Wallet713Error::WalletUnlockFailed
         })?;
         Ok(())
@@ -38,12 +34,13 @@ impl Wallet {
 
     pub fn lock(&mut self) {
         self.backend = None;
-        self.account = "default".to_string();
-        self.passphrase = "".to_string();
     }
 
-    pub fn init(&self, passphrase: &str) -> Result<WalletSeed> {
-        let config = Wallet713Config::from_file()?;
+    pub fn is_locked(&self) -> bool {
+        self.backend.is_none()
+    }
+
+    pub fn init(&self, config: &Wallet713Config, passphrase: &str) -> Result<WalletSeed> {
         let wallet_config = config.as_wallet_config()?;
         let seed = self.init_seed(&wallet_config, passphrase)?;
         self.init_backend(&wallet_config, &config, passphrase)?;
@@ -55,7 +52,7 @@ impl Wallet {
         let result = controller::owner_single_use(wallet.clone(), |api| {
             let (validated, wallet_info) = api.retrieve_summary_info(true, 10)?;
             display::info(
-                &self.account,
+                &self.active_account,
                 &wallet_info,
                 validated,
                 true,
@@ -71,7 +68,7 @@ impl Wallet {
             let (height, _) = api.node_height()?;
             let (validated, txs) = api.retrieve_txs(true, None, None)?;
             display::txs(
-                &self.account,
+                &self.active_account,
                 height,
                 validated,
                 txs,
@@ -89,7 +86,7 @@ impl Wallet {
             let (height, _) = api.node_height()?;
             let (validated, outputs) = api.retrieve_outputs(show_spent, true, None)?;
             display::outputs(
-                &self.account,
+                &self.active_account,
                 height,
                 validated,
                 outputs,
@@ -105,7 +102,7 @@ impl Wallet {
         let mut s: Slate = Slate::blank(0);
         controller::owner_single_use(wallet.clone(), |api| {
             let (slate, lock_fn) = api.initiate_tx(
-                Some(&self.account),
+                Some(&self.active_account),
                 amount,
                 minimum_confirmations,
                 max_outputs,
@@ -124,7 +121,7 @@ impl Wallet {
         let wallet = self.get_wallet_instance()?;
         let mut api = super::api::Wallet713ForeignAPI::new(wallet.clone());
         let (slate, add_fn) = api.initiate_receive_tx(
-            Some(&self.account),
+            Some(&self.active_account),
             amount,
             num_outputs,
             None,
@@ -175,7 +172,7 @@ impl Wallet {
     pub fn process_sender_initiated_slate(&mut self, slate: &mut Slate) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
         controller::foreign_single_use(wallet.clone(), |api| {
-            api.receive_tx(slate, Some(&self.account), None)?;
+            api.receive_tx(slate, Some(&self.active_account), None)?;
             Ok(())
         }).map_err(|_| {
             Wallet713Error::GrinWalletReceiveError
@@ -194,7 +191,7 @@ impl Wallet {
         let wallet = self.get_wallet_instance()?;
         let mut api = super::api::Wallet713OwnerAPI::new(wallet.clone());
         let lock_fn = api.invoice_tx(
-            Some(&self.account),
+            Some(&self.active_account),
             slate,
             10,
             500,
@@ -256,13 +253,7 @@ impl Wallet {
         Ok(backend)
     }
 
-    fn get_wallet_instance(&mut self) -> Result<Arc<Mutex<WalletInst<impl NodeClient + 'static, ExtKeychain>>>> {
-        if self.backend.is_none() {
-            self.create_wallet_instance().map_err(|_| {
-                Wallet713Error::NoWallet
-            })?;
-        }
-
+    fn get_wallet_instance(&self) -> Result<Arc<Mutex<WalletInst<impl NodeClient + 'static, ExtKeychain>>>> {
         if let Some(ref backend) = self.backend {
             Ok(backend.clone())
         } else {
@@ -270,13 +261,12 @@ impl Wallet {
         }
     }
 
-    fn create_wallet_instance(&mut self) -> Result<()> {
-        let config = Wallet713Config::from_file()?;
+    fn create_wallet_instance(&mut self, config: &Wallet713Config, account: &str, passphrase: &str) -> Result<()> {
         let wallet_config = config.as_wallet_config()?;
         let node_client = HTTPNodeClient::new(&wallet_config.check_node_api_http_addr, config.grin_node_secret.clone());
-        let _ = WalletSeed::from_file(&wallet_config, &self.passphrase)?;
-        let mut db_wallet = LMDBBackend::new(wallet_config.clone(), &self.passphrase, node_client)?;
-        db_wallet.set_parent_key_id_by_name(&self.account)?;
+        let _ = WalletSeed::from_file(&wallet_config, passphrase)?;
+        let mut db_wallet = LMDBBackend::new(wallet_config.clone(), passphrase, node_client)?;
+        db_wallet.set_parent_key_id_by_name(account)?;
         self.backend = Some(Arc::new(Mutex::new(db_wallet)));
         Ok(())
     }
