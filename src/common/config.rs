@@ -24,6 +24,7 @@ const DEFAULT_CONFIG: &str = r#"
 	grinbox_private_key = ""
 	grin_node_uri = "http://127.0.0.1:13413"
 	grin_node_secret = ""
+	default_keybase_ttl = "24h"
 "#;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -37,6 +38,7 @@ pub struct Wallet713Config {
     pub grinbox_listener_auto_start: Option<bool>,
     pub keybase_listener_auto_start: Option<bool>,
     pub max_auto_accept_invoice: Option<u64>,
+    pub default_keybase_ttl: Option<String>
 }
 
 impl Wallet713Config {

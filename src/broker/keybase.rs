@@ -16,16 +16,19 @@ use super::types::{Publisher, Subscriber, SubscriptionHandler, CloseReason};
 pub const TOPIC_SLATE_NEW: &str = "grin_slate_new";
 pub const TOPIC_WALLET713_SLATES: &str = "wallet713_grin_slate";
 const TOPIC_SLATE_SIGNED: &str = "grin_slate_signed";
-const DEFAULT_TTL: &str = "24h";
 const SLEEP_DURATION: Duration = Duration::from_millis(5000);
 
 #[derive(Clone)]
-pub struct KeybasePublisher {}
+pub struct KeybasePublisher {
+    ttl: Option<String>
+}
 
 impl KeybasePublisher {
-    pub fn new() -> Result<Self, Error> {
-        let _broker = KeybaseBroker::new()?;
-        Ok(Self {})
+    pub fn new(ttl: Option<String>) -> Result<Self, Error> {
+        let _broker = KeybaseBroker::new();
+        Ok(Self {
+            ttl
+        })
     }
 }
 
@@ -36,7 +39,6 @@ pub struct KeybaseSubscriber {
 
 impl KeybaseSubscriber {
     pub fn new() -> Result<Self, Error> {
-        let _broker = KeybaseBroker::new()?;
         Ok(Self {
             stop_signal: Arc::new(Mutex::new(true))
         })
@@ -46,10 +48,17 @@ impl KeybaseSubscriber {
 impl Publisher for KeybasePublisher {
     fn post_slate(&self, slate: &Slate, to: &Address) -> Result<(), Error> {
         let keybase_address = KeybaseAddress::from_str(&to.to_string()).unwrap();
+
+        // make sure we don't send message with ttl to wallet713 as keybase oneshot does not support exploding lifetimes
+        let ttl = match keybase_address.username.as_ref() {
+            "wallet713" => &None,
+            _ => &self.ttl
+        };
+
         if let Some(topic) = keybase_address.topic {
-            KeybaseBroker::send(&slate, &to.stripped(), &topic, DEFAULT_TTL)?;
+            KeybaseBroker::send(&slate, &to.stripped(), &topic, ttl)?;
         } else {
-            KeybaseBroker::send(&slate, &to.stripped(), TOPIC_WALLET713_SLATES, DEFAULT_TTL)?;
+            KeybaseBroker::send(&slate, &to.stripped(), TOPIC_WALLET713_SLATES, ttl)?;
         }
         Ok(())
     }
@@ -217,8 +226,8 @@ impl KeybaseBroker {
         Ok(unread)
     }
 
-    pub fn send<T: Serialize>(message: &T, channel: &str, topic: &str, ttl: &str) -> Result<(), Error> {
-        let payload = json!({
+    pub fn send<T: Serialize>(message: &T, channel: &str, topic: &str, ttl: &Option<String>) -> Result<(), Error> {
+        let mut payload = json!({
     		"method": "send",
 	    	"params": {
 		    	"options": {
@@ -229,11 +238,14 @@ impl KeybaseBroker {
 					},
                     "message": {
                         "body": serde_json::to_string(&message)?
-                    },
-                    "exploding_lifetime": ttl
+                    }
                 }
             }
         });
+
+        if let Some(ttl) = ttl {
+            payload["params"]["options"]["exploding_lifetime"] = json!(ttl);
+        }
 
         let payload = serde_json::to_string(&payload)?;
         let response = KeybaseBroker::api_send(&payload)?;
