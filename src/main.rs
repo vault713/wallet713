@@ -13,6 +13,7 @@ extern crate sha2;
 extern crate digest;
 extern crate uuid;
 extern crate regex;
+extern crate rustyline;
 
 extern crate grin_wallet;
 extern crate grin_keychain;
@@ -21,8 +22,10 @@ extern crate grin_core;
 extern crate grin_store;
 
 use std::sync::{Arc, Mutex};
+use std::path::Path;
 use clap::{App, Arg, ArgMatches};
 use colored::*;
+use rustyline::Editor;
 
 use grin_core::{core};
 use grin_core::global::{ChainTypes, set_mining_mode};
@@ -40,6 +43,8 @@ use wallet::Wallet;
 use cli::Parser;
 
 use contacts::{Address, AddressType, GrinboxAddress, Contact, AddressBook, LMDBBackend};
+
+const CLI_HISTORY_PATH: &str = ".history";
 
 fn do_config(args: &ArgMatches, silent: bool) -> Result<Wallet713Config> {
 	let mut config;
@@ -148,7 +153,7 @@ fn welcome(args: &ArgMatches) -> Result<Wallet713Config> {
 
 	print!("{}", WELCOME_HEADER.bright_yellow().bold());
     println!("{}: {}", "Your 713.grinbox address".bright_yellow(), config.get_grinbox_address()?.stripped().bright_green());
-	println!("{}", WELCOME_FOOTER.bright_blue().bold());
+    println!("{}", WELCOME_FOOTER.bright_blue().bold());
 
     Ok(config)
 }
@@ -354,23 +359,43 @@ fn main() {
         }
     }
 
+    let mut rl = Editor::<()>::new();
+
+    if let Some(path) = Path::new(&config.wallet713_data_path).join(CLI_HISTORY_PATH).to_str() {
+        rl.load_history(path).is_ok();
+    }
+
     loop {
-        cli_message!();
-        let mut command = String::new();
-        std::io::stdin().read_line(&mut command).expect("oops!");
-        let result = do_command(&command, &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker);
-        if let Err(err) = result {
-            cli_message!("{}: {}", "ERROR".bright_red(), err);
+        let command = rl.readline("wallet713> ");
+        match command {
+            Ok(command) => {
+                let command = command.trim();
+
+                if command == "exit" {
+                    break;
+                }
+                let result = do_command(&command, &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker);
+                match result {
+                    Err(err) => cli_message!("{}: {}", "ERROR".bright_red(), err),
+                    Ok(safe) => if safe {
+                        rl.add_history_entry(command);
+                    },
+                }
+            },
+            Err(_) => {
+                break;
+            }
         }
+    }
+
+    if let Some(path) = Path::new(&config.wallet713_data_path).join(CLI_HISTORY_PATH).to_str() {
+        rl.save_history(path).is_ok();
     }
 }
 
-fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>, keybase_broker: &mut Option<(KeybasePublisher, KeybaseSubscriber)>, grinbox_broker: &mut Option<(GrinboxPublisher, GrinboxSubscriber)>) -> Result<()> {
+fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>, keybase_broker: &mut Option<(KeybasePublisher, KeybaseSubscriber)>, grinbox_broker: &mut Option<(GrinboxPublisher, GrinboxSubscriber)>) -> Result<bool> {
     let matches = Parser::parse(command)?;
     match matches.subcommand_name() {
-        Some("exit") => {
-            std::process::exit(0);
-        },
         Some("config") => {
             *config = do_config(matches.subcommand_matches("config").unwrap(), false)?;
         },
@@ -380,6 +405,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             if passphrase.is_empty() {
                 cli_message!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
             }
+            return Ok(false);
         },
         Some("lock") => {
             wallet.lock().unwrap().lock();
@@ -389,6 +415,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let account = args.value_of("account").unwrap_or("default");
             let passphrase = args.value_of("passphrase").unwrap();
             wallet.lock().unwrap().unlock(config, account, passphrase)?;
+            return Ok(false);
         },
         Some("listen") => {
             let grinbox = matches.subcommand_matches("listen").unwrap().is_present("grinbox");
@@ -601,7 +628,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             );
         },
         Some("restore") => {
-            println!("restoring... please wait as this could take a few minutes to complete.");
+            cli_message!("restoring... please wait as this could take a few minutes to complete.");
             if let Ok(mut wallet) = wallet.lock() {
                 let args = matches.subcommand_matches("restore").unwrap();
                 let passphrase = args.value_of("passphrase").unwrap_or("");
@@ -616,11 +643,12 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                     cli_message!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
                 }
             }
+            return Ok(false);
         },
         Some(subcommand) => {
             cli_message!("{}: subcommand `{}` not implemented!", "ERROR".bright_red(), subcommand.bright_green());
         },
         None => {},
     };
-    Ok(())
+    Ok(true)
 }
