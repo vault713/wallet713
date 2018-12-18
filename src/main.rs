@@ -376,7 +376,10 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         },
         Some("init") => {
             let passphrase = matches.subcommand_matches("init").unwrap().value_of("passphrase").unwrap_or("");
-            wallet.lock().unwrap().init(config, passphrase)?;
+            wallet.lock().unwrap().init(config, "default", passphrase)?;
+            if passphrase.is_empty() {
+                cli_message!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
+            }
         },
         Some("lock") => {
             wallet.lock().unwrap().lock();
@@ -599,8 +602,20 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         },
         Some("restore") => {
             println!("restoring... please wait as this could take a few minutes to complete.");
-            wallet.lock().unwrap().restore()?;
-            cli_message!("wallet restoration done!");
+            if let Ok(mut wallet) = wallet.lock() {
+                let args = matches.subcommand_matches("restore").unwrap();
+                let passphrase = args.value_of("passphrase").unwrap_or("");
+                if let Some(words) = args.values_of("words") {
+                    let words: Vec<&str> = words.collect();
+                    wallet.restore_seed(config, &words, passphrase)?;
+                }
+                wallet.init(config, "default", passphrase)?;
+                wallet.restore_state()?;
+                cli_message!("wallet restoration done!");
+                if passphrase.is_empty() {
+                    cli_message!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
+                }
+            }
         },
         Some(subcommand) => {
             cli_message!("{}: subcommand `{}` not implemented!", "ERROR".bright_red(), subcommand.bright_green());

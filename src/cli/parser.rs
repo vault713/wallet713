@@ -163,6 +163,12 @@ impl<'a, 'b> Parser {
             .subcommand(
                 SubCommand::with_name("restore")
                     .about("restores your wallet from existing seed")
+                    .arg(
+                        Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'")
+                    )
+                    .arg(
+                        Arg::from_usage("[words] -m, --mnemonic=<words>... 'the seed mnemonic'")
+                    )
             )
     }
 }

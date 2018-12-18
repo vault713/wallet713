@@ -40,14 +40,15 @@ impl Wallet {
         self.backend.is_none()
     }
 
-    pub fn init(&self, config: &Wallet713Config, passphrase: &str) -> Result<WalletSeed> {
+    pub fn init(&mut self, config: &Wallet713Config, account: &str, passphrase: &str) -> Result<WalletSeed> {
         let wallet_config = config.as_wallet_config()?;
         let seed = self.init_seed(&wallet_config, passphrase)?;
         self.init_backend(&wallet_config, &config, passphrase)?;
+        self.unlock(config, account, passphrase)?;
         Ok(seed)
     }
 
-    pub fn info(&mut self) -> Result<()> {
+    pub fn info(&self) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
         let result = controller::owner_single_use(wallet.clone(), |api| {
             let (validated, wallet_info) = api.retrieve_summary_info(true, 10)?;
@@ -62,7 +63,7 @@ impl Wallet {
         Ok(result)
     }
 
-    pub fn txs(&mut self) -> Result<()> {
+    pub fn txs(&self) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
         let result = controller::owner_single_use(wallet.clone(), |api| {
             let (height, _) = api.node_height()?;
@@ -80,7 +81,7 @@ impl Wallet {
         Ok(result)
     }
 
-    pub fn outputs(&mut self, show_spent: bool) -> Result<()> {
+    pub fn outputs(&self, show_spent: bool) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
         let result = controller::owner_single_use(wallet.clone(), |api| {
             let (height, _) = api.node_height()?;
@@ -97,7 +98,7 @@ impl Wallet {
         Ok(result)
     }
 
-    pub fn initiate_send_tx(&mut self, amount: u64, minimum_confirmations: u64, selection_strategy: &str, change_outputs: usize, max_outputs: usize) -> Result<Slate> {
+    pub fn initiate_send_tx(&self, amount: u64, minimum_confirmations: u64, selection_strategy: &str, change_outputs: usize, max_outputs: usize) -> Result<Slate> {
         let wallet = self.get_wallet_instance()?;
         let mut s: Slate = Slate::blank(0);
         controller::owner_single_use(wallet.clone(), |api| {
@@ -117,7 +118,7 @@ impl Wallet {
         Ok(s)
     }
 
-    pub fn initiate_receive_tx(&mut self, amount: u64, num_outputs: usize) -> Result<Slate> {
+    pub fn initiate_receive_tx(&self, amount: u64, num_outputs: usize) -> Result<Slate> {
         let wallet = self.get_wallet_instance()?;
         let mut api = super::api::Wallet713ForeignAPI::new(wallet.clone());
         let (slate, add_fn) = api.initiate_receive_tx(
@@ -130,7 +131,7 @@ impl Wallet {
         Ok(slate)
     }
 
-    pub fn repost(&mut self, id: u32, fluff: bool) -> Result<()> {
+    pub fn repost(&self, id: u32, fluff: bool) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
         controller::owner_single_use(wallet.clone(), |api| {
             let (_, txs) = api.retrieve_txs(true, Some(id), None)?;
@@ -153,7 +154,7 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn cancel(&mut self, id: u32) -> Result<()> {
+    pub fn cancel(&self, id: u32) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
         controller::owner_single_use(wallet.clone(), |api| {
             api.cancel_tx(Some(id), None)
@@ -161,7 +162,7 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn restore(&mut self) -> Result<()> {
+    pub fn restore_state(&self) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
         controller::owner_single_use(wallet.clone(), |api| {
             api.restore()
@@ -169,7 +170,13 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn process_sender_initiated_slate(&mut self, slate: &mut Slate) -> Result<()> {
+    pub fn restore_seed(&self, config: &Wallet713Config, words: &Vec<&str>, passphrase: &str) -> Result<()> {
+        let wallet_config = config.as_wallet_config()?;
+        WalletSeed::recover_from_phrase(&wallet_config, &words.join(" "), passphrase)?;
+        Ok(())
+    }
+
+    pub fn process_sender_initiated_slate(&self, slate: &mut Slate) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
         controller::foreign_single_use(wallet.clone(), |api| {
             api.receive_tx(slate, Some(&self.active_account), None)?;
@@ -180,7 +187,7 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn process_receiver_initiated_slate(&mut self, slate: &mut Slate) -> Result<()> {
+    pub fn process_receiver_initiated_slate(&self, slate: &mut Slate) -> Result<()> {
         // reject by default unless wallet is set to auto accept invoices under a certain threshold
         let max_auto_accept_invoice = self.max_auto_accept_invoice.ok_or(Wallet713Error::DoesNotAcceptInvoices)?;
 
@@ -206,7 +213,7 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn finalize_slate(&mut self, slate: &mut Slate) -> Result<()> {
+    pub fn finalize_slate(&self, slate: &mut Slate) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
         controller::owner_single_use(wallet.clone(), |api| {
             api.verify_slate_messages(&slate)?;
@@ -231,20 +238,14 @@ impl Wallet {
 
     fn init_seed(&self, wallet_config: &WalletConfig, passphrase: &str) -> Result<WalletSeed> {
         let result = WalletSeed::from_file(&wallet_config, passphrase);
-        match result {
+        let seed = match result {
+            Ok(seed) => seed,
             Err(_) => {
                 // could not load from file, let's create a new one
-                let seed = WalletSeed::init_file(&wallet_config, 32, passphrase)?;
-                if passphrase.is_empty() {
-                    cli_message!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
-                };
-                Ok(seed)
+                WalletSeed::init_file(&wallet_config, 32, passphrase)?
             }
-            Ok(seed) => {
-                cli_message!("{}: seed file already exists.", "WARNING".bright_yellow());
-                Ok(seed)
-            }
-        }
+        };
+        Ok(seed)
     }
 
     fn init_backend(&self, wallet_config: &WalletConfig, wallet713_config: &Wallet713Config, passphrase: &str) -> Result<LMDBBackend<HTTPNodeClient, ExtKeychain>> {
