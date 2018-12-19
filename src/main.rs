@@ -333,9 +333,10 @@ fn main() {
     let mut grinbox_broker: Option<(GrinboxPublisher, GrinboxSubscriber)> = None;
     let mut keybase_broker: Option<(KeybasePublisher, KeybaseSubscriber)> = None;
 
-    if let Some(passphrase) = matches.value_of("passphrase") {
-        let account = matches.value_of("account").unwrap_or("default");
-        let result = wallet.lock().unwrap().unlock(&config, account, passphrase);
+    let account = matches.value_of("account");
+    let passphrase = matches.value_of("passphrase");
+    if account.is_some() || passphrase.is_some() {
+        let result = wallet.lock().unwrap().unlock(&config, account.unwrap_or("default"), passphrase.unwrap_or(""));
         if let Err(err) = result {
             cli_message!("{}: {}", "ERROR".bright_red(), err);
         }
@@ -413,9 +414,24 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         Some("unlock") => {
             let args = matches.subcommand_matches("unlock").unwrap();
             let account = args.value_of("account").unwrap_or("default");
-            let passphrase = args.value_of("passphrase").unwrap();
+            let passphrase = args.value_of("passphrase").unwrap_or("");
             wallet.lock().unwrap().unlock(config, account, passphrase)?;
             return Ok(false);
+        },
+        Some("accounts") => {
+            wallet.lock().unwrap().list_accounts()?;
+        },
+        Some("account") => {
+            let args = matches.subcommand_matches("account").unwrap();
+            let create_args = args.subcommand_matches("create");
+            let switch_args = args.subcommand_matches("switch");
+            if let Some(args) = create_args {
+                wallet.lock().unwrap().create_account(args.value_of("name").unwrap())?;
+            } else if let Some(args) = switch_args {
+                let account = args.value_of("name").unwrap();
+                let passphrase = args.value_of("passphrase").unwrap_or("");
+                wallet.lock().unwrap().unlock(config, account, passphrase)?;
+            }
         },
         Some("listen") => {
             let grinbox = matches.subcommand_matches("listen").unwrap().is_present("grinbox");

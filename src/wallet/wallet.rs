@@ -29,6 +29,7 @@ impl Wallet {
         self.create_wallet_instance(config, account, passphrase).map_err(|_| {
             Wallet713Error::WalletUnlockFailed
         })?;
+        self.active_account = account.to_string();
         Ok(())
     }
 
@@ -48,9 +49,28 @@ impl Wallet {
         Ok(seed)
     }
 
+    pub fn list_accounts(&self) -> Result<()> {
+        let wallet = self.get_wallet_instance()?;
+        controller::owner_single_use(wallet.clone(), |api| {
+            let acct_mappings = api.accounts()?;
+            display::accounts(acct_mappings);
+            Ok(())
+        })?;
+        Ok(())
+    }
+
+    pub fn create_account(&self, name: &str) -> Result<()> {
+        let wallet = self.get_wallet_instance()?;
+        controller::owner_single_use(wallet.clone(), |api| {
+            api.create_account_path(name)?;
+            Ok(())
+        })?;
+        Ok(())
+    }
+
     pub fn info(&self) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
-        let result = controller::owner_single_use(wallet.clone(), |api| {
+        controller::owner_single_use(wallet.clone(), |api| {
             let (validated, wallet_info) = api.retrieve_summary_info(true, 10)?;
             display::info(
                 &self.active_account,
@@ -60,7 +80,7 @@ impl Wallet {
             );
             Ok(())
         })?;
-        Ok(result)
+        Ok(())
     }
 
     pub fn txs(&self) -> Result<()> {

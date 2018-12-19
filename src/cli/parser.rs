@@ -61,8 +61,36 @@ impl<'a, 'b> Parser {
                         Arg::from_usage("[account] -a, --account=<account> 'the account to use'")
                     )
                     .arg(
-                        Arg::from_usage("-p, --passphrase=<passphrase> 'the passphrase to use'")
+                        Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'")
                     )
+            )
+            .subcommand(
+                SubCommand::with_name("account")
+                    .about("create a new account or switch to an existing account")
+                    .subcommand(
+                        SubCommand::with_name("create")
+                            .about("creates a new account")
+                            .arg(
+                                Arg::from_usage("<name> 'the account name'")
+                            )
+                    )
+                    .subcommand(
+                        SubCommand::with_name("switch")
+                            .about("switches to the given account")
+                            .arg(
+                                Arg::from_usage("<name> 'the account name'")
+                            )
+                            .arg(
+                                Arg::from_usage("[account] -a, --account=<account> 'the account to use'")
+                            )
+                            .arg(
+                                Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'")
+                            )
+                    )
+            )
+            .subcommand(
+                SubCommand::with_name("accounts")
+                    .about("lists available accounts")
             )
             .subcommand(
                 SubCommand::with_name("info")
