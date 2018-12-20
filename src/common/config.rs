@@ -6,6 +6,7 @@ use std::fmt;
 use colored::*;
 
 use grin_wallet::{WalletConfig};
+use grin_core::global::ChainTypes;
 
 use super::Result;
 
@@ -18,6 +19,7 @@ const GRIN_HOME: &str = ".grin";
 const GRIN_NODE_API_SECRET_FILE: &str = ".api_secret";
 
 const DEFAULT_CONFIG: &str = r#"
+    chain = "Testnet4"
 	wallet713_data_path = "wallet713_data"
 	grinbox_domain = "grinbox.io"
 	grinbox_port = 13420
@@ -29,6 +31,7 @@ const DEFAULT_CONFIG: &str = r#"
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Wallet713Config {
+    pub chain: Option<ChainTypes>,
     pub wallet713_data_path: String,
     pub grinbox_domain: String,
     pub grinbox_port: u16,
@@ -38,7 +41,7 @@ pub struct Wallet713Config {
     pub grinbox_listener_auto_start: Option<bool>,
     pub keybase_listener_auto_start: Option<bool>,
     pub max_auto_accept_invoice: Option<u64>,
-    pub default_keybase_ttl: Option<String>
+    pub default_keybase_ttl: Option<String>,
 }
 
 impl Wallet713Config {
@@ -91,6 +94,7 @@ impl Wallet713Config {
 
     pub fn as_wallet_config(&self) -> Result<WalletConfig> {
         let mut wallet_config = WalletConfig::default();
+        wallet_config.chain_type = self.chain.clone();
         wallet_config.data_file_dir = self.wallet713_data_path.clone();
         wallet_config.check_node_api_http_addr = self.grin_node_uri.clone();
         Ok(wallet_config)

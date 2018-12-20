@@ -321,7 +321,7 @@ fn main() {
         panic!("{}: could not read or create config! {}", "ERROR".bright_red(), e);
     });
 
-    set_mining_mode(ChainTypes::Testnet4);
+    set_mining_mode(config.chain.clone().unwrap_or(ChainTypes::Testnet4));
 
     let address_book_backend = LMDBBackend::new(&config.wallet713_data_path).expect("could not create address book backend!");
     let address_book = AddressBook::new(Box::new(address_book_backend)).expect("could not create an address book!");
@@ -335,8 +335,8 @@ fn main() {
 
     let account = matches.value_of("account");
     let passphrase = matches.value_of("passphrase");
+    let result = wallet.lock().unwrap().unlock(&config, account.unwrap_or("default"), passphrase.unwrap_or(""));
     if account.is_some() || passphrase.is_some() {
-        let result = wallet.lock().unwrap().unlock(&config, account.unwrap_or("default"), passphrase.unwrap_or(""));
         if let Err(err) = result {
             cli_message!("{}: {}", "ERROR".bright_red(), err);
         }
