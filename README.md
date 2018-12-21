@@ -14,9 +14,14 @@ wallet713 is a non-custodial wallet for Grin that aims to make it easy to store,
 
 * **Get up and running fast.** Listen, send and receive using the same instance of the wallet.
 * **Use your public key as your address.** 713.grinbox relies on public/private keypairs to authenticate yourself and prevent unauthorized parties to listen to your messages.
-* **Process transactions easily.** Send to a recipient's 713.grinbox and it takes care of itself. No need to deal with IP addresses, port forwarding, or manual file transfers.
-* **Receive transactions while you are offline.** Transactions are sent to your 713.grinbox, waiting for you to fetch them the next time you come online.
+* **Process transactions easily.** Send to a recipient's 713.grinbox or keybase profile and it takes care of itself. No need to deal with IP addresses, port forwarding, or manual file transfers.
+* **Receive transactions while you are offline.** Transactions persist, waiting for you to fetch them the next time you come online.
+* **Contacts.** No need to keep track of 713.grinbox addresses or keybase account names. Add addresses to cotacts stored locally on your machine, and sending 10 grin becomes as easy as `send 10 --to @alice`.
 * **Remain in full control.** Only you have access to your private keys and your wallet balance, only you can read or sign your own transactions.
+
+## Status
+
+Running on Floonet. Under heavy development ahead of Grin Mainnet Launch. Contributions are welcomed.
 
 ## Roadmap
 
@@ -28,70 +33,10 @@ wallet713 is a non-custodial wallet for Grin that aims to make it easy to store,
 
 ...and much more. We are only getting started!
 
-## Status
+## Getting started
 
-Under heavy development ahead of Grin Mainnet Launch. Contributions are welcomed.
-
-## Installation and usage
-
-### Requirements
-wallet713 has the [same requirements](https://github.com/mimblewimble/grin/blob/master/doc/build.md#requirements) as Grin and also requires a fully synced Grin node to be running in order to be operational.
-
-### Installation
-
-```
-$ git clone https://github.com/vault713/wallet713
-$ cd wallet713
-$ cargo build --release
-```
-And then to run:
-```
-$ cd target/release
-$ ./wallet713
-```
-
-### Usage
-
-While running, wallet713 works with an internal command prompt. You type commands in the same way as the CLI version of the grin wallet.
-
-When you run the wallet for the first time, the wallet will create a config file for you and also generate your public/private keypairs. Running `config` displays your current configuration. 
-
-Iniate a new wallet:
-```
-wallet713> $ init
-```
-
-Display wallet info:
-```
-wallet713> $ info
-```
-
-In order to receive grins from others you need to listen for transactions coming to your 713.grinbox address:
-```
-wallet713> $ listen
-```
-Standard 713.grinbox addressses always start with `x`. 
-
-To send a 10 grin transaction to the address `xd8q4wgBBwdg75vD2J1VswdT4x7bJE6P5o1hcoht99ebc6C1wxxq`:
-```
-wallet713> $ send 10 --to xd8q4wgBBwdg75vD2J1VswdT4x7bJE6P5o1hcoht99ebc6C1wxxq
-```
-
-To receive grins you simply keep wallet713 running and transactions are processed automatically. Any transactions received while being offline are fetched once you initiate `listen`. 
-
-To exit the wallet:
-```
-wallet713> $ exit
-```
-
-#### Importing an existing wallet
-
-To import an existing grin wallet to use in wallet713 follow these steps:
-1. Ensure you have the previous wallet's `wallet.seed`. In the default config of the grin wallet, this is stored in `~/.grin/wallet_data`.
-1. Build wallet713, run it, run `init`. Exit the wallet.  
-1. Copy and replace `wallet713/target/release/wallet713_data/wallet.seed` with the `wallet.seed` of the wallet you want to restore.
-1. Run wallet713, and then run `restore`.
-1. Your previous wallet should now have been restored, and you can validate this by running `info`.
+* To build and get up and running, see the [build documentation](docs/build.md).
+* For specific functionality, see the [usage documentation](doc/usage.md).
 
 ## Privacy considerations
 
