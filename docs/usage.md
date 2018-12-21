@@ -26,7 +26,7 @@ While running, wallet713 works with an internal command prompt. You type command
 
 ### Getting started
 
-When you run the wallet for the first time, the wallet will create a config file for you and also generate your public/private keypairs which you need to use your 713.grinbox address. Running `config` displays your current configuration. 
+When you run the wallet for the first time, the wallet will create a config file for you and also generate your public/private keypairs which you need to use your 713.grinbox address. Running `config` displays your current configuration. The configuration file will be located in `~/.grin/wallet713.toml`. 
 
 Iniate a new wallet:
 ```
