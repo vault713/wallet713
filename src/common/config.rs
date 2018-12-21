@@ -19,7 +19,7 @@ const GRIN_HOME: &str = ".grin";
 const GRIN_NODE_API_SECRET_FILE: &str = ".api_secret";
 
 const DEFAULT_CONFIG: &str = r#"
-    chain = "Testnet4"
+    chain = "Floonet"
 	wallet713_data_path = "wallet713_data"
 	grinbox_domain = "grinbox.io"
 	grinbox_port = 13420

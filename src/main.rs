@@ -321,7 +321,7 @@ fn main() {
         panic!("{}: could not read or create config! {}", "ERROR".bright_red(), e);
     });
 
-    set_mining_mode(config.chain.clone().unwrap_or(ChainTypes::Testnet4));
+    set_mining_mode(config.chain.clone().unwrap_or(ChainTypes::Floonet));
 
     let address_book_backend = LMDBBackend::new(&config.wallet713_data_path).expect("could not create address book backend!");
     let address_book = AddressBook::new(Box::new(address_book_backend)).expect("could not create an address book!");
