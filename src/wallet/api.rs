@@ -154,7 +154,7 @@ fn invoice_tx<T: ?Sized, C, K>(
             let mut t = TxLogEntry::new(parent_key_id.clone(), TxLogEntryType::TxReceived, log_id);
             t.tx_slate_id = Some(slate_id);
             let filename = format!("{}.grintx", slate_id);
-            t.tx_hex = Some(filename);
+            t.stored_tx = Some(filename);
             t.fee = Some(fee);
             let mut amount_debited = 0;
             t.num_inputs = lock_inputs.len();
@@ -385,7 +385,7 @@ fn build_receive_tx_slate<T: ?Sized, C, K>(
             let log_id = batch.next_tx_log_id(&parent_key_id)?;
             let mut t = TxLogEntry::new(parent_key_id.clone(), TxLogEntryType::TxSent, log_id);
             let filename = format!("{}.grintx", slate_id);
-            t.tx_hex = Some(filename);
+            t.stored_tx = Some(filename);
             t.tx_slate_id = Some(slate_id);
             t.amount_credited = amount;
             t.num_outputs = num_outputs;
