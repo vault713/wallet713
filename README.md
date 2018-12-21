@@ -36,7 +36,7 @@ Running on Floonet. Under heavy development ahead of Grin Mainnet Launch. Contri
 ## Getting started
 
 * To build and get up and running, see the [build documentation](docs/build.md).
-* For specific functionality, see the [usage documentation](doc/usage.md).
+* For specific functionality, see the [usage documentation](docs/usage.md).
 
 ## Privacy considerations
 
