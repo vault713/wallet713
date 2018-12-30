@@ -77,10 +77,11 @@ impl Wallet713Config {
             home_path.push(GRIN_HOME);
             home_path.push(GRIN_NODE_API_SECRET_FILE);
             let path_str = home_path.to_str().unwrap();
-            let mut file = File::open(&path_str)?;
-            let mut contents: String = String::new();
-            file.read_to_string(&mut contents)?;
-            config.grin_node_secret = Some(contents);
+            if let Ok(mut file) = File::open(&path_str) {
+                let mut contents: String = String::new();
+                file.read_to_string(&mut contents)?;
+                config.grin_node_secret = Some(contents);
+            }
         };
         Ok(config)
     }

@@ -55,6 +55,9 @@ fn do_config(args: &ArgMatches, silent: bool) -> Result<Wallet713Config> {
 		config = Wallet713Config::from_file(config_path)?;
 	} else {
 		config = Wallet713Config::default()?;
+        if config.grin_node_secret.is_none() {
+            println!("{}: initilized new configuration with no api secret!", "WARNING".bright_yellow())
+        }
 	}
 
     if let Some(data_path) = args.value_of("data-path") {
