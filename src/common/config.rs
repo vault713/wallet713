@@ -16,6 +16,7 @@ use super::crypto::{SecretKey, PublicKey, public_key_from_secret_key, Hex, Base5
 const WALLET713_DEFAULT_CONFIG_PATH: &str = "wallet713.toml";
 
 const GRIN_HOME: &str = ".grin";
+const GRIN_FLOONET_HOME: &str = "floo";
 const GRIN_NODE_API_SECRET_FILE: &str = ".api_secret";
 
 const DEFAULT_CONFIG: &str = r#"
@@ -75,6 +76,7 @@ impl Wallet713Config {
         config.grin_node_secret = None;
         if let Some(mut home_path) = dirs::home_dir() {
             home_path.push(GRIN_HOME);
+            home_path.push(GRIN_FLOONET_HOME);
             home_path.push(GRIN_NODE_API_SECRET_FILE);
             let path_str = home_path.to_str().unwrap();
             if let Ok(mut file) = File::open(&path_str) {
