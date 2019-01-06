@@ -8,6 +8,7 @@ use grin_wallet::libwallet::types::{
 };
 use grin_wallet::libwallet::{Error, ErrorKind};
 use grin_core::core::Transaction;
+use grin_core::core::amount_to_hr_string;
 use grin_keychain::{Keychain, Identifier};
 use grin_core::libtx::slate::Slate;
 use grin_core::libtx::{build, tx_fee};
@@ -468,7 +469,9 @@ fn select_send_tx<T: ?Sized, C, K>(
     if total == 0 {
         return Err(ErrorKind::NotEnoughFunds {
             available: 0,
+            available_disp: amount_to_hr_string(0, false),
             needed: amount_with_fee as u64,
+            needed_disp: amount_to_hr_string(amount_with_fee as u64, false),
         })?;
     }
 
@@ -476,7 +479,9 @@ fn select_send_tx<T: ?Sized, C, K>(
     if total < amount_with_fee && coins.len() == max_outputs {
         return Err(ErrorKind::NotEnoughFunds {
             available: total,
+            available_disp: amount_to_hr_string(total, false),
             needed: amount_with_fee as u64,
+            needed_disp: amount_to_hr_string(amount_with_fee as u64, false),
         })?;
     }
 
@@ -494,7 +499,9 @@ fn select_send_tx<T: ?Sized, C, K>(
             if coins.len() == max_outputs {
                 return Err(ErrorKind::NotEnoughFunds {
                     available: total as u64,
+                    available_disp: amount_to_hr_string(total as u64, false),
                     needed: amount_with_fee as u64,
+                    needed_disp: amount_to_hr_string(amount_with_fee as u64, false),
                 })?;
             }
 
