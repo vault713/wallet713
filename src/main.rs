@@ -22,6 +22,8 @@ extern crate grin_core;
 extern crate grin_store;
 
 use std::sync::{Arc, Mutex};
+use std::io::{Read, Write};
+use std::fs::File;
 use std::path::Path;
 use clap::{App, Arg, ArgMatches};
 use colored::*;
@@ -555,6 +557,17 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 Wallet713Error::InvalidTxId(id.to_string())
             })?;
             wallet.lock().unwrap().cancel(id)?;
+        },
+        Some("receive") => {
+            let args = matches.subcommand_matches("receive").unwrap();
+            let input = args.value_of("input").unwrap();
+            let mut file = File::open(input)?;
+            let mut slate = String::new();
+            file.read_to_string(&mut slate)?;
+            let mut slate: Slate = serde_json::from_str(&slate)?;
+            let mut file = File::create(&format!("{}.{}", input, "response"))?;
+            wallet.lock().unwrap().process_sender_initiated_slate(&mut slate)?;
+            file.write_all(serde_json::to_string(&slate).unwrap().as_bytes())?;
         },
         Some("send") => {
             let args = matches.subcommand_matches("send").unwrap();

@@ -198,5 +198,12 @@ impl<'a, 'b> Parser {
                         Arg::from_usage("[words] -m, --mnemonic=<words>... 'the seed mnemonic'")
                     )
             )
+            .subcommand(
+                SubCommand::with_name("receive")
+                    .about("receives a sender initiated slate from file and produces signed slate")
+                    .arg(
+                        Arg::from_usage("-i, --input=<file> 'the slate file'")
+                    )
+            )
     }
 }
