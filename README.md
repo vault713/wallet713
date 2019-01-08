@@ -2,9 +2,19 @@
 
 [![Join the chat at https://gitter.im/vault713/wallet713](https://badges.gitter.im/vault713/wallet713.svg)](https://gitter.im/vault713/wallet713?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-[Grin](https://github.com/mimblewimble/grin) is a blockchain-powered cryptocurrency that is an implementation of the MimbleWimble protocol, with a focus on privacy and scalability. In MimbleWimble, transactions are interactive, requiring the Sender and Recipient to interact over a single round trip in order to build the transaction.
+wallet713 is:
 
-wallet713 is a non-custodial wallet for Grin that aims to make it easy to store, send and swap grins seamlessly through a single interface. Built on top of the standard Grin wallet reference implementation, wallet713 extends functionality to improve usability and reduce friction. Integrated with the 713.grinbox messaging relay, partial transactions are routed via the relay with no impact to the safety of your funds.
+- a wallet for Grin.
+
+   [Grin](https://github.com/mimblewimble/grin) is a blockchain-powered cryptocurrency that is an implementation of the MimbleWimble protocol, with a focus on privacy and scalability. In MimbleWimble, transactions are interactive, requiring the Sender and Recipient to interact over a single round trip in order to build the transaction.
+
+- an extension of the official grin wallet
+
+   wallet713 makes it easy to store, send and soon also swap grins seamlessly through a single interface. Built on top of the standard Grin wallet reference implementation, wallet713 extends its functionality to improve usability and reduce friction. 
+
+- is integrated with the 713.grinbox messaging relay
+
+   For better privacy and usability, the 713.grinbox messaging relay allows the steps to build transactions (partial transactions, often called "slates") to be routed via the relay, protecting the user from exposing their IP address, and with no impact to the safety of your funds.
 
 <p align="center">
   <img width="600" src="demo.svg">
