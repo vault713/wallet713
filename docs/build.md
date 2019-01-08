@@ -15,3 +15,9 @@ And then to run:
 $ cd target/release
 $ ./wallet713
 ```
+
+If you'd like to run against floonet, use:
+```
+$ cd target/release
+$ ./wallet713 --floonet
+```

@@ -50,11 +50,16 @@ fn do_config(args: &ArgMatches, silent: bool) -> Result<Wallet713Config> {
 	let mut config;
 	let mut any_matches = false;
     let config_path = args.value_of("config-path");
-    let exists = Wallet713Config::exists(config_path);
+    let chain: Option<ChainTypes> = if args.is_present("floonet") {
+        Some(ChainTypes::Floonet)
+    } else {
+        None
+    };
+    let exists = Wallet713Config::exists(config_path, &chain)?;
 	if exists {
-		config = Wallet713Config::from_file(config_path)?;
+		config = Wallet713Config::from_file(config_path, &chain)?;
 	} else {
-		config = Wallet713Config::default()?;
+		config = Wallet713Config::default(&chain)?;
         if config.grin_node_secret.is_none() {
             println!("{}: initilized new configuration with no api secret!", "WARNING".bright_yellow())
         }
@@ -318,15 +323,19 @@ fn main() {
         .arg(Arg::from_usage("[config-path] -c, --config=<config-path> 'the path to the config file'"))
         .arg(Arg::from_usage("[account] -a, --account=<account> 'the account to use'"))
         .arg(Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'"))
+        .arg(Arg::from_usage("[floonet] -f, --floonet 'use floonet'"))
         .get_matches();
 
 	let mut config = welcome(&matches).unwrap_or_else(|e| {
         panic!("{}: could not read or create config! {}", "ERROR".bright_red(), e);
     });
 
-    set_mining_mode(config.chain.clone().unwrap_or(ChainTypes::Floonet));
+    set_mining_mode(config.chain.clone().unwrap_or(ChainTypes::Mainnet));
 
-    let address_book_backend = LMDBBackend::new(&config.wallet713_data_path).expect("could not create address book backend!");
+    let data_path_buf = config.get_data_path().unwrap();
+    let data_path = data_path_buf.to_str().unwrap();
+
+    let address_book_backend = LMDBBackend::new(data_path).expect("could not create address book backend!");
     let address_book = AddressBook::new(Box::new(address_book_backend)).expect("could not create an address book!");
     let address_book = Arc::new(Mutex::new(address_book));
 
@@ -365,7 +374,10 @@ fn main() {
 
     let mut rl = Editor::<()>::new();
 
-    if let Some(path) = Path::new(&config.wallet713_data_path).join(CLI_HISTORY_PATH).to_str() {
+    let wallet713_home_path_buf = Wallet713Config::default_home_path(&config.chain).unwrap();
+    let wallet713_home_path = wallet713_home_path_buf.to_str().unwrap();
+
+    if let Some(path) = Path::new(wallet713_home_path).join(CLI_HISTORY_PATH).to_str() {
         rl.load_history(path).is_ok();
     }
 
@@ -392,7 +404,7 @@ fn main() {
         }
     }
 
-    if let Some(path) = Path::new(&config.wallet713_data_path).join(CLI_HISTORY_PATH).to_str() {
+    if let Some(path) = Path::new(wallet713_home_path).join(CLI_HISTORY_PATH).to_str() {
         rl.save_history(path).is_ok();
     }
 }
@@ -477,6 +489,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                     if let Some((_, subscriber)) = grinbox_broker {
                         subscriber.stop();
                     };
+                    *grinbox_broker = None;
                 } else {
                     Err(Wallet713Error::ClosedListener("grinbox".to_string()))?
                 }
@@ -491,6 +504,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                     if let Some((_, subscriber)) = keybase_broker {
                         subscriber.stop();
                     };
+                    *keybase_broker = None;
                 } else {
                     Err(Wallet713Error::ClosedListener("keybase".to_string()))?
                 }

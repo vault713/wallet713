@@ -16,7 +16,7 @@ wallet713 is a non-custodial wallet for Grin that aims to make it easy to store,
 * **Use your public key as your address.** 713.grinbox relies on public/private keypairs to authenticate yourself and prevent unauthorized parties to listen to your messages.
 * **Process transactions easily.** Send to a recipient's 713.grinbox or keybase profile and it takes care of itself. No need to deal with IP addresses, port forwarding, or manual file transfers.
 * **Receive transactions while you are offline.** Transactions persist, waiting for you to fetch them the next time you come online.
-* **Contacts.** No need to keep track of 713.grinbox addresses or keybase account names. Add addresses to cotacts stored locally on your machine, and sending 10 grin becomes as easy as `send 10 --to @alice`.
+* **Contacts.** No need to keep track of 713.grinbox addresses or keybase account names. Add addresses to contacts stored locally on your machine, and sending 10 grin becomes as easy as `send 10 --to @alice`.
 * **Remain in full control.** Only you have access to your private keys and your wallet balance, only you can read or sign your own transactions.
 
 ## Status
