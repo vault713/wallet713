@@ -1,8 +1,11 @@
 use std::fmt::{self, Display, Debug};
 use regex::Regex;
 
+use grin_core::global::ChainTypes;
+
 use common::{Error, Wallet713Error};
-use common::crypto::{PublicKey, Base58};
+use common::base58::FromBase58;
+use common::crypto::{PublicKey, Base58, GRINBOX_ADDRESS_VERSION_MAINNET, GRINBOX_ADDRESS_VERSION_TESTNET};
 
 const ADDRESS_REGEX: &str = r"^((?P<address_type>keybase|grinbox)://).+$";
 const GRINBOX_ADDRESS_REGEX: &str = r"^(grinbox://)?(?P<public_key>[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{52})(@(?P<domain>[a-zA-Z0-9\.]+)(:(?P<port>[0-9]*))?)?$";
@@ -177,6 +180,19 @@ pub struct GrinboxAddress {
     pub public_key: String,
     pub domain: String,
     pub port: u16,
+}
+
+impl GrinboxAddress {
+    pub fn get_chain_type(&self) -> Result<ChainTypes, Error> {
+        let (version, _) = str::from_base58_check(&self.public_key.as_str(), 2)?;
+        if version == GRINBOX_ADDRESS_VERSION_MAINNET.to_vec() {
+            return Ok(ChainTypes::Mainnet);
+        } else if version == GRINBOX_ADDRESS_VERSION_TESTNET.to_vec() {
+            return Ok(ChainTypes::Floonet)
+        } else {
+            return Err(Wallet713Error::InvalidAddressVersion.into())
+        }
+    }
 }
 
 impl Address for GrinboxAddress {
