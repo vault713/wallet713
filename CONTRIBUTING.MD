@@ -8,4 +8,4 @@ Please note we have a [code of conduct](CONTRIBUTING.md), please follow it in al
 
 ## Work in progress
 
-This is a modest attempt to initial contributing guidelines, with the aim to improve overtime together with the community as the project grows. Any contribution counts, no matter how small. We look forward to working with you and making wallet713 the best wallet for Grin!
+This is a modest attempt to initial contributing guidelines, with the aim to improve together with the community as the project grows. Any contribution counts, no matter how small. We look forward to working with you and making wallet713 the best wallet for Grin!

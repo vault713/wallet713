@@ -6,7 +6,8 @@ use super::base58::{ToBase58, FromBase58};
 use common::{Wallet713Error, Result};
 use sha2::{Sha256, Digest};
 
-pub const BASE58_CHECK_VERSION_GRIN_TX: [u8; 2] = [1, 120];
+pub const GRINBOX_ADDRESS_VERSION_MAINNET: [u8; 2] = [1, 11];
+pub const GRINBOX_ADDRESS_VERSION_TESTNET: [u8; 2] = [1, 120];
 
 pub trait Hex<T> {
     fn from_hex(str: &str) -> Result<T>;

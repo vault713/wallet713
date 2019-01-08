@@ -26,9 +26,20 @@ While running, wallet713 works with an internal command prompt. You type command
 
 ### Getting started
 
-When you run the wallet for the first time, the wallet will create a config file for you and also generate your public/private keypairs which you need to use your 713.grinbox address. Running `config` displays your current configuration. 
+When you run the wallet for the first time, the wallet will create a config file for you and also generate your public/private keypairs which you need to use your 713.grinbox address. Running `config` displays your current configuration.
+Configuration files will be created by default under ~/.wallet713/ under a dedicated folder for each chain type (/main or /floo).
 
-Iniate a new wallet:
+Running against mainnet:
+```
+$ ./wallet713
+```
+
+Running against floonet:
+```
+$ ./wallet713 --floonet
+```
+
+Initiate a new wallet:
 ```
 wallet713> $ init
 ```
