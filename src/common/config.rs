@@ -42,6 +42,8 @@ pub struct Wallet713Config {
     pub keybase_listener_auto_start: Option<bool>,
     pub max_auto_accept_invoice: Option<u64>,
     pub default_keybase_ttl: Option<String>,
+    #[serde(skip_serializing)]
+    config_home: Option<String>,
 }
 
 impl Wallet713Config {
@@ -59,7 +61,8 @@ impl Wallet713Config {
         let mut file = File::open(config_path)?;
         let mut toml_str = String::new();
         file.read_to_string(&mut toml_str)?;
-        let config = toml::from_str(&toml_str[..])?;
+        let mut config: Wallet713Config = toml::from_str(&toml_str[..])?;
+        config.config_home = Some(config_path.to_string());
         Ok(config)
     }
 
@@ -105,13 +108,14 @@ impl Wallet713Config {
         Ok(config)
     }
 
-    pub fn to_file(&self, config_path: Option<&str>) -> Result<()> {
+    pub fn to_file(&mut self, config_path: Option<&str>) -> Result<()> {
         let default_path_buf = Wallet713Config::default_config_path(&self.chain)?;
         let default_path = default_path_buf.to_str().unwrap();
         let config_path = config_path.unwrap_or(default_path);
         let toml_str = toml::to_string(&self)?;
         let mut f = File::create(config_path)?;
         f.write_all(toml_str.as_bytes())?;
+        self.config_home = Some(config_path.to_string());
         Ok(())
     }
 
@@ -150,9 +154,17 @@ impl Wallet713Config {
     }
 
     pub fn get_data_path(&self) -> Result<PathBuf> {
-        let mut default_path = Wallet713Config::default_home_path(&self.chain)?;
-        default_path.push(self.wallet713_data_path.clone());
-        Ok(default_path)
+        let mut data_path = PathBuf::new();
+        data_path.push(self.wallet713_data_path.clone());
+        if data_path.is_absolute() {
+            return Ok(data_path);
+        }
+
+        let mut data_path = PathBuf::new();
+        data_path.push(self.config_home.clone().unwrap_or(WALLET713_DEFAULT_CONFIG_FILENAME.to_string()));
+        data_path.pop();
+        data_path.push(self.wallet713_data_path.clone());
+        Ok(data_path)
     }
 }
 
