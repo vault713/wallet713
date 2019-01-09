@@ -108,13 +108,14 @@ impl Wallet713Config {
         Ok(config)
     }
 
-    pub fn to_file(&self, config_path: Option<&str>) -> Result<()> {
+    pub fn to_file(&mut self, config_path: Option<&str>) -> Result<()> {
         let default_path_buf = Wallet713Config::default_config_path(&self.chain)?;
         let default_path = default_path_buf.to_str().unwrap();
         let config_path = config_path.unwrap_or(default_path);
         let toml_str = toml::to_string(&self)?;
         let mut f = File::create(config_path)?;
         f.write_all(toml_str.as_bytes())?;
+        self.config_home = Some(config_path.to_string());
         Ok(())
     }
 
@@ -154,7 +155,13 @@ impl Wallet713Config {
 
     pub fn get_data_path(&self) -> Result<PathBuf> {
         let mut data_path = PathBuf::new();
-        data_path.push(self.config_home.clone().unwrap());
+        data_path.push(self.wallet713_data_path.clone());
+        if data_path.is_absolute() {
+            return Ok(data_path);
+        }
+
+        let mut data_path = PathBuf::new();
+        data_path.push(self.config_home.clone().unwrap_or(WALLET713_DEFAULT_CONFIG_FILENAME.to_string()));
         data_path.pop();
         data_path.push(self.wallet713_data_path.clone());
         Ok(data_path)
