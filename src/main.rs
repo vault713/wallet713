@@ -48,15 +48,10 @@ use contacts::{Address, AddressType, GrinboxAddress, Contact, AddressBook, LMDBB
 
 const CLI_HISTORY_PATH: &str = ".history";
 
-fn do_config(args: &ArgMatches, silent: bool) -> Result<Wallet713Config> {
+fn do_config(args: &ArgMatches, chain: &Option<ChainTypes>, silent: bool) -> Result<Wallet713Config> {
 	let mut config;
 	let mut any_matches = false;
     let config_path = args.value_of("config-path");
-    let chain: Option<ChainTypes> = if args.is_present("floonet") {
-        Some(ChainTypes::Floonet)
-    } else {
-        None
-    };
     let exists = Wallet713Config::exists(config_path, &chain)?;
 	if exists {
 		config = Wallet713Config::from_file(config_path, &chain)?;
@@ -102,10 +97,10 @@ fn do_config(args: &ArgMatches, silent: bool) -> Result<Wallet713Config> {
     if !exists || args.is_present("generate-keys") {
         let (pr, _) = generate_keypair();
         config.grinbox_private_key = pr.to_string();
-        any_matches = exists;
+        println!("{}: {}", "Your new 713.grinbox address".bright_yellow(), config.get_grinbox_address()?.stripped().bright_green());        any_matches = exists;
     }
 
-	config.to_file(config_path)?;
+    config.to_file(config_path)?;
 
     if !any_matches && !silent {
         cli_message!("{}", config);
@@ -159,7 +154,12 @@ const WELCOME_FOOTER: &str = r#"Use `listen` to connect to grinbox or `help` to 
 "#;
 
 fn welcome(args: &ArgMatches) -> Result<Wallet713Config> {
-    let config = do_config(args, true)?;
+    let chain: Option<ChainTypes> = if args.is_present("floonet") {
+        Some(ChainTypes::Floonet)
+    } else {
+        None
+    };
+    let config = do_config(args, &chain, true)?;
 
 	print!("{}", WELCOME_HEADER.bright_yellow().bold());
     println!("{}: {}", "Your 713.grinbox address".bright_yellow(), config.get_grinbox_address()?.stripped().bright_green());
@@ -430,7 +430,8 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
     let matches = Parser::parse(command)?;
     match matches.subcommand_name() {
         Some("config") => {
-            *config = do_config(matches.subcommand_matches("config").unwrap(), false)?;
+            let args = matches.subcommand_matches("config").unwrap();
+            *config = do_config(args, &config.chain, false)?;
         },
         Some("init") => {
             let passphrase = matches.subcommand_matches("init").unwrap().value_of("passphrase").unwrap_or("");
