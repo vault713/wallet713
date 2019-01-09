@@ -42,6 +42,8 @@ pub struct Wallet713Config {
     pub keybase_listener_auto_start: Option<bool>,
     pub max_auto_accept_invoice: Option<u64>,
     pub default_keybase_ttl: Option<String>,
+    #[serde(skip_serializing)]
+    config_home: Option<String>,
 }
 
 impl Wallet713Config {
@@ -59,7 +61,8 @@ impl Wallet713Config {
         let mut file = File::open(config_path)?;
         let mut toml_str = String::new();
         file.read_to_string(&mut toml_str)?;
-        let config = toml::from_str(&toml_str[..])?;
+        let mut config: Wallet713Config = toml::from_str(&toml_str[..])?;
+        config.config_home = Some(config_path.to_string());
         Ok(config)
     }
 
@@ -150,9 +153,11 @@ impl Wallet713Config {
     }
 
     pub fn get_data_path(&self) -> Result<PathBuf> {
-        let mut default_path = Wallet713Config::default_home_path(&self.chain)?;
-        default_path.push(self.wallet713_data_path.clone());
-        Ok(default_path)
+        let mut data_path = PathBuf::new();
+        data_path.push(self.config_home.clone().unwrap());
+        data_path.pop();
+        data_path.push(self.wallet713_data_path.clone());
+        Ok(data_path)
     }
 }
 
