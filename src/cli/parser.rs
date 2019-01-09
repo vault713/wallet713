@@ -160,6 +160,9 @@ impl<'a, 'b> Parser {
                     .arg(
                         Arg::from_usage("[change-outputs] -o, --change-outputs=<change-outputs> 'the number of change outputs'")
                     )
+                    .arg(
+                        Arg::from_usage("[message] -g, --message=<message> 'the message to include in the tx'")
+                    )
             )
             .subcommand(
                 SubCommand::with_name("invoice")

@@ -118,7 +118,7 @@ impl Wallet {
         Ok(result)
     }
 
-    pub fn initiate_send_tx(&self, amount: u64, minimum_confirmations: u64, selection_strategy: &str, change_outputs: usize, max_outputs: usize) -> Result<Slate> {
+    pub fn initiate_send_tx(&self, amount: u64, minimum_confirmations: u64, selection_strategy: &str, change_outputs: usize, max_outputs: usize, message: Option<String>) -> Result<Slate> {
         let wallet = self.get_wallet_instance()?;
         let mut s: Slate = Slate::blank(0);
         controller::owner_single_use(wallet.clone(), |api| {
@@ -129,7 +129,7 @@ impl Wallet {
                 max_outputs,
                 change_outputs,
                 selection_strategy == "all",
-                None,
+                message,
             )?;
             api.tx_lock_outputs(&slate, lock_fn)?;
             s = slate;

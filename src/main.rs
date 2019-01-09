@@ -573,6 +573,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         Some("send") => {
             let args = matches.subcommand_matches("send").unwrap();
             let to = args.value_of("to").unwrap();
+            let message = args.value_of("message").map(|s| s.to_string());
 
             let change_outputs = args.value_of("change-outputs").unwrap_or("1");
             let change_outputs = usize::from_str_radix(change_outputs, 10)
@@ -604,7 +605,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let slate: Result<Slate> = match to.address_type() {
                 AddressType::Keybase => {
                     if let Some((publisher, _)) = keybase_broker {
-                        let slate = wallet.lock().unwrap().initiate_send_tx(amount, 10, "smallest", change_outputs, 500)?;
+                        let slate = wallet.lock().unwrap().initiate_send_tx(amount, 10, "smallest", change_outputs, 500, message)?;
                         let mut keybase_address = contacts::KeybaseAddress::from_str(&to.to_string())?;
                         keybase_address.topic = Some(broker::TOPIC_SLATE_NEW.to_string());
                         publisher.post_slate(&slate, keybase_address.borrow())?;
@@ -615,7 +616,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 },
                 AddressType::Grinbox => {
                     if let Some((publisher, _)) = grinbox_broker {
-                        let slate = wallet.lock().unwrap().initiate_send_tx(amount, 10, "smallest", change_outputs, 500)?;
+                        let slate = wallet.lock().unwrap().initiate_send_tx(amount, 10, "smallest", change_outputs, 500, message)?;
                         publisher.post_slate(&slate, to.borrow())?;
                         Ok(slate)
                     } else {
