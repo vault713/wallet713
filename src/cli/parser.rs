@@ -208,5 +208,9 @@ impl<'a, 'b> Parser {
                         Arg::from_usage("-i, --input=<file> 'the slate file'")
                     )
             )
+            .subcommand(
+                SubCommand::with_name("check")
+                    .about("checks a wallet's outputs against a live node, repairing and restoring missing outputs if required")
+            )
     }
 }
