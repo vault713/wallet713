@@ -505,7 +505,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                     _ => false
                 };
                 if is_running {
-                    cli_message!("stopping grainbox listener...");
+                    cli_message!("stopping grinbox listener...");
                     if let Some((_, subscriber)) = grinbox_broker {
                         subscriber.stop();
                     };
