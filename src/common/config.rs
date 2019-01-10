@@ -10,7 +10,7 @@ use grin_core::global::ChainTypes;
 
 use super::Result;
 
-use contacts::GrinboxAddress;
+use contacts::{GrinboxAddress, DEFAULT_GRINBOX_PORT};
 use super::crypto::{SecretKey, PublicKey, public_key_from_secret_key, Hex, Base58, GRINBOX_ADDRESS_VERSION_TESTNET, GRINBOX_ADDRESS_VERSION_MAINNET};
 
 const WALLET713_HOME: &str = ".wallet713";
@@ -22,7 +22,6 @@ const GRIN_NODE_API_SECRET_FILE: &str = ".api_secret";
 const DEFAULT_CONFIG: &str = r#"
 	wallet713_data_path = "wallet713_data"
 	grinbox_domain = "grinbox.io"
-	grinbox_port = 13420
 	grinbox_private_key = ""
 	grin_node_uri = "http://127.0.0.1:13413"
 	grin_node_secret = ""
@@ -34,7 +33,7 @@ pub struct Wallet713Config {
     pub chain: Option<ChainTypes>,
     pub wallet713_data_path: String,
     pub grinbox_domain: String,
-    pub grinbox_port: u16,
+    pub grinbox_port: Option<u16>,
     pub grinbox_private_key: String,
     pub grin_node_uri: String,
     pub grin_node_secret: Option<String>,
@@ -173,7 +172,7 @@ impl fmt::Display for Wallet713Config {
         write!(f, "wallet713_data_path={}\ngrinbox_domain={}\ngrinbox_port={}\ngrinbox_private_key={}\ngrin_node_uri={}\ngrin_node_secret={}",
                self.wallet713_data_path,
                self.grinbox_domain,
-               self.grinbox_port,
+               self.grinbox_port.unwrap_or(DEFAULT_GRINBOX_PORT),
                "{...}",
                self.grin_node_uri,
                "{...}")?;

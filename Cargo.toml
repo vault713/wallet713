@@ -14,7 +14,7 @@ serde_json = "1.0"
 toml = "0.4"
 clap = "2"
 colored = "1.6"
-ws = "*"
+ws = { version="0.7", features=["ssl"] }
 dirs = "1"
 futures = "0.1"
 tokio = "= 0.1.11"

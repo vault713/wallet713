@@ -73,9 +73,10 @@ fn do_config(args: &ArgMatches, chain: &Option<ChainTypes>, silent: bool) -> Res
 	}
 
     if let Some(port) = args.value_of("port") {
-        config.grinbox_port = u16::from_str_radix(port, 10).map_err(|_| {
+        let port = u16::from_str_radix(port, 10).map_err(|_| {
             Wallet713Error::NumberParsingError
         })?;
+        config.grinbox_port = Some(port);
         any_matches = true;
     }
 

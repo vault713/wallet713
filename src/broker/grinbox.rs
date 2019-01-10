@@ -7,7 +7,7 @@ use grin_core::libtx::slate::Slate;
 
 use common::{Error, Wallet713Error};
 use common::crypto::{SecretKey, PublicKey, Signature, verify_signature, sign_challenge, Hex, Base58};
-use contacts::{Address, GrinboxAddress};
+use contacts::{Address, GrinboxAddress, DEFAULT_GRINBOX_PORT};
 
 use super::types::{Publisher, Subscriber, SubscriptionHandler, CloseReason};
 use super::protocol::{ProtocolResponse, ProtocolRequest};
@@ -83,7 +83,7 @@ impl GrinboxBroker {
     fn post_slate(&self, slate: &Slate, to: &GrinboxAddress, from: &GrinboxAddress, secret_key: &SecretKey) -> Result<(), Error> {
         let url = {
             let to = to.clone();
-            format!("ws://{}:{}", to.domain, to.port)
+            format!("wss://{}:{}", to.domain, to.port.unwrap_or(DEFAULT_GRINBOX_PORT))
         };
         connect(url, move |sender| {
             move |msg: Message| {
@@ -116,7 +116,7 @@ impl GrinboxBroker {
         let handler = Arc::new(Mutex::new(handler));
         let url = {
             let cloned_address = address.clone();
-            format!("ws://{}:{}", cloned_address.domain, cloned_address.port)
+            format!("wss://{}:{}", cloned_address.domain, cloned_address.port.unwrap_or(DEFAULT_GRINBOX_PORT))
         };
         let secret_key = secret_key.clone();
         let cloned_address = address.clone();

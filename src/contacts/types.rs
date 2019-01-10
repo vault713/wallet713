@@ -11,7 +11,7 @@ const ADDRESS_REGEX: &str = r"^((?P<address_type>keybase|grinbox)://).+$";
 const GRINBOX_ADDRESS_REGEX: &str = r"^(grinbox://)?(?P<public_key>[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{52})(@(?P<domain>[a-zA-Z0-9\.]+)(:(?P<port>[0-9]*))?)?$";
 const KEYBASE_ADDRESS_REGEX: &str = r"^(keybase://)?(?P<username>[0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_]{1,16})(:(?P<topic>[a-zA-Z0-9_-]+))?$";
 const DEFAULT_GRINBOX_DOMAIN: &str = "grinbox.io";
-const DEFAULT_GRINBOX_PORT: u16 = 13420;
+pub const DEFAULT_GRINBOX_PORT: u16 = 443;
 
 #[derive(PartialEq)]
 pub enum AddressType {
@@ -179,7 +179,7 @@ impl Display for KeybaseAddress {
 pub struct GrinboxAddress {
     pub public_key: String,
     pub domain: String,
-    pub port: u16,
+    pub port: Option<u16>,
 }
 
 impl GrinboxAddress {
@@ -206,7 +206,7 @@ impl Address for GrinboxAddress {
         let captures = captures.unwrap();
         let public_key = captures.name("public_key").unwrap().as_str().to_string();
         let domain = captures.name("domain").map(|m| m.as_str().to_string()).unwrap_or(DEFAULT_GRINBOX_DOMAIN.to_string());
-        let port = captures.name("port").map(|m| u16::from_str_radix(m.as_str(), 10).unwrap()).unwrap_or(DEFAULT_GRINBOX_PORT);
+        let port = captures.name("port").map(|m| u16::from_str_radix(m.as_str(), 10).unwrap());
 
         PublicKey::from_base58_check(&public_key, 2).map_err(|_| {
             Wallet713Error::InvalidContactPublicKey(public_key.clone())
@@ -231,10 +231,10 @@ impl Address for GrinboxAddress {
 impl Display for GrinboxAddress {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "grinbox://{}", self.public_key)?;
-        if self.domain != DEFAULT_GRINBOX_DOMAIN || self.port != DEFAULT_GRINBOX_PORT {
+        if self.domain != DEFAULT_GRINBOX_DOMAIN || (self.port.is_some() && self.port.unwrap() != DEFAULT_GRINBOX_PORT) {
             write!(f, "@{}", self.domain)?;
-            if self.port != DEFAULT_GRINBOX_PORT {
-                write!(f, ":{}", self.port)?;
+            if self.port.is_some() && self.port.unwrap() != DEFAULT_GRINBOX_PORT {
+                write!(f, ":{}", self.port.unwrap())?;
             }
         }
         Ok(())
