@@ -196,6 +196,14 @@ impl Wallet {
         Ok(())
     }
 
+    pub fn check_repair(&self) -> Result<()> {
+        let wallet = self.get_wallet_instance()?;
+        controller::owner_single_use(wallet.clone(), |api| {
+            api.check_repair()
+        })?;
+        Ok(())
+    }
+
     pub fn process_sender_initiated_slate(&self, slate: &mut Slate) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
         controller::foreign_single_use(wallet.clone(), |api| {

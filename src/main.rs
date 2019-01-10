@@ -710,6 +710,14 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             }
             return Ok(false);
         },
+        Some("check") => {
+            cli_message!("checking and repairing... please wait as this could take a few minutes to complete.");
+            if let Ok(mut wallet) = wallet.lock() {
+                wallet.check_repair()?;
+                cli_message!("check and repair done!");
+            }
+            return Ok(false);
+        },
         Some(subcommand) => {
             cli_message!("{}: subcommand `{}` not implemented!", "ERROR".bright_red(), subcommand.bright_green());
         },
