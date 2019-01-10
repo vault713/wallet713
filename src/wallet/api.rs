@@ -105,7 +105,7 @@ fn invoice_tx<T: ?Sized, C, K>(
 {
     let current_height = wallet.w2n_client().get_chain_height()?;
 
-    updater::refresh_outputs(wallet, &parent_key_id)?;
+    updater::refresh_outputs(wallet, &parent_key_id, true)?;
 
     let lock_height = slate.lock_height;
     let amount = slate.amount;
