@@ -262,7 +262,7 @@ impl Wallet {
             Ok(seed) => seed,
             Err(_) => {
                 // could not load from file, let's create a new one
-                WalletSeed::init_file(&wallet_config, 32, passphrase)?
+                WalletSeed::init_file(&wallet_config, 32, None, passphrase)?
             }
         };
         Ok(seed)
