@@ -693,7 +693,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             );
         },
         Some("restore") => {
-            cli_message!("restoring... please wait as this could take a few minutes to complete.");
+            println!("restoring... please wait as this could take a few minutes to complete.");
             if let Ok(mut wallet) = wallet.lock() {
                 let args = matches.subcommand_matches("restore").unwrap();
                 let passphrase = args.value_of("passphrase").unwrap_or("");
@@ -711,7 +711,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             return Ok(false);
         },
         Some("check") => {
-            cli_message!("checking and repairing... please wait as this could take a few minutes to complete.");
+            println!("checking and repairing... please wait as this could take a few minutes to complete.");
             if let Ok(mut wallet) = wallet.lock() {
                 wallet.check_repair()?;
                 cli_message!("check and repair done!");
