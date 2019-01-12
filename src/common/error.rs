@@ -16,8 +16,6 @@ pub enum Wallet713Error {
     ClosedListener(String),
     #[fail(display = "listener for {} already started!", 0)]
     AlreadyListening(String),
-    #[fail(display = "`{}` is not a valid public key.", 0)]
-    InvalidContactPublicKey(String),
     #[fail(display = "contact named `{}` already exists!", 0)]
     ContactAlreadyExists(String),
     #[fail(display = "could not find contact named `{}`!", 0)]
@@ -28,6 +26,10 @@ pub enum Wallet713Error {
     InvalidBase58Length,
     #[fail(display = "invalid checksum!")]
     InvalidBase58Checksum,
+    #[fail(display = "invalid network!")]
+    InvalidBase58Version,
+    #[fail(display = "invalid key!")]
+    InvalidBase58Key,
     #[fail(display = "could not parse number from string!")]
     NumberParsingError,
     #[fail(display = "unknown address type `{}`!", 0)]
@@ -56,6 +58,4 @@ pub enum Wallet713Error {
     DoesNotAcceptInvoices,
     #[fail(display = "rejecting invoice as amount '{}' is too big!", 0)]
     InvoiceAmountTooBig(u64),
-    #[fail(display = "invalid version of grinbox address!")]
-    InvalidAddressVersion,
 }

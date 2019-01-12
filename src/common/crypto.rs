@@ -18,7 +18,7 @@ pub trait Base58<T> {
     fn from_base58(str: &str) -> Result<T>;
     fn to_base58(&self) -> String;
 
-    fn from_base58_check(str: &str, version_bytes: usize) -> Result<T>;
+    fn from_base58_check(str: &str, version_bytes: Vec<u8>) -> Result<T>;
     fn to_base58_check(&self, version: Vec<u8>) -> String;
 }
 
@@ -47,11 +47,14 @@ impl Base58<PublicKey> for PublicKey {
         self.serialize().to_base58()
     }
 
-    fn from_base58_check(str: &str, version_bytes: usize) -> Result<PublicKey> {
+    fn from_base58_check(str: &str, version_expect: Vec<u8>) -> Result<PublicKey> {
         let secp = Secp256k1::new();
-        let str = str::from_base58_check(str, version_bytes)?;
-        let key = PublicKey::from_slice(&secp, &str.1)?;
-        Ok(key)
+        let n_version = version_expect.len();
+        let (version_actual, key_bytes) = str::from_base58_check(str, n_version)?;
+        if version_actual != version_expect {
+            return Err(Wallet713Error::InvalidBase58Version.into());
+        }
+        PublicKey::from_slice(&secp, &key_bytes).map_err(|_| Wallet713Error::InvalidBase58Key.into())
     }
 
     fn to_base58_check(&self, version: Vec<u8>) -> String {

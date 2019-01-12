@@ -162,6 +162,7 @@ fn welcome(args: &ArgMatches) -> Result<Wallet713Config> {
         std::process::exit(1);
     };
     let config = do_config(args, &chain, true)?;
+    set_mining_mode(config.chain.clone().unwrap_or(ChainTypes::Mainnet));
 
 	print!("{}", WELCOME_HEADER.bright_yellow().bold());
     println!("{}: {}", "Your 713.grinbox address".bright_yellow(), config.get_grinbox_address()?.stripped().bright_green());
@@ -175,7 +176,6 @@ use grin_core::libtx::slate::Slate;
 use broker::{GrinboxSubscriber, GrinboxPublisher, KeybasePublisher, KeybaseSubscriber, SubscriptionHandler, Subscriber, Publisher, CloseReason};
 
 struct Controller {
-    chain: ChainTypes,
     name: String,
     wallet: Arc<Mutex<Wallet>>,
     address_book: Arc<Mutex<AddressBook>>,
@@ -183,13 +183,12 @@ struct Controller {
 }
 
 impl Controller {
-    pub fn new(name: &str, chain: ChainTypes, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>, publisher: Box<Publisher + Send>) -> Result<Self> {
+    pub fn new(name: &str, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>, publisher: Box<Publisher + Send>) -> Result<Self> {
         Ok(Self {
             name: name.to_string(),
             wallet,
             address_book,
             publisher,
-            chain
         })
     }
 
@@ -235,12 +234,7 @@ impl SubscriptionHandler for Controller {
         };
 
         if from.address_type() == AddressType::Grinbox {
-            let grinbox_address = GrinboxAddress::from_str(&from.to_string()).unwrap();
-            let chain = grinbox_address.get_chain_type().expect("unknown chain type for address! ignoring slate.");
-            if chain != self.chain {
-                cli_message!("address [{}] is on the wrong chain!", grinbox_address.stripped().bright_green());
-                return;
-            }
+            GrinboxAddress::from_str(&from.to_string()).expect("invalid grinbox address");
         }
 
         let result = self.process_incoming_slate(slate).and_then(|is_finalized| {
@@ -295,11 +289,9 @@ fn start_grinbox_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, 
     let grinbox_subscriber = GrinboxSubscriber::new(&grinbox_address, &grinbox_secret_key).expect("could not start grinbox subscriber!");
     let cloned_publisher = grinbox_publisher.clone();
     let mut cloned_subscriber = grinbox_subscriber.clone();
-    let chain = config.chain.clone().unwrap_or(ChainTypes::Mainnet);
     std::thread::spawn(move || {
         let controller = Controller::new(
             &grinbox_address.stripped(),
-            chain,
             wallet.clone(),
             address_book.clone(),
             Box::new(cloned_publisher),
@@ -323,11 +315,9 @@ fn start_keybase_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, 
 
     let mut cloned_subscriber = keybase_subscriber.clone();
     let cloned_publisher = keybase_publisher.clone();
-    let chain = config.chain.clone().unwrap_or(ChainTypes::Mainnet);
     std::thread::spawn(move || {
         let controller = Controller::new(
             "keybase",
-            chain,
             wallet.clone(),
             address_book.clone(),
             Box::new(cloned_publisher),
@@ -348,8 +338,6 @@ fn main() {
 	let mut config = welcome(&matches).unwrap_or_else(|e| {
         panic!("{}: could not read or create config! {}", "ERROR".bright_red(), e);
     });
-
-    set_mining_mode(config.chain.clone().unwrap_or(ChainTypes::Mainnet));
 
     let data_path_buf = config.get_data_path().unwrap();
     let data_path = data_path_buf.to_str().unwrap();

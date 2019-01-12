@@ -6,7 +6,7 @@ use colored::*;
 use grin_core::libtx::slate::Slate;
 
 use common::{Error, Wallet713Error};
-use common::crypto::{SecretKey, PublicKey, Signature, verify_signature, sign_challenge, Hex, Base58};
+use common::crypto::{SecretKey, Signature, verify_signature, sign_challenge, Hex};
 use contacts::{Address, GrinboxAddress, DEFAULT_GRINBOX_PORT};
 
 use super::types::{Publisher, Subscriber, SubscriptionHandler, CloseReason};
@@ -188,7 +188,7 @@ impl GrinboxClient {
 
     fn verify_slate_signature(&self, from: &str, str: &str, challenge: &str, signature: &str) -> Result<(), Error> {
         let from = GrinboxAddress::from_str(from)?;
-        let public_key = PublicKey::from_base58_check(&from.public_key, 2)?;
+        let public_key = from.public_key()?;
         let signature = Signature::from_hex(signature)?;
         let mut challenge_builder = String::new();
         challenge_builder.push_str(str);

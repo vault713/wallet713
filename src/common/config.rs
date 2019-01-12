@@ -11,7 +11,7 @@ use grin_core::global::ChainTypes;
 use super::Result;
 
 use contacts::{GrinboxAddress, DEFAULT_GRINBOX_PORT};
-use super::crypto::{SecretKey, PublicKey, public_key_from_secret_key, Hex, Base58, GRINBOX_ADDRESS_VERSION_TESTNET, GRINBOX_ADDRESS_VERSION_MAINNET};
+use super::crypto::{SecretKey, PublicKey, public_key_from_secret_key, Hex};
 
 const WALLET713_HOME: &str = ".wallet713";
 const WALLET713_DEFAULT_CONFIG_FILENAME: &str = "wallet713.toml";
@@ -130,15 +130,7 @@ impl Wallet713Config {
 
     pub fn get_grinbox_address(&self) -> Result<GrinboxAddress> {
         let public_key = self.get_grinbox_public_key()?;
-        let public_key = match self.chain {
-            None | Some(ChainTypes::Mainnet) => public_key.to_base58_check(GRINBOX_ADDRESS_VERSION_MAINNET.to_vec()),
-            Some(ChainTypes::AutomatedTesting) | Some(ChainTypes::UserTesting) | Some(ChainTypes::Floonet) => public_key.to_base58_check(GRINBOX_ADDRESS_VERSION_TESTNET.to_vec()),
-        };
-        let address = GrinboxAddress {
-            public_key,
-            domain: self.grinbox_domain.clone(),
-            port: self.grinbox_port,
-        };
+        let address = GrinboxAddress::new(public_key, self.grinbox_domain.clone(), self.grinbox_port);
         Ok(address)
     }
 
