@@ -18,15 +18,16 @@ ws = { version="0.7", features=["ssl"] }
 dirs = "1"
 futures = "0.1"
 tokio = "= 0.1.11"
-rand = "0.4"
-secp256k1 = { version="0.11", features=["rand"] }
-sha2 = "0.8.0"
+rand = "0.5"
+sha2 = "0.7"
 digest = "0.7"
 lmdb-zero = "0.4"
 failure = "0.1"
 uuid = { version = "0.6", features = ["serde", "v4"] }
 regex = "1"
 rustyline = "3.0"
+hmac = "0.6"
+ripemd160 = "0.7"
 
 grin_core = { git = "https://github.com/mimblewimble/grin" }
 grin_wallet = { git = "https://github.com/mimblewimble/grin" }

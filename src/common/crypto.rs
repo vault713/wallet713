@@ -1,6 +1,5 @@
-use rand::OsRng;
-use secp256k1::{Secp256k1, Message};
-pub use secp256k1::{SecretKey, PublicKey, Signature};
+pub use grin_util::secp::{Message, Secp256k1, Signature};
+pub use grin_util::secp::key::{PublicKey ,SecretKey};
 
 use super::base58::{ToBase58, FromBase58};
 use common::{Wallet713Error, Result};
@@ -18,20 +17,25 @@ pub trait Base58<T> {
     fn from_base58(str: &str) -> Result<T>;
     fn to_base58(&self) -> String;
 
-    fn from_base58_check(str: &str, version_bytes: usize) -> Result<T>;
+    fn from_base58_check(str: &str, version_bytes: Vec<u8>) -> Result<T>;
     fn to_base58_check(&self, version: Vec<u8>) -> String;
+}
+
+fn serialize_public_key(public_key: &PublicKey) -> Vec<u8> {
+    let secp = Secp256k1::new();
+    let ser = public_key.serialize_vec(&secp, true);
+    ser[..].to_vec()
 }
 
 impl Hex<PublicKey> for PublicKey {
     fn from_hex(str: &str) -> Result<PublicKey> {
         let secp = Secp256k1::new();
         let hex = from_hex(str.to_string())?;
-        let key = PublicKey::from_slice(&secp, &hex)?;
-        Ok(key)
+        PublicKey::from_slice(&secp, &hex).map_err(|_| Wallet713Error::InvalidBase58Key.into())
     }
 
     fn to_hex(&self) -> String {
-        to_hex(self.serialize().to_vec())
+        to_hex(serialize_public_key(self))
     }
 }
 
@@ -39,23 +43,25 @@ impl Base58<PublicKey> for PublicKey {
     fn from_base58(str: &str) -> Result<PublicKey> {
         let secp = Secp256k1::new();
         let str = str::from_base58(str)?;
-        let key = PublicKey::from_slice(&secp, &str)?;
-        Ok(key)
+        PublicKey::from_slice(&secp, &str).map_err(|_| Wallet713Error::InvalidBase58Key.into())
     }
 
     fn to_base58(&self) -> String {
-        self.serialize().to_base58()
+        serialize_public_key(self).to_base58()
     }
 
-    fn from_base58_check(str: &str, version_bytes: usize) -> Result<PublicKey> {
+    fn from_base58_check(str: &str, version_expect: Vec<u8>) -> Result<PublicKey> {
         let secp = Secp256k1::new();
-        let str = str::from_base58_check(str, version_bytes)?;
-        let key = PublicKey::from_slice(&secp, &str.1)?;
-        Ok(key)
+        let n_version = version_expect.len();
+        let (version_actual, key_bytes) = str::from_base58_check(str, n_version)?;
+        if version_actual != version_expect {
+            return Err(Wallet713Error::InvalidBase58Version.into());
+        }
+        PublicKey::from_slice(&secp, &key_bytes).map_err(|_| Wallet713Error::InvalidBase58Key.into())
     }
 
     fn to_base58_check(&self, version: Vec<u8>) -> String {
-        self.serialize().to_base58_check(version)
+        serialize_public_key(self).to_base58_check(version)
     }
 }
 
@@ -63,8 +69,7 @@ impl Hex<Signature> for Signature {
     fn from_hex(str: &str) -> Result<Signature> {
         let secp = Secp256k1::new();
         let hex = from_hex(str.to_string())?;
-        let signature = Signature::from_der(&secp, &hex)?;
-        Ok(signature)
+        Signature::from_der(&secp, &hex).map_err(|_| Wallet713Error::Secp.into())
     }
 
     fn to_hex(&self) -> String {
@@ -78,24 +83,17 @@ impl Hex<SecretKey> for SecretKey {
     fn from_hex(str: &str) -> Result<SecretKey> {
         let secp = Secp256k1::new();
         let data = from_hex(str.to_string())?;
-        let key = SecretKey::from_slice(&secp, &data)?;
-        Ok(key)
+        SecretKey::from_slice(&secp, &data).map_err(|_| Wallet713Error::Secp.into())
     }
 
     fn to_hex(&self) -> String {
-        self.to_string()
+        to_hex(self.0.to_vec())
     }
 }
 
-pub fn generate_keypair() -> (SecretKey, PublicKey) {
+pub fn public_key_from_secret_key(secret_key: &SecretKey) -> Result<PublicKey> {
     let secp = Secp256k1::new();
-    let mut rng = OsRng::new().expect("OsRng");
-    secp.generate_keypair(&mut rng)
-}
-
-pub fn public_key_from_secret_key(secret_key: &SecretKey) -> PublicKey {
-    let secp = Secp256k1::new();
-    PublicKey::from_secret_key(&secp, secret_key)
+    PublicKey::from_secret_key(&secp, secret_key).map_err(|_| Wallet713Error::Secp.into())
 }
 
 pub fn sign_challenge(challenge: &str, secret_key: &SecretKey) -> Result<Signature> {
@@ -103,8 +101,7 @@ pub fn sign_challenge(challenge: &str, secret_key: &SecretKey) -> Result<Signatu
     hasher.input(challenge.as_bytes());
     let message = Message::from_slice(hasher.result().as_slice())?;
     let secp = Secp256k1::new();
-    let signature = secp.sign(&message, secret_key);
-    Ok(signature)
+    secp.sign(&message, secret_key).map_err(|_| Wallet713Error::Secp.into())
 }
 
 pub fn verify_signature(challenge: &str, signature: &Signature, public_key: &PublicKey) -> Result<()> {
@@ -112,8 +109,7 @@ pub fn verify_signature(challenge: &str, signature: &Signature, public_key: &Pub
     hasher.input(challenge.as_bytes());
     let message = Message::from_slice(hasher.result().as_slice())?;
     let secp = Secp256k1::new();
-    secp.verify(&message, signature, public_key)?;
-    Ok(())
+    secp.verify(&message, signature, public_key).map_err(|_| Wallet713Error::Secp.into())
 }
 
 use std::fmt::Write;

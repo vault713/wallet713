@@ -1,10 +1,9 @@
 use std::fmt::{self, Display, Debug};
 use regex::Regex;
 
-use grin_core::global::ChainTypes;
+use grin_core::global::is_mainnet;
 
 use common::{Error, Wallet713Error};
-use common::base58::FromBase58;
 use common::crypto::{PublicKey, Base58, GRINBOX_ADDRESS_VERSION_MAINNET, GRINBOX_ADDRESS_VERSION_TESTNET};
 
 const ADDRESS_REGEX: &str = r"^((?P<address_type>keybase|grinbox)://).+$";
@@ -175,6 +174,15 @@ impl Display for KeybaseAddress {
     }
 }
 
+pub fn version_bytes() -> Vec<u8> {
+    if is_mainnet() {
+        GRINBOX_ADDRESS_VERSION_MAINNET.to_vec()
+    }
+    else {
+        GRINBOX_ADDRESS_VERSION_TESTNET.to_vec()
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GrinboxAddress {
     pub public_key: String,
@@ -183,15 +191,16 @@ pub struct GrinboxAddress {
 }
 
 impl GrinboxAddress {
-    pub fn get_chain_type(&self) -> Result<ChainTypes, Error> {
-        let (version, _) = str::from_base58_check(&self.public_key.as_str(), 2)?;
-        if version == GRINBOX_ADDRESS_VERSION_MAINNET.to_vec() {
-            return Ok(ChainTypes::Mainnet);
-        } else if version == GRINBOX_ADDRESS_VERSION_TESTNET.to_vec() {
-            return Ok(ChainTypes::Floonet)
-        } else {
-            return Err(Wallet713Error::InvalidAddressVersion.into())
+    pub fn new(public_key: PublicKey, domain: String, port: Option<u16>) -> Self {
+        Self {
+            public_key: public_key.to_base58_check(version_bytes()),
+            domain,
+            port
         }
+    }
+
+    pub fn public_key(&self) -> Result<PublicKey, Error> {
+        PublicKey::from_base58_check(&self.public_key, version_bytes())
     }
 }
 
@@ -208,15 +217,15 @@ impl Address for GrinboxAddress {
         let domain = captures.name("domain").map(|m| m.as_str().to_string()).unwrap_or(DEFAULT_GRINBOX_DOMAIN.to_string());
         let port = captures.name("port").map(|m| u16::from_str_radix(m.as_str(), 10).unwrap());
 
-        PublicKey::from_base58_check(&public_key, 2).map_err(|_| {
-            Wallet713Error::InvalidContactPublicKey(public_key.clone())
-        })?;
+        PublicKey::from_base58_check(&public_key, version_bytes())?;
 
-        Ok(Self {
+        let address = Self {
             public_key,
             domain,
             port
-        })
+        };
+
+        Ok(address)
     }
 
     fn address_type(&self) -> AddressType {
