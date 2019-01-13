@@ -1,15 +1,13 @@
+use failure::Error;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::fmt;
 
-use colored::*;
-
 use grin_wallet::{WalletConfig};
 use grin_core::global::ChainTypes;
 
-use super::Result;
-
+use crate::common::error::Wallet713Error;
 use contacts::{GrinboxAddress, DEFAULT_GRINBOX_PORT};
 use super::crypto::{SecretKey, PublicKey, public_key_from_secret_key, Hex};
 
@@ -22,7 +20,7 @@ const GRIN_NODE_API_SECRET_FILE: &str = ".api_secret";
 const DEFAULT_CONFIG: &str = r#"
 	wallet713_data_path = "wallet713_data"
 	grinbox_domain = "grinbox.io"
-	grinbox_private_key = ""
+	grinbox_address_index = 0
 	grin_node_uri = "http://127.0.0.1:13413"
 	grin_node_secret = ""
 	default_keybase_ttl = "24h"
@@ -34,15 +32,18 @@ pub struct Wallet713Config {
     pub wallet713_data_path: String,
     pub grinbox_domain: String,
     pub grinbox_port: Option<u16>,
-    pub grinbox_private_key: String,
+    pub grinbox_private_key: Option<String>,
+    pub grinbox_address_index: Option<u32>,
     pub grin_node_uri: String,
     pub grin_node_secret: Option<String>,
     pub grinbox_listener_auto_start: Option<bool>,
     pub keybase_listener_auto_start: Option<bool>,
     pub max_auto_accept_invoice: Option<u64>,
     pub default_keybase_ttl: Option<String>,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     config_home: Option<String>,
+    #[serde(skip)]
+    grinbox_derived_address_key: Option<SecretKey>,
 }
 
 impl Wallet713Config {
@@ -130,8 +131,7 @@ impl Wallet713Config {
 
     pub fn get_grinbox_address(&self) -> Result<GrinboxAddress, Error> {
         let public_key = self.get_grinbox_public_key()?;
-        let address = GrinboxAddress::new(public_key, self.grinbox_domain.clone(), self.grinbox_port);
-        Ok(address)
+        Ok(GrinboxAddress::new(public_key, self.grinbox_domain.clone(), self.grinbox_port))
     }
 
     pub fn get_grinbox_public_key(&self) -> Result<PublicKey, Error> {
@@ -161,16 +161,12 @@ impl Wallet713Config {
 
 impl fmt::Display for Wallet713Config {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "wallet713_data_path={}\ngrinbox_domain={}\ngrinbox_port={}\ngrinbox_private_key={}\ngrin_node_uri={}\ngrin_node_secret={}",
+        write!(f, "wallet713_data_path={}\ngrinbox_domain={}\ngrinbox_port={}\ngrin_node_uri={}\ngrin_node_secret={}",
                self.wallet713_data_path,
                self.grinbox_domain,
                self.grinbox_port.unwrap_or(DEFAULT_GRINBOX_PORT),
-               "{...}",
                self.grin_node_uri,
                "{...}")?;
-        if self.grinbox_private_key.is_empty() {
-            write!(f, "\n{}: grinbox keypair not set! consider using `config --generate-keys`", "WARNING".bright_yellow())?;
-        }
         Ok(())
     }
 }

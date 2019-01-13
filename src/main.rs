@@ -82,7 +82,7 @@ fn do_config(args: &ArgMatches, chain: &Option<ChainTypes>, silent: bool) -> Res
     }
 
     if let Some(account) = args.value_of("private-key") {
-        config.grinbox_private_key = account.to_string();
+        config.grinbox_private_key = Some(account.to_string()); // HERE
         any_matches = true;
     }
 
@@ -98,7 +98,9 @@ fn do_config(args: &ArgMatches, chain: &Option<ChainTypes>, silent: bool) -> Res
 
     if !exists || args.is_present("generate-keys") {
         let (pr, _) = generate_keypair()?;
-        println!("{}: {}", "Your new 713.grinbox address".bright_yellow(), config.get_grinbox_address()?.stripped().bright_green());        any_matches = exists;
+        config.grinbox_private_key = Some(to_hex(pr.0.to_vec())); // HERE
+        println!("{}: {}", "Your new 713.grinbox address".bright_yellow(), config.get_grinbox_address()?.stripped().bright_green());
+        any_matches = exists;
     }
 
     config.to_file(config_path)?;
@@ -163,10 +165,6 @@ fn welcome(args: &ArgMatches) -> Result<Wallet713Config> {
     };
     let config = do_config(args, &chain, true)?;
     set_mining_mode(config.chain.clone().unwrap_or(ChainTypes::Mainnet));
-
-	print!("{}", WELCOME_HEADER.bright_yellow().bold());
-    println!("{}: {}", "Your 713.grinbox address".bright_yellow(), config.get_grinbox_address()?.stripped().bright_green());
-    println!("{}", WELCOME_FOOTER.bright_blue().bold());
 
     Ok(config)
 }
@@ -335,7 +333,7 @@ fn main() {
         .arg(Arg::from_usage("[floonet] -f, --floonet 'use floonet'"))
         .get_matches();
 
-	let mut config = welcome(&matches).unwrap_or_else(|e| {
+	let mut config: Wallet713Config = welcome(&matches).unwrap_or_else(|e| {
         panic!("{}: could not read or create config! {}", "ERROR".bright_red(), e);
     });
 
@@ -360,6 +358,15 @@ fn main() {
             cli_message!("{}: {}", "ERROR".bright_red(), err);
         }
     }
+
+    derive_address_key(&mut config, wallet.clone());
+
+    print!("{}", WELCOME_HEADER.bright_yellow().bold());
+    let x = config.get_grinbox_address();
+    println!("{:?}", x);
+//    println!("{:?}", x?);
+//    println!("{}: {}", "Your 713.grinbox address".bright_yellow(), config.get_grinbox_address()?.stripped().bright_green());
+    println!("{}", WELCOME_FOOTER.bright_blue().bold());
 
     if let Some(auto_start) = config.grinbox_listener_auto_start {
         if auto_start {
@@ -416,6 +423,13 @@ fn main() {
     }
 }
 
+fn derive_address_key(config: &mut Wallet713Config, wallet: Arc<Mutex<Wallet>>) {
+    let index = config.grinbox_address_index.unwrap_or(0);
+    println!("{:?}", index);
+    let x = wallet.lock().unwrap().derive_address_key(index);
+    println!("{:?}", x);
+}
+
 fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>, keybase_broker: &mut Option<(KeybasePublisher, KeybaseSubscriber)>, grinbox_broker: &mut Option<(GrinboxPublisher, GrinboxSubscriber)>) -> Result<bool> {
     let matches = Parser::parse(command)?;
     match matches.subcommand_name() {
@@ -424,6 +438,9 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             *config = do_config(args, &config.chain, false)?;
         },
         Some("init") => {
+            if grinbox_broker.is_some() {
+                return Err(Wallet713Error::GrinboxListening.into());
+            }
             let passphrase = matches.subcommand_matches("init").unwrap().value_of("passphrase").unwrap_or("");
             wallet.lock().unwrap().init(config, "default", passphrase)?;
             if passphrase.is_empty() {

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use grin_util::Mutex;
+use grin_util::secp::key::SecretKey;
 use grin_wallet::{display, controller, WalletBackend, WalletInst, WalletConfig, WalletSeed, HTTPNodeClient, NodeClient};
 use grin_wallet::lmdb_wallet::LMDBBackend;
 use grin_core::libtx::slate::Slate;
@@ -8,6 +9,7 @@ use grin_keychain::keychain::ExtKeychain;
 
 use common::{Wallet713Error, Result};
 use common::config::Wallet713Config;
+use crate::common::hasher::derive_address_key;
 
 pub struct Wallet {
     active_account: String,
@@ -262,6 +264,13 @@ impl Wallet {
             Wallet713Error::GrinWalletPostError
         })?;
         Ok(())
+    }
+
+    pub fn derive_address_key(&self, index: u32) -> Result<SecretKey> {
+        let wallet = self.get_wallet_instance()?;
+        let mut w = wallet.lock();
+        w.open_with_credentials()?;
+        derive_address_key(w.keychain(), index).map_err(|e| e.into())
     }
 
     fn init_seed(&self, wallet_config: &WalletConfig, passphrase: &str) -> Result<WalletSeed> {

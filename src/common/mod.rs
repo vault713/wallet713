@@ -3,6 +3,7 @@ pub mod error;
 pub mod config;
 pub mod base58;
 pub mod crypto;
+pub mod hasher;
 
 pub use self::error::Error;
 pub use self::error::Wallet713Error;
