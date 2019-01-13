@@ -25,7 +25,7 @@ pub struct KeybasePublisher {
 
 impl KeybasePublisher {
     pub fn new(ttl: Option<String>) -> Result<Self, Error> {
-        let _broker = KeybaseBroker::new();
+        let _broker = KeybaseBroker::new()?;
         Ok(Self {
             ttl
         })
