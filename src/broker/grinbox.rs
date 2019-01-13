@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::thread;
 use ws::{connect, Sender, Handler, Handshake, Message, CloseCode, Result as WsResult, ErrorKind as WsErrorKind, Error as WsError};
+use ws::util::Token;
 use colored::*;
 
 use grin_core::libtx::slate::Slate;
@@ -11,6 +12,9 @@ use contacts::{Address, GrinboxAddress, DEFAULT_GRINBOX_PORT};
 
 use super::types::{Publisher, Subscriber, SubscriptionHandler, CloseReason};
 use super::protocol::{ProtocolResponse, ProtocolRequest};
+
+const KEEPALIVE_TOKEN: Token = Token(1);
+const KEEPALIVE_INTERVAL_MS: u64 = 30_000;
 
 #[derive(Clone)]
 pub struct GrinboxPublisher {
@@ -207,8 +211,20 @@ impl GrinboxClient {
 impl Handler for GrinboxClient {
     fn on_open(&mut self, _shake: Handshake) -> WsResult<()> {
         self.handler.lock().unwrap().on_open();
+        try!(self.sender.timeout(KEEPALIVE_INTERVAL_MS, KEEPALIVE_TOKEN));
         Ok(())
     }
+
+    fn on_timeout(&mut self, event: Token) -> WsResult<()> {
+        match event {
+            KEEPALIVE_TOKEN => {
+                self.sender.ping(vec![])?;
+                self.sender.timeout(KEEPALIVE_INTERVAL_MS, KEEPALIVE_TOKEN)
+            }
+            _ => Err(WsError::new(WsErrorKind::Internal, "Invalid timeout token encountered!")),
+        }
+    }
+
 
     fn on_message(&mut self, msg: Message) -> WsResult<()> {
         let response = serde_json::from_str::<ProtocolResponse>(&msg.to_string()).map_err(|_| {
