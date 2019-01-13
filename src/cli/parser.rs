@@ -1,4 +1,4 @@
-use clap::{App, AppSettings, SubCommand, Arg, ArgMatches};
+use clap::{App, AppSettings, SubCommand, Arg, ArgMatches, ArgGroup};
 use common::Result;
 
 #[derive(Clone)]
@@ -152,7 +152,14 @@ impl<'a, 'b> Parser {
                 SubCommand::with_name("send")
                     .about("sends grins to an address")
                     .arg(
-                        Arg::from_usage("-t, --to=<address> 'the address to send grins to'")
+                        Arg::from_usage("[to] -t, --to=<address> 'the address to send grins to'")
+                    )
+                    .arg(
+                        Arg::from_usage("[file] -f, --file=<file> 'the file to store the slate in'")
+                    )
+                    .group(ArgGroup::with_name("destination")
+                        .args(&["to", "file"])
+                        .required(true)
                     )
                     .arg(
                         Arg::from_usage("<amount> 'the amount of grins to send'")
@@ -205,7 +212,14 @@ impl<'a, 'b> Parser {
                 SubCommand::with_name("receive")
                     .about("receives a sender initiated slate from file and produces signed slate")
                     .arg(
-                        Arg::from_usage("-i, --input=<file> 'the slate file'")
+                        Arg::from_usage("-f, --file=<file> 'the slate file'")
+                    )
+            )
+            .subcommand(
+                SubCommand::with_name("finalize")
+                    .about("finalizes a slate response file and posts the transaction")
+                    .arg(
+                        Arg::from_usage("-f, --file=<file> 'the slate file'")
                     )
             )
             .subcommand(
