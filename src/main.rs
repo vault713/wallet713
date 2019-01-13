@@ -563,7 +563,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         },
         Some("receive") => {
             let args = matches.subcommand_matches("receive").unwrap();
-            let input = args.value_of("input").unwrap();
+            let input = args.value_of("file").unwrap();
             let mut file = File::open(input)?;
             let mut slate = String::new();
             file.read_to_string(&mut slate)?;
@@ -572,9 +572,19 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             wallet.lock().unwrap().process_sender_initiated_slate(&mut slate)?;
             file.write_all(serde_json::to_string(&slate).unwrap().as_bytes())?;
         },
+        Some("finalize") => {
+            let args = matches.subcommand_matches("finalize").unwrap();
+            let input = args.value_of("file").unwrap();
+            let mut file = File::open(input)?;
+            let mut slate = String::new();
+            file.read_to_string(&mut slate)?;
+            let mut slate: Slate = serde_json::from_str(&slate)?;
+            wallet.lock().unwrap().finalize_slate(&mut slate)?;
+        },
         Some("send") => {
             let args = matches.subcommand_matches("send").unwrap();
-            let to = args.value_of("to").unwrap();
+            let to = args.value_of("to");
+            let input = args.value_of("file");
             let message = args.value_of("message").map(|s| s.to_string());
 
             let change_outputs = args.value_of("change-outputs").unwrap_or("1");
@@ -588,7 +598,14 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 Wallet713Error::InvalidAmount(amount.to_string())
             })?;
 
-            let mut to = to.to_string();
+            if let Some(input) = input {
+                let mut file = File::create(input)?;
+                let slate = wallet.lock().unwrap().initiate_send_tx(amount, 10, "smallest", change_outputs, 500, message)?;
+                file.write_all(serde_json::to_string(&slate).unwrap().as_bytes())?;
+                return Ok(true)
+            }
+
+            let mut to = to.unwrap().to_string();
             if to.starts_with("@") {
                 let contact = address_book.lock().unwrap().get_contact(&to[1..])?;
                 to = contact.get_address().to_string();
