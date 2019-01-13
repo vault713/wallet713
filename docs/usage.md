@@ -18,7 +18,7 @@ While running, wallet713 works with an internal command prompt. You type command
     + [Restoring a wallet using your mnemonic BIP-39 phrase](#restoring-a-wallet-using-your-mnemonic-bip-39-phrase)
     + [Manually importing a .seed](#manually-importing-a-seed)
 - [Supported address formats](#supported-address-formats)
-  * [713.grinbox](#713grinbox)
+  * [Grinbox](#grinbox)
   * [Keybase](#keybase)
 - [Command documentation](#command-documentation)
 
@@ -26,7 +26,7 @@ While running, wallet713 works with an internal command prompt. You type command
 
 ### Getting started
 
-When you run the wallet for the first time, the wallet will create a config file for you and also generate your public/private keypairs which you need to use your 713.grinbox address. Running `config` displays your current configuration.
+When you run the wallet for the first time, the wallet will create a config file for you. Running `config` displays your current configuration.
 Configuration files will be created by default under ~/.wallet713/ under a dedicated folder for each chain type (/main or /floo).
 
 Running against mainnet:
@@ -49,13 +49,13 @@ Display wallet info:
 wallet713> $ info
 ```
 
-In order to receive grins from others you need to listen for transactions coming to your 713.grinbox address:
+In order to receive grins from others you need to listen for transactions coming to your grinbox address:
 ```
 wallet713> $ listen
 ```
 This will also display your grinbox address.
 
-Standard 713.grinbox addressses always start with `x`. 
+Standard floonet grinbox addressses always start with `x`. 
 
 To send a 10 grin transaction to the address `xd6p24toTTDj7sxCCM4WGpBVcegVjGi9q5jquq6VWZA1BJroX514`:
 ```
@@ -183,9 +183,20 @@ To import an existing grin wallet to use in wallet713 follow these steps:
 
 The following transaction addresses are currently supported.
 
-### 713.grinbox
-Assigned to you when you run the wallet for the first time.
+### Grinbox
+Assigned to you when you run the wallet for the first time. The address is derived from your seed.
 Typical address format: `grinbox://xd8q4wgBBwdg75vD2J1VswdT4x7bJE6P5o1hcoht99ebc6C1wxxq`
+
+####  Address derivation
+Addresses are derived from your wallet seed. A single seed can generate up to `2^32` different addresses. Each of your addresses is specified by an index, which defaults to 0.
+
+#### Switching address
+1. Stop the grinbox listener by using the `stop` command
+1. Run `config -g` to switch to the next address. This will display your new address.
+If instead you would like more control over which address to use, you can specify an index with the `-i` flag. For example, switching to the address with index `10` is done by running `config -g -i 10`.
+1. Start the grinbox listener again by running `listen`.
+
+The index will persist in between wallet713 sessions and is stored in your configuration file.
 
 ### Keybase
 Your username on [Keybase](https://keybase.io).
