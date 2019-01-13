@@ -318,8 +318,8 @@ fn start_keybase_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, 
     }
 
     cli_message!("starting keybase listener...");
-    let keybase_subscriber = KeybaseSubscriber::new().expect("could not start keybase subscriber!");
-    let keybase_publisher = KeybasePublisher::new(config.default_keybase_ttl.clone()).expect("could not start keybase publisher!");;
+    let keybase_subscriber = KeybaseSubscriber::new()?;
+    let keybase_publisher = KeybasePublisher::new(config.default_keybase_ttl.clone())?;
 
     let mut cloned_subscriber = keybase_subscriber.clone();
     let cloned_publisher = keybase_publisher.clone();
