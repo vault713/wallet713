@@ -7,10 +7,11 @@ extern crate colored;
 extern crate ws;
 extern crate futures;
 extern crate tokio;
-extern crate secp256k1;
 extern crate rand;
 extern crate sha2;
 extern crate digest;
+extern crate hmac;
+extern crate ripemd160;
 extern crate uuid;
 extern crate regex;
 extern crate rustyline;
@@ -58,7 +59,7 @@ fn do_config(args: &ArgMatches, chain: &Option<ChainTypes>, silent: bool) -> Res
 	} else {
 		config = Wallet713Config::default(&chain)?;
         if config.grin_node_secret.is_none() {
-            println!("{}: initilized new configuration with no api secret!", "WARNING".bright_yellow())
+            println!("{}: initialized new configuration with no api secret!", "WARNING".bright_yellow())
         }
 	}
 
@@ -96,8 +97,7 @@ fn do_config(args: &ArgMatches, chain: &Option<ChainTypes>, silent: bool) -> Res
     }
 
     if !exists || args.is_present("generate-keys") {
-        let (pr, _) = generate_keypair();
-        config.grinbox_private_key = pr.to_string();
+        let (pr, _) = generate_keypair()?;
         println!("{}: {}", "Your new 713.grinbox address".bright_yellow(), config.get_grinbox_address()?.stripped().bright_green());        any_matches = exists;
     }
 

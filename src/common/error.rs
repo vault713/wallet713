@@ -1,7 +1,12 @@
 pub use failure::Error;
 
+use grin_keychain::Error as KeychainError;
+use grin_keychain::extkey_bip32::Error as ExtKeyError;
+
 #[derive(Debug, Fail)]
 pub enum Wallet713Error {
+    #[fail(display = "secp error")]
+    Secp,
     #[fail(display = "invalid transaction id given: `{}`", 0)]
     InvalidTxId(String),
     #[fail(display = "invalid amount given: `{}`", 0)]
@@ -58,4 +63,16 @@ pub enum Wallet713Error {
     DoesNotAcceptInvoices,
     #[fail(display = "rejecting invoice as amount '{}' is too big!", 0)]
     InvoiceAmountTooBig(u64),
+}
+
+impl From<KeychainError> for Wallet713Error {
+	fn from(_: KeychainError) -> Wallet713Error {
+		Wallet713Error::Secp
+	}
+}
+
+impl From<ExtKeyError> for Wallet713Error {
+	fn from(_: ExtKeyError) -> Wallet713Error {
+		Wallet713Error::Secp
+	}
 }
