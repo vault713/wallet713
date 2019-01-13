@@ -9,7 +9,7 @@ use grin_core::global::ChainTypes;
 
 use crate::common::error::Wallet713Error;
 use contacts::{GrinboxAddress, DEFAULT_GRINBOX_PORT};
-use super::crypto::{SecretKey, PublicKey, public_key_from_secret_key, Hex};
+use super::crypto::{SecretKey, PublicKey, public_key_from_secret_key};
 
 const WALLET713_HOME: &str = ".wallet713";
 const WALLET713_DEFAULT_CONFIG_FILENAME: &str = "wallet713.toml";
@@ -32,7 +32,6 @@ pub struct Wallet713Config {
     pub wallet713_data_path: String,
     pub grinbox_domain: String,
     pub grinbox_port: Option<u16>,
-    pub grinbox_private_key: Option<String>,
     pub grinbox_address_index: Option<u32>,
     pub grin_node_uri: String,
     pub grin_node_secret: Option<String>,
@@ -43,7 +42,7 @@ pub struct Wallet713Config {
     #[serde(skip)]
     config_home: Option<String>,
     #[serde(skip)]
-    grinbox_derived_address_key: Option<SecretKey>,
+    pub grinbox_address_key: Option<SecretKey>,
 }
 
 impl Wallet713Config {
@@ -129,6 +128,10 @@ impl Wallet713Config {
         Ok(wallet_config)
     }
 
+    pub fn grinbox_address_index(&self) -> u32 {
+        self.grinbox_address_index.unwrap_or(0)
+    }
+
     pub fn get_grinbox_address(&self) -> Result<GrinboxAddress, Error> {
         let public_key = self.get_grinbox_public_key()?;
         Ok(GrinboxAddress::new(public_key, self.grinbox_domain.clone(), self.grinbox_port))
@@ -139,9 +142,7 @@ impl Wallet713Config {
     }
 
     pub fn get_grinbox_secret_key(&self) -> Result<SecretKey, Error> {
-        let secret_key = self.grinbox_private_key.clone().ok_or_else(|| Wallet713Error::GrinboxAddressParsingError(String::from("")))?;
-        let secret_key = SecretKey::from_hex(secret_key.as_str())?;
-        Ok(secret_key)
+        self.grinbox_address_key.ok_or_else(|| Wallet713Error::NoWallet.into())
     }
 
     pub fn get_data_path(&self) -> Result<PathBuf, Error> {

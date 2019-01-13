@@ -22,7 +22,10 @@ impl<'a, 'b> Parser {
                 SubCommand::with_name("config")
                     .about("configures wallet713")
                     .arg(
-                        Arg::from_usage("-g, --generate-keys 'generate new set of grinbox keys'")
+                        Arg::from_usage("[generate-address] -g, --generate-next-address 'generate new grinbox address, supports optional index `-i`'")
+                    )
+                    .arg(
+                        Arg::from_usage("[generate-address-index] -i, --index=<index> 'use this index for grinbox address generation'")
                     )
                     .arg(
                         Arg::from_usage("[data-path] -d, --data-path=<data path> 'the wallet data directory'")
@@ -32,9 +35,6 @@ impl<'a, 'b> Parser {
                     )
                     .arg(
                         Arg::from_usage("[port] -p, --port=<port> 'the grinbox port'")
-                    )
-                    .arg(
-                        Arg::from_usage("[private-key] --private-key=<private-key> 'the grinbox private key'")
                     )
                     .arg(
                         Arg::from_usage("[node-uri] -n, --node-uri=<uri> 'the grin node uri'")

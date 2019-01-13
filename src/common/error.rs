@@ -63,8 +63,10 @@ pub enum Wallet713Error {
     DoesNotAcceptInvoices,
     #[fail(display = "rejecting invoice as amount '{}' is too big!", 0)]
     InvoiceAmountTooBig(u64),
-    #[fail(display = "please stop the Grinbox listener before doing this operation")]
-    GrinboxListening,
+    #[fail(display = "please stop the listeners before doing this operation")]
+    HasListener,
+    #[fail(display = "wallet already unlocked")]
+    WalletAlreadyUnlocked,
 }
 
 impl From<KeychainError> for Wallet713Error {

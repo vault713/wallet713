@@ -1,4 +1,3 @@
-use rand::thread_rng;
 pub use grin_util::secp::{Message, Secp256k1, Signature};
 pub use grin_util::secp::key::{PublicKey ,SecretKey};
 
@@ -90,11 +89,6 @@ impl Hex<SecretKey> for SecretKey {
     fn to_hex(&self) -> String {
         to_hex(self.0.to_vec())
     }
-}
-
-pub fn generate_keypair() -> Result<(SecretKey, PublicKey)> {
-    let secp = Secp256k1::new();
-    secp.generate_keypair(&mut thread_rng()).map_err(|_| Wallet713Error::Secp.into())
 }
 
 pub fn public_key_from_secret_key(secret_key: &SecretKey) -> Result<PublicKey> {
