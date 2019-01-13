@@ -137,11 +137,11 @@ fn invoice_tx<T: ?Sized, C, K>(
     );
 
     for input in inputs {
-        context.add_input(&input.key_id);
+        context.add_input(&input.key_id, &input.mmr_index);
     }
 
-    for (_, id) in &change_amounts_derivations {
-        context.add_output(&id);
+    for (_, id, _) in &change_amounts_derivations {
+        context.add_output(&id, &None);
     }
 
     let lock_inputs = context.get_inputs().clone();
@@ -159,7 +159,7 @@ fn invoice_tx<T: ?Sized, C, K>(
             let mut amount_debited = 0;
             t.num_inputs = lock_inputs.len();
             for id in lock_inputs {
-                let mut coin = batch.get(&id).unwrap();
+                let mut coin = batch.get(&id.0, &id.1).unwrap();
                 coin.tx_log_entry = Some(log_id);
                 amount_debited = amount_debited + coin.value;
                 batch.lock_output(&mut coin)?;
@@ -167,13 +167,14 @@ fn invoice_tx<T: ?Sized, C, K>(
 
             t.amount_debited = amount_debited;
 
-            for (change_amount, id) in &change_amounts_derivations {
+            for (change_amount, id, _) in &change_amounts_derivations {
                 t.num_outputs += 1;
                 t.amount_credited += change_amount;
                 batch.save(OutputData {
                     root_key_id: parent_key_id.clone(),
                     key_id: id.clone(),
                     n_child: id.to_path().last_path_index(),
+                    mmr_index: None,
                     value: change_amount.clone(),
                     status: OutputStatus::Unconfirmed,
                     height: current_height,
@@ -375,7 +376,7 @@ fn build_receive_tx_slate<T: ?Sized, C, K>(
     let key_ids_and_amounts_inner = key_ids_and_amounts.clone();
 
     for (key_id, _) in key_ids_and_amounts {
-        context.add_output(&key_id.clone());
+        context.add_output(&key_id.clone(), &None);
     }
 
     let slate_id = slate.id.clone();
@@ -394,6 +395,7 @@ fn build_receive_tx_slate<T: ?Sized, C, K>(
                     root_key_id: parent_key_id.clone(),
                     key_id: key_id.clone(),
                     n_child: key_id.to_path().last_path_index(),
+                    mmr_index: None,
                     value: amount,
                     status: OutputStatus::Unconfirmed,
                     height: current_height,
@@ -431,7 +433,7 @@ fn select_send_tx<T: ?Sized, C, K>(
     (
         Vec<Box<build::Append<K>>>,
         Vec<OutputData>,
-        Vec<(u64, Identifier)>, // change amounts and derivations
+        Vec<(u64, Identifier, Option<u64>)>, // change amounts and derivations
         u64,                    // amount
         u64,                    // fee
     ),
