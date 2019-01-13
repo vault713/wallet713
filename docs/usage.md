@@ -6,6 +6,10 @@ While running, wallet713 works with an internal command prompt. You type command
 - [Common use cases](#common-use-cases)
   * [Getting started](#getting-started)
   * [Transacting using Keybase](#transacting-using-keybase)
+  * [Transacting using files](#transacting-using-files)
+    + [Creating a file-based transaction](#creating-a-file-based-transaction)
+    + [Receiving a file-based transaction](#receiving-a-file-based-transaction)
+    + [Finalizing a file-based transaction](#finalizing-a-file-based-transaction)
   * [Using Contacts](#using-contacts)
   * [Using a passphrase](#using-a-passphrase)
     + [Set a passphrase](#set-a-passphrase)
@@ -85,6 +89,28 @@ To send 10 grins to Igno on keybase:
 ```
 wallet713> $ send 10 --to keybase://ignotus
 ```
+
+### Transacting using files
+
+#### Creating a file-based transaction
+```
+wallet713> $ send 10 --file ~/path/to/transaction.tx
+```
+Generates the file `transaction.tx` in the designated path that sends 10 grins to a recipient.
+
+#### Receiving a file-based transaction
+Once `transaction.tx` is received from a sender, the command:
+```
+wallet713> $ receive --file ~/path/to/transaction.tx
+```
+...will process the received `transaction.tx` and generate `transaction.tx.response` in the same directory that should then be returned to the sender wallet.
+
+#### Finalizing a file-based transaction
+Having received back `transaction.tx.response`, the sender can then issue:
+```
+wallet713> $ finalize --file ~/path/to/transaction.tx.response
+```
+...which will finalize the transaction and broadcast it.
 
 ### Using Contacts
 
