@@ -82,10 +82,6 @@ fn do_config(args: &ArgMatches, chain: &Option<ChainTypes>, silent: bool, new_ad
         any_matches = true;
     }
 
-    if config.grinbox_e2e_encryption.is_none() {
-        config.grinbox_e2e_encryption = Some(false);
-    }
-
     if let Some(node_uri) = args.value_of("node-uri") {
         config.grin_node_uri = node_uri.to_string();
         any_matches = true;
