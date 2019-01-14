@@ -67,6 +67,10 @@ pub enum Wallet713Error {
     HasListener,
     #[fail(display = "wallet already unlocked")]
     WalletAlreadyUnlocked,
+    #[fail(display = "unable to encrypt message")]
+    Encryption,
+    #[fail(display = "unable to decrypt message")]
+    Decryption,
 }
 
 impl From<KeychainError> for Wallet713Error {

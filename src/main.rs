@@ -12,6 +12,7 @@ extern crate sha2;
 extern crate digest;
 extern crate hmac;
 extern crate ripemd160;
+extern crate ring;
 extern crate uuid;
 extern crate regex;
 extern crate rustyline;
@@ -32,7 +33,7 @@ use colored::*;
 use rustyline::Editor;
 
 use grin_core::{core};
-use grin_core::global::{ChainTypes, set_mining_mode};
+use grin_core::global::{ChainTypes, set_mining_mode, is_mainnet};
 
 #[macro_use] mod common;
 mod broker;
@@ -40,8 +41,8 @@ mod wallet;
 mod contacts;
 mod cli;
 
+use common::Wallet713Error;
 use common::config::Wallet713Config;
-use common::{Wallet713Error};
 use wallet::Wallet;
 use cli::Parser;
 
@@ -79,6 +80,10 @@ fn do_config(args: &ArgMatches, chain: &Option<ChainTypes>, silent: bool, new_ad
         })?;
         config.grinbox_port = Some(port);
         any_matches = true;
+    }
+
+    if config.grinbox_e2e_encryption.is_none() {
+        config.grinbox_e2e_encryption = Some(false);
     }
 
     if let Some(node_uri) = args.value_of("node-uri") {
@@ -276,8 +281,8 @@ fn start_grinbox_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, 
     cli_message!("starting grinbox listener...");
     let grinbox_address = config.get_grinbox_address()?;
     let grinbox_secret_key = config.get_grinbox_secret_key()?;
-    let grinbox_publisher = GrinboxPublisher::new(&grinbox_address, &grinbox_secret_key)?;
-    let grinbox_subscriber = GrinboxSubscriber::new(&grinbox_address, &grinbox_secret_key).expect("could not start grinbox subscriber!");
+    let grinbox_publisher = GrinboxPublisher::new(&grinbox_address, &grinbox_secret_key, config.grinbox_e2e_encryption())?;
+    let grinbox_subscriber = GrinboxSubscriber::new(&grinbox_address, &grinbox_secret_key, config.grinbox_e2e_encryption()).expect("could not start grinbox subscriber!");
     let cloned_publisher = grinbox_publisher.clone();
     let mut cloned_subscriber = grinbox_subscriber.clone();
     std::thread::spawn(move || {
