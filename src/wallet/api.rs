@@ -73,7 +73,7 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
             None => w.parent_key_id(),
         };
 
-        let tx = updater::retrieve_txs(&mut *w, None, Some(slate.id), Some(&parent_key_id))?;
+        let tx = updater::retrieve_txs(&mut *w, None, Some(slate.id), Some(&parent_key_id), false)?;
         for t in &tx {
             if t.tx_type == TxLogEntryType::TxReceived {
                 return Err(ErrorKind::TransactionAlreadyReceived(slate.id.to_string()).into());
@@ -174,6 +174,7 @@ fn invoice_tx<T: ?Sized, C, K>(
                     root_key_id: parent_key_id.clone(),
                     key_id: id.clone(),
                     n_child: id.to_path().last_path_index(),
+                    commit: None,
                     mmr_index: None,
                     value: change_amount.clone(),
                     status: OutputStatus::Unconfirmed,
@@ -395,6 +396,7 @@ fn build_receive_tx_slate<T: ?Sized, C, K>(
                     root_key_id: parent_key_id.clone(),
                     key_id: key_id.clone(),
                     n_child: key_id.to_path().last_path_index(),
+                    commit: None,
                     mmr_index: None,
                     value: amount,
                     status: OutputStatus::Unconfirmed,

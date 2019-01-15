@@ -5,7 +5,7 @@ use std::fs::File;
 use std::fmt;
 
 use grin_wallet::{WalletConfig};
-use grin_core::global::ChainTypes;
+use grin_core::global::{ChainTypes, is_mainnet};
 
 use crate::common::error::Wallet713Error;
 use contacts::{GrinboxAddress, DEFAULT_GRINBOX_PORT};
@@ -32,6 +32,7 @@ pub struct Wallet713Config {
     pub wallet713_data_path: String,
     pub grinbox_domain: String,
     pub grinbox_port: Option<u16>,
+    pub grinbox_e2e_encryption: Option<bool>,
     pub grinbox_address_index: Option<u32>,
     pub grin_node_uri: String,
     pub grin_node_secret: Option<String>,
@@ -126,6 +127,10 @@ impl Wallet713Config {
         wallet_config.data_file_dir = data_path.to_string();
         wallet_config.check_node_api_http_addr = self.grin_node_uri.clone();
         Ok(wallet_config)
+    }
+
+    pub fn grinbox_e2e_encryption(&self) -> bool {
+        self.grinbox_e2e_encryption.unwrap_or(is_mainnet())
     }
 
     pub fn grinbox_address_index(&self) -> u32 {

@@ -12,6 +12,7 @@ extern crate sha2;
 extern crate digest;
 extern crate hmac;
 extern crate ripemd160;
+extern crate ring;
 extern crate uuid;
 extern crate regex;
 extern crate rustyline;
@@ -40,8 +41,8 @@ mod wallet;
 mod contacts;
 mod cli;
 
+use common::Wallet713Error;
 use common::config::Wallet713Config;
-use common::{Wallet713Error};
 use wallet::Wallet;
 use cli::Parser;
 
@@ -276,8 +277,8 @@ fn start_grinbox_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, 
     cli_message!("starting grinbox listener...");
     let grinbox_address = config.get_grinbox_address()?;
     let grinbox_secret_key = config.get_grinbox_secret_key()?;
-    let grinbox_publisher = GrinboxPublisher::new(&grinbox_address, &grinbox_secret_key)?;
-    let grinbox_subscriber = GrinboxSubscriber::new(&grinbox_address, &grinbox_secret_key).expect("could not start grinbox subscriber!");
+    let grinbox_publisher = GrinboxPublisher::new(&grinbox_address, &grinbox_secret_key, config.grinbox_e2e_encryption())?;
+    let grinbox_subscriber = GrinboxSubscriber::new(&grinbox_address, &grinbox_secret_key, config.grinbox_e2e_encryption()).expect("could not start grinbox subscriber!");
     let cloned_publisher = grinbox_publisher.clone();
     let mut cloned_subscriber = grinbox_subscriber.clone();
     std::thread::spawn(move || {
