@@ -154,8 +154,7 @@ fn welcome(args: &ArgMatches) -> Result<Wallet713Config, Error> {
     let chain: Option<ChainTypes> = if args.is_present("floonet") {
         Some(ChainTypes::Floonet)
     } else {
-        println!("Mainnet not ready yet! In the meantime run `wallet713 --floonet`");
-        std::process::exit(1);
+        Some(ChainTypes::Mainnet)
     };
     let config = do_config(args, &chain, true, None)?;
     set_mining_mode(config.chain.clone().unwrap_or(ChainTypes::Mainnet));
