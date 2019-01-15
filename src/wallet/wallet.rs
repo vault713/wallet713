@@ -286,7 +286,7 @@ impl Wallet {
     }
 
     fn init_backend(&self, wallet_config: &WalletConfig, wallet713_config: &Wallet713Config, passphrase: &str) -> Result<LMDBBackend<HTTPNodeClient, ExtKeychain>> {
-        let node_api_client = HTTPNodeClient::new(&wallet_config.check_node_api_http_addr, wallet713_config.grin_node_secret.clone());
+        let node_api_client = HTTPNodeClient::new(&wallet_config.check_node_api_http_addr, wallet713_config.grin_node_secret().clone());
         let backend = LMDBBackend::new(wallet_config.clone(), passphrase, node_api_client)?;
         Ok(backend)
     }
@@ -301,7 +301,7 @@ impl Wallet {
 
     fn create_wallet_instance(&mut self, config: &Wallet713Config, account: &str, passphrase: &str) -> Result<()> {
         let wallet_config = config.as_wallet_config()?;
-        let node_client = HTTPNodeClient::new(&wallet_config.check_node_api_http_addr, config.grin_node_secret.clone());
+        let node_client = HTTPNodeClient::new(&wallet_config.check_node_api_http_addr, config.grin_node_secret().clone());
         let _ = WalletSeed::from_file(&wallet_config, passphrase)?;
         let mut db_wallet = LMDBBackend::new(wallet_config.clone(), passphrase, node_client)?;
         db_wallet.set_parent_key_id_by_name(account)?;
