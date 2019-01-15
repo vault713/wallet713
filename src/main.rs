@@ -59,9 +59,6 @@ fn do_config(args: &ArgMatches, chain: &Option<ChainTypes>, silent: bool, new_ad
 		config = Wallet713Config::from_file(config_path, &chain)?;
 	} else {
 		config = Wallet713Config::default(&chain)?;
-        if config.grin_node_secret.is_none() {
-            println!("{}: initialized new configuration with no api secret!", "WARNING".bright_yellow())
-        }
 	}
 
     if let Some(data_path) = args.value_of("data-path") {
@@ -83,7 +80,7 @@ fn do_config(args: &ArgMatches, chain: &Option<ChainTypes>, silent: bool, new_ad
     }
 
     if let Some(node_uri) = args.value_of("node-uri") {
-        config.grin_node_uri = node_uri.to_string();
+        config.grin_node_uri = Some(node_uri.to_string());
         any_matches = true;
     }
 
@@ -151,12 +148,11 @@ const WELCOME_FOOTER: &str = r#"Use `listen` to connect to grinbox or `help` to 
 "#;
 
 fn welcome(args: &ArgMatches) -> Result<Wallet713Config, Error> {
-    let chain: Option<ChainTypes> = if args.is_present("floonet") {
-        Some(ChainTypes::Floonet)
-    } else {
-        println!("Mainnet not ready yet! In the meantime run `wallet713 --floonet`");
-        std::process::exit(1);
+    let chain: Option<ChainTypes> = match args.is_present("floonet") {
+        true => Some(ChainTypes::Floonet),
+        false => Some(ChainTypes::Mainnet)
     };
+    
     let config = do_config(args, &chain, true, None)?;
     set_mining_mode(config.chain.clone().unwrap_or(ChainTypes::Mainnet));
 

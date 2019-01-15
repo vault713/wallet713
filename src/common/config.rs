@@ -14,15 +14,9 @@ use super::crypto::{SecretKey, PublicKey, public_key_from_secret_key};
 const WALLET713_HOME: &str = ".wallet713";
 const WALLET713_DEFAULT_CONFIG_FILENAME: &str = "wallet713.toml";
 
-const GRIN_HOME: &str = ".grin";
-const GRIN_NODE_API_SECRET_FILE: &str = ".api_secret";
-
 const DEFAULT_CONFIG: &str = r#"
 	wallet713_data_path = "wallet713_data"
 	grinbox_domain = "grinbox.io"
-	grinbox_address_index = 0
-	grin_node_uri = "http://127.0.0.1:13413"
-	grin_node_secret = ""
 	default_keybase_ttl = "24h"
 "#;
 
@@ -34,7 +28,7 @@ pub struct Wallet713Config {
     pub grinbox_port: Option<u16>,
     pub grinbox_e2e_encryption: Option<bool>,
     pub grinbox_address_index: Option<u32>,
-    pub grin_node_uri: String,
+    pub grin_node_uri: Option<String>,
     pub grin_node_secret: Option<String>,
     pub grinbox_listener_auto_start: Option<bool>,
     pub keybase_listener_auto_start: Option<bool>,
@@ -89,22 +83,7 @@ impl Wallet713Config {
 
     pub fn default(chain: &Option<ChainTypes>) -> Result<Wallet713Config, Error> {
         let mut config: Wallet713Config = toml::from_str(DEFAULT_CONFIG)?;
-        config.grin_node_secret = None;
         config.chain = chain.clone();
-        if let Some(mut home_path) = dirs::home_dir() {
-            home_path.push(GRIN_HOME);
-            match config.chain {
-                Some(ref chain_type) => home_path.push(chain_type.shortname()),
-                None => home_path.push(ChainTypes::Mainnet.shortname()),
-            }
-            home_path.push(GRIN_NODE_API_SECRET_FILE);
-            let path_str = home_path.to_str().unwrap();
-            if let Ok(mut file) = File::open(&path_str) {
-                let mut contents: String = String::new();
-                file.read_to_string(&mut contents)?;
-                config.grin_node_secret = Some(contents);
-            }
-        };
         Ok(config)
     }
 
@@ -125,7 +104,7 @@ impl Wallet713Config {
         let mut wallet_config = WalletConfig::default();
         wallet_config.chain_type = self.chain.clone();
         wallet_config.data_file_dir = data_path.to_string();
-        wallet_config.check_node_api_http_addr = self.grin_node_uri.clone();
+        wallet_config.check_node_api_http_addr = self.grin_node_uri().clone();
         Ok(wallet_config)
     }
 
@@ -163,6 +142,25 @@ impl Wallet713Config {
         data_path.push(self.wallet713_data_path.clone());
         Ok(data_path)
     }
+
+    pub fn grin_node_uri(&self) -> String {
+        let chain_type = self.chain.as_ref().unwrap_or(&ChainTypes::Floonet);
+        self.grin_node_uri.clone().unwrap_or(match chain_type {
+            ChainTypes::Mainnet => String::from("https://node.713.mw"),
+            _ => String::from("https://floonet.node.713.mw"),
+        })
+    }
+
+    pub fn grin_node_secret(&self) -> Option<String> {
+        let chain_type = self.chain.as_ref().unwrap_or(&ChainTypes::Floonet);
+        match self.grin_node_uri {
+            Some(_) => self.grin_node_secret.clone(),
+            None => match chain_type {
+                ChainTypes::Mainnet => Some(String::from("thanksvault713kizQ4ZVv")),
+                _ => Some(String::from("thanksvault713EcRXKbYS")),
+            }
+        }
+    }
 }
 
 impl fmt::Display for Wallet713Config {
@@ -171,7 +169,7 @@ impl fmt::Display for Wallet713Config {
                self.wallet713_data_path,
                self.grinbox_domain,
                self.grinbox_port.unwrap_or(DEFAULT_GRINBOX_PORT),
-               self.grin_node_uri,
+               self.grin_node_uri.clone().unwrap_or(String::from("provided by vault713")),
                "{...}")?;
         Ok(())
     }
