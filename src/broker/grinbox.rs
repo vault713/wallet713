@@ -102,7 +102,6 @@ impl GrinboxBroker {
                     ProtocolResponse::Challenge { str } => {
                         let slate_str = match self.use_encryption {
                             true => {
-                                println!("Encrypt slate");
                                 let message = EncryptedMessage::new(serde_json::to_string(&slate).unwrap(), &pkey, &skey).map_err(|_|
                                     WsError::new(WsErrorKind::Protocol, "could not encrypt slate!")
                                 )?;
@@ -258,30 +257,57 @@ impl Handler for GrinboxClient {
             },
             ProtocolResponse::Slate { from, str, challenge, signature } => {
                 if let Ok(_) = self.verify_slate_signature(&from, &str, &challenge, &signature) {
-                    let from = GrinboxAddress::from_str(&from).map_err(|_| {
-                        WsError::new(WsErrorKind::Protocol, "could not parse address!")
-                    })?;
+
+                    let from = match GrinboxAddress::from_str(&from) {
+                        Ok(x) => x,
+                        Err(_) => {
+                            cli_message!("could not parse address!");
+                            return Ok(());
+                        },
+                    };
 
                     let mut slate: Slate = match self.use_encryption {
                         true => {
-                            println!("Decrypt slate");
-                            let encrypted_message: EncryptedMessage = serde_json::from_str(&str).map_err(|_|
-                                WsError::new(WsErrorKind::Protocol, "could not parse encrypted message!")
-                            )?;
-                            let pkey = from.public_key().map_err(|_|
-                                WsError::new(WsErrorKind::Protocol, "could not parse public key!")
-                            )?;
-                            let decrypted_message = encrypted_message.decrypt(&pkey, &self.secret_key).map_err(|_|
-                                WsError::new(WsErrorKind::Protocol, "could not decrypt message!")
-                            )?;
+                            let encrypted_message: EncryptedMessage = match serde_json::from_str(&str) {
+                                Ok(x) => x,
+                                Err(_) => {
+                                    cli_message!("could not parse encrypted message!");
+                                    return Ok(());
+                                },
+                            };
+                            let pkey = match from.public_key() {
+                                Ok(x) => x,
+                                Err(_) => {
+                                    cli_message!("could not parse public key!");
+                                    return Ok(());
+                                },
+                            };
 
-                            serde_json::from_str(&decrypted_message).map_err(|_| {
-                                WsError::new(WsErrorKind::Protocol, "could not parse slate!")
-                            })?
+                            let decrypted_message = match encrypted_message.decrypt(&pkey, &self.secret_key) {
+                                Ok(x) => x,
+                                Err(_) => {
+                                    cli_message!("could not decrypt message!");
+                                    return Ok(());
+                                },
+                            };
+
+                            let slate: Slate = match serde_json::from_str(&decrypted_message) {
+                                Ok(x) => x,
+                                Err(_) => {
+                                    cli_message!("could not parse slate!");
+                                    return Ok(());
+                                },
+                            };
+
+                            slate
                         },
-                        false => serde_json::from_str(&str).map_err(|_| {
-                            WsError::new(WsErrorKind::Protocol, "could not parse slate!")
-                        })?,
+                        false => match serde_json::from_str(&str) {
+                            Ok(x) => x,
+                            Err(_) => {
+                                cli_message!("could not parse slate!");
+                                return Ok(());
+                            },
+                        },
                     };
 
                     self.handler.lock().unwrap().on_slate(&from, &mut slate);

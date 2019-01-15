@@ -141,8 +141,10 @@ impl EncryptedMessage {
         for _ in 0..suffix_len {
             enc_bytes.push(0);
         }
-        let sealing_key = aead::SealingKey::new(&aead::CHACHA20_POLY1305, &key).map_err(|_| Wallet713Error::Encryption)?;
-        aead::seal_in_place(&sealing_key, &nonce, &[], &mut enc_bytes, suffix_len).map_err(|_| Wallet713Error::Encryption)?;
+        let sealing_key = aead::SealingKey::new(&aead::CHACHA20_POLY1305, &key)
+            .map_err(|_| Wallet713Error::Encryption)?;
+        aead::seal_in_place(&sealing_key, &nonce, &[], &mut enc_bytes, suffix_len)
+            .map_err(|_| Wallet713Error::Encryption)?;
 
         Ok(EncryptedMessage {
             encrypted_message: to_hex(enc_bytes),
@@ -164,10 +166,10 @@ impl EncryptedMessage {
 
         let mut key = [0; 32];
         pbkdf2::derive(&digest::SHA512, 100, &salt, common_secret_slice, &mut key);
-        let opening_key = aead::OpeningKey::new(&aead::CHACHA20_POLY1305, &key).map_err(|_| Wallet713Error::Decryption)?;
-        let decrypted_data =
-            aead::open_in_place(&opening_key, &nonce, &[], 0, &mut encrypted_message)
-                .map_err(|_| Wallet713Error::Decryption)?;
+        let opening_key = aead::OpeningKey::new(&aead::CHACHA20_POLY1305, &key)
+            .map_err(|_| Wallet713Error::Decryption)?;
+        let decrypted_data = aead::open_in_place(&opening_key, &nonce, &[], 0, &mut encrypted_message)
+            .map_err(|_| Wallet713Error::Decryption)?;
 
         String::from_utf8(decrypted_data.to_vec()).map_err(|_| Wallet713Error::Decryption.into())
     }

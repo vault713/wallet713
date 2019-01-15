@@ -33,7 +33,7 @@ use colored::*;
 use rustyline::Editor;
 
 use grin_core::{core};
-use grin_core::global::{ChainTypes, set_mining_mode, is_mainnet};
+use grin_core::global::{ChainTypes, set_mining_mode};
 
 #[macro_use] mod common;
 mod broker;
