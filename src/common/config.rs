@@ -152,20 +152,24 @@ impl Wallet713Config {
     }
 
     pub fn grin_node_secret(&self) -> Option<String> {
+        let chain_type = self.chain.as_ref().unwrap_or(&ChainTypes::Floonet);
         match self.grin_node_uri {
             Some(_) => self.grin_node_secret.clone(),
-            None => None // To be changed
+            None => match chain_type {
+                ChainTypes::Mainnet => Some(String::from("thanksvault713kizQ4ZVv")),
+                _ => Some(String::from("thanksvault713EcRXKbYS")),
+            }
         }
     }
 }
 
 impl fmt::Display for Wallet713Config {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "wallet713_data_path={}\ngrinbox_domain={}\ngrinbox_port={}\ngrin_node_uri={:?}\ngrin_node_secret={}",
+        write!(f, "wallet713_data_path={}\ngrinbox_domain={}\ngrinbox_port={}\ngrin_node_uri={}\ngrin_node_secret={}",
                self.wallet713_data_path,
                self.grinbox_domain,
                self.grinbox_port.unwrap_or(DEFAULT_GRINBOX_PORT),
-               self.grin_node_uri,
+               self.grin_node_uri.clone().unwrap_or(String::from("provided by vault713")),
                "{...}")?;
         Ok(())
     }
