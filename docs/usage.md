@@ -210,8 +210,8 @@ To import an existing grin wallet to use in wallet713 follow these steps:
 The following transaction addresses are currently supported.
 
 ### Grinbox
-Assigned to you when you run the wallet for the first time. The address is derived from your seed.
-Typical address format: `grinbox://xd8q4wgBBwdg75vD2J1VswdT4x7bJE6P5o1hcoht99ebc6C1wxxq`
+Assigned to you when you run the wallet for the first time. The address is derived from your seed. Mainnet grinbox addresses begin with `g`, floonet addresses begin with `x`.
+Typical address format: `grinbox://gVuDBqXYZekdpQ8EeT1bQXSk8KHKTZqFFiQwAecVCyyqZX8UwKZq`
 
 ####  Address derivation
 Addresses are derived from your wallet seed. A single seed can generate up to `2^32` different addresses. Each of your addresses is specified by an index, which defaults to 0.
