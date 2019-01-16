@@ -12,9 +12,9 @@ wallet713 is:
 
    wallet713 makes it easy to store, send and soon also swap grins seamlessly through a single interface. Built on top of the standard Grin wallet reference implementation, wallet713 extends its functionality to improve usability and reduce friction. 
 
-- is integrated with the 713.grinbox messaging relay
+- is integrated with the grinbox messaging relay
 
-   For better privacy and usability, the 713.grinbox messaging relay allows the steps to build transactions (partial transactions, often called "slates") to be routed via the relay, protecting the user from exposing their IP address, and with no impact to the safety of your funds.
+   For better privacy and usability, the grinbox messaging relay allows the steps to build transactions (partial transactions, often called "slates") to be routed via the relay, protecting the user from exposing their IP address, and with no impact to the safety of your funds.
 
 <p align="center">
   <img width="600" src="demo.svg">
@@ -23,10 +23,10 @@ wallet713 is:
 ## Features
 
 * **Get up and running fast.** Listen, send and receive using the same instance of the wallet.
-* **Use your public key as your address.** 713.grinbox relies on public/private keypairs to authenticate yourself and prevent unauthorized parties to listen to your messages.
-* **Process transactions easily.** Send to a recipient's 713.grinbox or keybase profile and it takes care of itself. No need to deal with IP addresses, port forwarding, or manual file transfers.
+* **Use your public key as your address.** grinbox relies on public/private keypairs to authenticate yourself and prevent unauthorized parties to listen to your messages.
+* **Process transactions easily.** Send to a recipient's grinbox or keybase profile and it takes care of itself. No need to deal with IP addresses, port forwarding, or manual file transfers.
 * **Receive transactions while you are offline.** Transactions persist, waiting for you to fetch them the next time you come online.
-* **Contacts.** No need to keep track of 713.grinbox addresses or keybase account names. Add addresses to contacts stored locally on your machine, and sending 10 grin becomes as easy as `send 10 --to @alice`.
+* **Contacts.** No need to keep track of grinbox addresses or keybase account names. Add addresses to contacts stored locally on your machine, and sending 10 grin becomes as easy as `send 10 --to @alice`.
 * **Remain in full control.** Only you have access to your private keys and your wallet balance, only you can read or sign your own transactions.
 
 ## Status
@@ -50,9 +50,9 @@ Running on Floonet. Under heavy development ahead of Grin Mainnet Launch. Contri
 
 ## Privacy considerations
 
-* **The relay does not store data.** 713.grinbox does not store any data on completed transactions by design, but it would be possible for the relay to do so and as a result build a graph of activity between addresses.
+* **The relay does not store data.** grinbox does not store any data on completed transactions by design, but it would be possible for the relay to do so and as a result build a graph of activity between addresses.
 
-* **Your IP is your responsibility.** When you communicate to the 713.grinbox relay service, you are exposing your IP to the relay. You can obfuscate your real IP address using services such as a VPN and/or TOR or i2p.
+* **Your IP is your responsibility.** When you communicate with the grinbox relay service, you are exposing your IP to the relay. You can obfuscate your real IP address using services such as a VPN and/or TOR or i2p.
 
 ## Credits
 
