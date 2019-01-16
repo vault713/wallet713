@@ -18,6 +18,7 @@ While running, wallet713 works with an internal command prompt. You type command
     + [Issuing invoices](#issuing-invoices)
     + [Paying invoices](#paying-invoices)
   * [Splitting your outputs](#splitting-your-outputs)
+- [Running your own node](#running-your-own-node)
 - [Restoring your wallet](#restoring-your-wallet)
     + [Restoring a wallet using your mnemonic BIP-39 phrase](#restoring-a-wallet-using-your-mnemonic-bip-39-phrase)
     + [Manually importing a .seed](#manually-importing-a-seed)
@@ -187,6 +188,10 @@ Similarly, as part of `invoice` you can specify in how many outputs you would li
 ```
 wallet713> $ invoice 10 --to @faucet -o 2
 ```
+
+## Running your own node
+
+Set corresponding `grin_node_uri` and `grin_node_secret` in your `~/.wallet713/XXX/wallet713.toml` where `XXX` is `floo` or `main` depending on which network you run the wallet for.
 
 ## Restoring your wallet
 
