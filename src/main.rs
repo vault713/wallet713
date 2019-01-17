@@ -756,14 +756,16 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             }
             println!("restoring... please wait as this could take a few minutes to complete.");
             let args = matches.subcommand_matches("restore").unwrap();
-            let passphrase = args.value_of("passphrase").unwrap_or("");
+            let passphrase = args.value_of("passphrase").map(String::from).unwrap_or_else(
+                || rpassword::prompt_password_stdout("Password: ").unwrap_or(String::new())
+            );
             {
                 let mut w = wallet.lock().unwrap();
                 if let Some(words) = args.values_of("words") {
                     let words: Vec<&str> = words.collect();
-                    w.restore_seed(config, &words, passphrase)?;
+                    w.restore_seed(config, &words, passphrase.as_str())?;
                 }
-                w.init(config, "default", passphrase)?;
+                w.init(config, "default", passphrase.as_str())?;
                 w.restore_state()?;
             }
 
