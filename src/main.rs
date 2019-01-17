@@ -15,6 +15,7 @@ extern crate ripemd160;
 extern crate ring;
 extern crate uuid;
 extern crate regex;
+extern crate rpassword;
 extern crate rustyline;
 
 extern crate grin_wallet;
@@ -152,7 +153,7 @@ fn welcome(args: &ArgMatches) -> Result<Wallet713Config, Error> {
         true => Some(ChainTypes::Floonet),
         false => Some(ChainTypes::Mainnet)
     };
-    
+
     let config = do_config(args, &chain, true, None)?;
     set_mining_mode(config.chain.clone().unwrap_or(ChainTypes::Mainnet));
 
@@ -478,13 +479,15 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         Some("unlock") => {
             let args = matches.subcommand_matches("unlock").unwrap();
             let account = args.value_of("account").unwrap_or("default");
-            let passphrase = args.value_of("passphrase").unwrap_or("");
+            let passphrase = args.value_of("passphrase").map(String::from).unwrap_or_else(
+                || rpassword::prompt_password_stdout("Password: ").unwrap_or(String::new())
+            );
             {
                 let mut w = wallet.lock().unwrap();
                 if !w.is_locked() {
                     return Err(Wallet713Error::WalletAlreadyUnlocked.into());
                 }
-                w.unlock(config, account, passphrase)?;
+                w.unlock(config, account, passphrase.as_str())?;
             }
             derive_address_key(config, wallet, grinbox_broker)?;
             return Ok(false);

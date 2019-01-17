@@ -29,6 +29,7 @@ rustyline = "3.0"
 hmac = "0.6"
 ripemd160 = "0.7"
 ring = "0.13"
+rpassword = "2.1.0"
 
 grin_core = { git = "https://github.com/mimblewimble/grin" }
 grin_wallet = { git = "https://github.com/mimblewimble/grin" }
