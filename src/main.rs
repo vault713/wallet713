@@ -460,9 +460,11 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 return Err(Wallet713Error::HasListener.into());
             }
 
-            let passphrase = matches.subcommand_matches("init").unwrap().value_of("passphrase").unwrap_or("");
+            let passphrase = matches.subcommand_matches("init").unwrap().value_of("passphrase").map(String::from).unwrap_or_else(
+                || rpassword::prompt_password_stdout("Password: ").unwrap_or(String::new())
+            );
             {
-                wallet.lock().unwrap().init(config, "default", passphrase)?;
+                wallet.lock().unwrap().init(config, "default", passphrase.as_str())?;
             }
             derive_address_key(config, wallet, grinbox_broker)?;
             if passphrase.is_empty() {
