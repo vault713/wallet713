@@ -430,6 +430,13 @@ fn derive_address_key(config: &mut Wallet713Config, wallet: Arc<Mutex<Wallet>>, 
     Ok(())
 }
 
+fn password_prompt(opt: Option<&str>) -> String {
+    opt.map(String::from).
+        unwrap_or_else(
+            || { rpassword::prompt_password_stdout("Password: ").unwrap_or(String::from("")) }
+        )
+}
+
 fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>, keybase_broker: &mut Option<(KeybasePublisher, KeybaseSubscriber)>, grinbox_broker: &mut Option<(GrinboxPublisher, GrinboxSubscriber)>) -> Result<bool, Error> {
     let matches = Parser::parse(command)?;
     match matches.subcommand_name() {
@@ -459,10 +466,8 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             if keybase_broker.is_some() || grinbox_broker.is_some() {
                 return Err(Wallet713Error::HasListener.into());
             }
-
-            let passphrase = matches.subcommand_matches("init").unwrap().value_of("passphrase").map(String::from).unwrap_or_else(
-                || rpassword::prompt_password_stdout("Password: ").unwrap_or(String::new())
-            );
+            let args = matches.subcommand_matches("init").unwrap();
+            let passphrase = password_prompt(args.value_of("passphrase"));
             {
                 wallet.lock().unwrap().init(config, "default", passphrase.as_str())?;
             }
@@ -481,9 +486,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         Some("unlock") => {
             let args = matches.subcommand_matches("unlock").unwrap();
             let account = args.value_of("account").unwrap_or("default");
-            let passphrase = args.value_of("passphrase").map(String::from).unwrap_or_else(
-                || rpassword::prompt_password_stdout("Password: ").unwrap_or(String::new())
-            );
+            let passphrase = password_prompt(args.value_of("passphrase"));
             {
                 let mut w = wallet.lock().unwrap();
                 if !w.is_locked() {
@@ -505,8 +508,8 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 wallet.lock().unwrap().create_account(args.value_of("name").unwrap())?;
             } else if let Some(args) = switch_args {
                 let account = args.value_of("name").unwrap();
-                let passphrase = args.value_of("passphrase").unwrap_or("");
-                wallet.lock().unwrap().unlock(config, account, passphrase)?;
+                let passphrase = password_prompt(args.value_of("passphrase"));
+                wallet.lock().unwrap().unlock(config, account, passphrase.as_str())?;
             }
         },
         Some("listen") => {
@@ -756,9 +759,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             }
             println!("restoring... please wait as this could take a few minutes to complete.");
             let args = matches.subcommand_matches("restore").unwrap();
-            let passphrase = args.value_of("passphrase").map(String::from).unwrap_or_else(
-                || rpassword::prompt_password_stdout("Password: ").unwrap_or(String::new())
-            );
+            let passphrase = password_prompt(args.value_of("passphrase"));
             {
                 let mut w = wallet.lock().unwrap();
                 if let Some(words) = args.values_of("words") {
