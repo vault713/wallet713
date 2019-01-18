@@ -44,6 +44,10 @@ impl<'a, 'b> Parser {
                     )
             )
             .subcommand(
+                SubCommand::with_name("address")
+                    .about("shows your current grinbox address")
+            )
+            .subcommand(
                 SubCommand::with_name("init")
                     .about("initializes the wallet")
                     .arg(
@@ -125,7 +129,7 @@ impl<'a, 'b> Parser {
                 SubCommand::with_name("outputs")
                     .about("displays outputs")
                     .arg(
-                        Arg::from_usage("[show-spent] -spent, --show-spent 'show spent outputs'")
+                        Arg::from_usage("[show-spent] -s, --show-spent 'show spent outputs'")
                     )
             )
             .subcommand(

@@ -6,7 +6,7 @@ use colored::*;
 
 use grin_core::libtx::slate::Slate;
 
-use common::{Error, Wallet713Error};
+use common::{ErrorKind, Result};
 use common::crypto::{SecretKey, Signature, verify_signature, sign_challenge, Hex, EncryptedMessage};
 use contacts::{Address, GrinboxAddress, DEFAULT_GRINBOX_PORT};
 
@@ -20,22 +20,24 @@ const KEEPALIVE_INTERVAL_MS: u64 = 30_000;
 pub struct GrinboxPublisher {
     address: GrinboxAddress,
     secret_key: SecretKey,
+    protocol_unsecure: bool,
     use_encryption: bool,
 }
 
 impl GrinboxPublisher {
-    pub fn new(address: &GrinboxAddress, secret_key: &SecretKey, use_encryption: bool) -> Result<Self, Error> {
+    pub fn new(address: &GrinboxAddress, secert_key: &SecretKey, protocol_unsecure: bool, use_encryption: bool) -> Result<Self> {
         Ok(Self {
             address: address.clone(),
-            secret_key: secret_key.clone(),
-            use_encryption,
+            secret_key: secert_key.clone(),
+            protocol_unsecure,
+            use_encryption
         })
     }
 }
 
 impl Publisher for GrinboxPublisher {
-    fn post_slate(&self, slate: &Slate, to: &Address) -> Result<(), Error> {
-        let broker = GrinboxBroker::new(self.use_encryption)?;
+    fn post_slate(&self, slate: &Slate, to: &Address) -> Result<()> {
+        let broker = GrinboxBroker::new(self.protocol_unsecure, self.use_encryption)?;
         let to = GrinboxAddress::from_str(&to.to_string())?;
         broker.post_slate(slate, &to, &self.address, &self.secret_key)?;
         Ok(())
@@ -50,17 +52,17 @@ pub struct GrinboxSubscriber {
 }
 
 impl GrinboxSubscriber {
-    pub fn new(address: &GrinboxAddress, secret_key: &SecretKey, use_encryption: bool) -> Result<Self, Error> {
+    pub fn new(address: &GrinboxAddress, secret_key: &SecretKey, protocol_unsecure: bool, use_encryption: bool) -> Result<Self> {
         Ok(Self {
             address: address.clone(),
-            broker: GrinboxBroker::new(use_encryption)?,
+            broker: GrinboxBroker::new(protocol_unsecure, use_encryption)?,
             secret_key: secret_key.clone(),
         })
     }
 }
 
 impl Subscriber for GrinboxSubscriber {
-    fn start(&mut self, handler: Box<SubscriptionHandler + Send>) -> Result<(), Error> {
+    fn start(&mut self, handler: Box<SubscriptionHandler + Send>) -> Result<()> {
         self.broker.subscribe(&self.address, &self.secret_key, handler)?;
         Ok(())
     }
@@ -77,21 +79,26 @@ impl Subscriber for GrinboxSubscriber {
 #[derive(Clone)]
 struct GrinboxBroker {
     inner: Arc<Mutex<Option<Sender>>>,
+    protocol_unsecure: bool,
     use_encryption: bool,
 }
 
 impl GrinboxBroker {
-    fn new(use_encryption: bool) -> Result<Self, Error> {
+    fn new(protocol_unsecure: bool, use_encryption: bool) -> Result<Self> {
         Ok(Self {
             inner: Arc::new(Mutex::new(None)),
-            use_encryption,
+            protocol_unsecure,
+            use_encryption
         })
     }
 
-    fn post_slate(&self, slate: &Slate, to: &GrinboxAddress, from: &GrinboxAddress, secret_key: &SecretKey) -> Result<(), Error> {
+    fn post_slate(&self, slate: &Slate, to: &GrinboxAddress, from: &GrinboxAddress, secret_key: &SecretKey) -> Result<()> {
         let url = {
             let to = to.clone();
-            format!("wss://{}:{}", to.domain, to.port.unwrap_or(DEFAULT_GRINBOX_PORT))
+            match self.protocol_unsecure {
+                true => format!("ws://{}:{}", to.domain, to.port.unwrap_or(DEFAULT_GRINBOX_PORT)),
+                false => format!("wss://{}:{}", to.domain, to.port.unwrap_or(DEFAULT_GRINBOX_PORT)),
+            }
         };
         let pkey = to.public_key()?;
         let skey = secret_key.clone();
@@ -131,11 +138,14 @@ impl GrinboxBroker {
         Ok(())
     }
 
-    fn subscribe(&mut self, address: &GrinboxAddress, secret_key: &SecretKey, handler: Box<SubscriptionHandler + Send>) -> Result<(), Error> {
+    fn subscribe(&mut self, address: &GrinboxAddress, secret_key: &SecretKey, handler: Box<SubscriptionHandler + Send>) -> Result<()> {
         let handler = Arc::new(Mutex::new(handler));
         let url = {
             let cloned_address = address.clone();
-            format!("wss://{}:{}", cloned_address.domain, cloned_address.port.unwrap_or(DEFAULT_GRINBOX_PORT))
+            match self.protocol_unsecure {
+                true => format!("ws://{}:{}", cloned_address.domain, cloned_address.port.unwrap_or(DEFAULT_GRINBOX_PORT)),
+                false => format!("wss://{}:{}", cloned_address.domain, cloned_address.port.unwrap_or(DEFAULT_GRINBOX_PORT)),
+            }
         };
         let secret_key = secret_key.clone();
         let cloned_address = address.clone();
@@ -165,7 +175,7 @@ impl GrinboxBroker {
             };
 
             match result {
-                Err(_) => handler.lock().unwrap().on_close(CloseReason::Abnormal(Error::from(Wallet713Error::GrinboxWebsocketAbnormalTermination))),
+                Err(_) => handler.lock().unwrap().on_close(CloseReason::Abnormal(ErrorKind::GrinboxWebsocketAbnormalTermination.into())),
                 _ => handler.lock().unwrap().on_close(CloseReason::Normal),
             }
         });
@@ -201,14 +211,14 @@ impl GrinboxClient {
         signature.to_hex()
     }
 
-    fn subscribe(&self, challenge: &str) -> Result<(), Error> {
+    fn subscribe(&self, challenge: &str) -> Result<()> {
         let signature = GrinboxClient::generate_signature(challenge, &self.secret_key);
         let request = ProtocolRequest::Subscribe { address: self.address.public_key.to_string(), signature };
         self.send(&request).expect("could not send subscribe request!");
         Ok(())
     }
 
-    fn verify_slate_signature(&self, from: &str, str: &str, challenge: &str, signature: &str) -> Result<(), Error> {
+    fn verify_slate_signature(&self, from: &str, str: &str, challenge: &str, signature: &str) -> Result<()> {
         let from = GrinboxAddress::from_str(from)?;
         let public_key = from.public_key()?;
         let signature = Signature::from_hex(signature)?;
@@ -219,7 +229,7 @@ impl GrinboxClient {
         Ok(())
     }
 
-    fn send(&self, request: &ProtocolRequest) -> Result<(), Error> {
+    fn send(&self, request: &ProtocolRequest) -> Result<()> {
         let request = serde_json::to_string(&request).unwrap();
         self.sender.send(request)?;
         Ok(())
@@ -243,7 +253,6 @@ impl Handler for GrinboxClient {
         }
     }
 
-
     fn on_message(&mut self, msg: Message) -> WsResult<()> {
         let response = serde_json::from_str::<ProtocolResponse>(&msg.to_string()).map_err(|_| {
             WsError::new(WsErrorKind::Protocol, "could not parse response!")
@@ -257,7 +266,6 @@ impl Handler for GrinboxClient {
             },
             ProtocolResponse::Slate { from, str, challenge, signature } => {
                 if let Ok(_) = self.verify_slate_signature(&from, &str, &challenge, &signature) {
-
                     let from = match GrinboxAddress::from_str(&from) {
                         Ok(x) => x,
                         Err(_) => {

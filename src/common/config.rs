@@ -1,15 +1,14 @@
-use failure::Error;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::fmt;
 
-use grin_wallet::{WalletConfig};
+use grin_wallet::WalletConfig;
 use grin_core::global::{ChainTypes, is_mainnet};
 
-use crate::common::error::Wallet713Error;
+use common::{Result, ErrorKind};
+use common::crypto::{SecretKey, PublicKey, public_key_from_secret_key};
 use contacts::{GrinboxAddress, DEFAULT_GRINBOX_PORT};
-use super::crypto::{SecretKey, PublicKey, public_key_from_secret_key};
 
 const WALLET713_HOME: &str = ".wallet713";
 const WALLET713_DEFAULT_CONFIG_FILENAME: &str = "wallet713.toml";
@@ -20,13 +19,14 @@ const DEFAULT_CONFIG: &str = r#"
 	default_keybase_ttl = "24h"
 "#;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Wallet713Config {
     pub chain: Option<ChainTypes>,
     pub wallet713_data_path: String,
     pub grinbox_domain: String,
     pub grinbox_port: Option<u16>,
     pub grinbox_e2e_encryption: Option<bool>,
+    pub grinbox_protocol_unsecure: Option<bool>,
     pub grinbox_address_index: Option<u32>,
     pub grin_node_uri: Option<String>,
     pub grin_node_secret: Option<String>,
@@ -35,20 +35,20 @@ pub struct Wallet713Config {
     pub max_auto_accept_invoice: Option<u64>,
     pub default_keybase_ttl: Option<String>,
     #[serde(skip)]
-    config_home: Option<String>,
+    pub config_home: Option<String>,
     #[serde(skip)]
     pub grinbox_address_key: Option<SecretKey>,
 }
 
 impl Wallet713Config {
-    pub fn exists(config_path: Option<&str>, chain: &Option<ChainTypes>) -> Result<bool, Error> {
+    pub fn exists(config_path: Option<&str>, chain: &Option<ChainTypes>) -> Result<bool> {
         let default_path_buf = Wallet713Config::default_config_path(chain)?;
         let default_path = default_path_buf.to_str().unwrap();
         let config_path = config_path.unwrap_or(default_path);
         Ok(Path::new(config_path).exists())
     }
 
-    pub fn from_file(config_path: Option<&str>, chain: &Option<ChainTypes>) -> Result<Wallet713Config, Error> {
+    pub fn from_file(config_path: Option<&str>, chain: &Option<ChainTypes>) -> Result<Wallet713Config> {
         let default_path_buf = Wallet713Config::default_config_path(chain)?;
         let default_path = default_path_buf.to_str().unwrap();
         let config_path = config_path.unwrap_or(default_path);
@@ -60,13 +60,13 @@ impl Wallet713Config {
         Ok(config)
     }
 
-    pub fn default_config_path(chain: &Option<ChainTypes>) -> Result<PathBuf, Error> {
+    pub fn default_config_path(chain: &Option<ChainTypes>) -> Result<PathBuf> {
         let mut path = Wallet713Config::default_home_path(chain)?;
         path.push(WALLET713_DEFAULT_CONFIG_FILENAME);
         Ok(path)
     }
 
-    pub fn default_home_path(chain: &Option<ChainTypes>) -> Result<PathBuf, Error> {
+    pub fn default_home_path(chain: &Option<ChainTypes>) -> Result<PathBuf> {
         let mut path = match dirs::home_dir() {
             Some(home) => home,
             None => std::env::current_dir()?,
@@ -81,13 +81,13 @@ impl Wallet713Config {
         Ok(path)
     }
 
-    pub fn default(chain: &Option<ChainTypes>) -> Result<Wallet713Config, Error> {
+    pub fn default(chain: &Option<ChainTypes>) -> Result<Wallet713Config> {
         let mut config: Wallet713Config = toml::from_str(DEFAULT_CONFIG)?;
         config.chain = chain.clone();
         Ok(config)
     }
 
-    pub fn to_file(&mut self, config_path: Option<&str>) -> Result<(), Error> {
+    pub fn to_file(&mut self, config_path: Option<&str>) -> Result<()> {
         let default_path_buf = Wallet713Config::default_config_path(&self.chain)?;
         let default_path = default_path_buf.to_str().unwrap();
         let config_path = config_path.unwrap_or(default_path);
@@ -98,7 +98,7 @@ impl Wallet713Config {
         Ok(())
     }
 
-    pub fn as_wallet_config(&self) -> Result<WalletConfig, Error> {
+    pub fn as_wallet_config(&self) -> Result<WalletConfig> {
         let data_path_buf = self.get_data_path()?;
         let data_path = data_path_buf.to_str().unwrap();
         let mut wallet_config = WalletConfig::default();
@@ -112,24 +112,28 @@ impl Wallet713Config {
         self.grinbox_e2e_encryption.unwrap_or(is_mainnet())
     }
 
+    pub fn grinbox_protocol_unsecure(&self) -> bool {
+        self.grinbox_protocol_unsecure.unwrap_or(false)
+    }
+
     pub fn grinbox_address_index(&self) -> u32 {
         self.grinbox_address_index.unwrap_or(0)
     }
 
-    pub fn get_grinbox_address(&self) -> Result<GrinboxAddress, Error> {
+    pub fn get_grinbox_address(&self) -> Result<GrinboxAddress> {
         let public_key = self.get_grinbox_public_key()?;
         Ok(GrinboxAddress::new(public_key, self.grinbox_domain.clone(), self.grinbox_port))
     }
 
-    pub fn get_grinbox_public_key(&self) -> Result<PublicKey, Error> {
+    pub fn get_grinbox_public_key(&self) -> Result<PublicKey> {
         public_key_from_secret_key(&self.get_grinbox_secret_key()?)
     }
 
-    pub fn get_grinbox_secret_key(&self) -> Result<SecretKey, Error> {
-        self.grinbox_address_key.ok_or_else(|| Wallet713Error::NoWallet.into())
+    pub fn get_grinbox_secret_key(&self) -> Result<SecretKey> {
+        self.grinbox_address_key.ok_or_else(|| ErrorKind::NoWallet.into())
     }
 
-    pub fn get_data_path(&self) -> Result<PathBuf, Error> {
+    pub fn get_data_path(&self) -> Result<PathBuf> {
         let mut data_path = PathBuf::new();
         data_path.push(self.wallet713_data_path.clone());
         if data_path.is_absolute() {

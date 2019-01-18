@@ -9,7 +9,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use grin_core::libtx::slate::Slate;
 
-use common::{Error, Wallet713Error};
+use common::{ErrorKind, Result};
 use contacts::{Address, KeybaseAddress};
 use super::types::{Publisher, Subscriber, SubscriptionHandler, CloseReason};
 
@@ -24,7 +24,7 @@ pub struct KeybasePublisher {
 }
 
 impl KeybasePublisher {
-    pub fn new(ttl: Option<String>) -> Result<Self, Error> {
+    pub fn new(ttl: Option<String>) -> Result<Self> {
         let _broker = KeybaseBroker::new()?;
         Ok(Self {
             ttl
@@ -38,7 +38,7 @@ pub struct KeybaseSubscriber {
 }
 
 impl KeybaseSubscriber {
-    pub fn new() -> Result<Self, Error> {
+    pub fn new() -> Result<Self> {
         Ok(Self {
             stop_signal: Arc::new(Mutex::new(true))
         })
@@ -46,7 +46,7 @@ impl KeybaseSubscriber {
 }
 
 impl Publisher for KeybasePublisher {
-    fn post_slate(&self, slate: &Slate, to: &Address) -> Result<(), Error> {
+    fn post_slate(&self, slate: &Slate, to: &Address) -> Result<()> {
         let keybase_address = KeybaseAddress::from_str(&to.to_string()).unwrap();
 
         // make sure we don't send message with ttl to wallet713 as keybase oneshot does not support exploding lifetimes
@@ -65,13 +65,13 @@ impl Publisher for KeybasePublisher {
 }
 
 impl Subscriber for KeybaseSubscriber {
-    fn start(&mut self, handler: Box<SubscriptionHandler + Send>) -> Result<(), Error> {
+    fn start(&mut self, handler: Box<SubscriptionHandler + Send>) -> Result<()> {
         if let Ok(mut guard) = self.stop_signal.lock() {
             *guard = false;
         }
         let mut subscribed = false;
         let mut dropped = false;
-        let result: Result<(), Error> = loop {
+        let result: Result<()> = loop {
             if *self.stop_signal.lock().unwrap() {
                 break Ok(())
             };
@@ -107,7 +107,7 @@ impl Subscriber for KeybaseSubscriber {
                     if subscribed {
                         handler.on_dropped();
                     } else {
-                        break Err(Error::from(Wallet713Error::KeybaseNotFound));
+                        break Err(ErrorKind::KeybaseNotFound.into());
                     }
                 }
             }
@@ -134,7 +134,7 @@ impl Subscriber for KeybaseSubscriber {
 struct KeybaseBroker {}
 
 impl KeybaseBroker {
-    pub fn new() -> Result<Self, Error> {
+    pub fn new() -> Result<Self> {
         let mut proc = if cfg!(target_os = "windows") {
             Command::new("where")
         } else {
@@ -148,11 +148,11 @@ impl KeybaseBroker {
         if status.success() {
             Ok(Self{})
         } else {
-            Err(Wallet713Error::KeybaseNotFound)?
+            Err(ErrorKind::KeybaseNotFound)?
         }
     }
 
-    pub fn api_send(payload: &str) -> Result<Value, Error> {
+    pub fn api_send(payload: &str) -> Result<Value> {
         let mut proc = Command::new("keybase");
         proc.args(&["chat", "api", "-m", &payload]);
         let output = proc.output().expect("No output").stdout;
@@ -161,7 +161,7 @@ impl KeybaseBroker {
         Ok(response)
     }
 
-    pub fn read_from_channel(channel: &str, topic: &str) -> Result<Vec<(String, String, String)>, Error> {
+    pub fn read_from_channel(channel: &str, topic: &str) -> Result<Vec<(String, String, String)>> {
         let payload = json!({
             "method": "read",
             "params": {
@@ -194,7 +194,7 @@ impl KeybaseBroker {
         Ok(unread)
     }
 
-    pub fn get_unread(topics: HashSet<&str>) -> Result<Vec<(String, String, String)>, Error> {
+    pub fn get_unread(topics: HashSet<&str>) -> Result<Vec<(String, String, String)>> {
         let payload = json!({
 		    "method": "list",
 		    "params": {
@@ -226,7 +226,7 @@ impl KeybaseBroker {
         Ok(unread)
     }
 
-    pub fn send<T: Serialize>(message: &T, channel: &str, topic: &str, ttl: &Option<String>) -> Result<(), Error> {
+    pub fn send<T: Serialize>(message: &T, channel: &str, topic: &str, ttl: &Option<String>) -> Result<()> {
         let mut payload = json!({
     		"method": "send",
 	    	"params": {
@@ -251,7 +251,7 @@ impl KeybaseBroker {
         let response = KeybaseBroker::api_send(&payload)?;
         match response["result"]["message"].as_str() {
             Some("message sent") => Ok(()),
-            _ => Err(Wallet713Error::KeybaseMessageSendError)?,
+            _ => Err(ErrorKind::KeybaseMessageSendError)?,
         }
     }
 }
