@@ -1,12 +1,13 @@
 use std::fmt::{self, Display, Debug};
 use regex::Regex;
+use url::Url;
 
 use grin_core::global::is_mainnet;
 
 use common::{Result, ErrorKind};
 use common::crypto::{PublicKey, Base58, GRINBOX_ADDRESS_VERSION_MAINNET, GRINBOX_ADDRESS_VERSION_TESTNET};
 
-const ADDRESS_REGEX: &str = r"^((?P<address_type>keybase|grinbox)://).+$";
+const ADDRESS_REGEX: &str = r"^((?P<address_type>keybase|grinbox|https)://).+$";
 const GRINBOX_ADDRESS_REGEX: &str = r"^(grinbox://)?(?P<public_key>[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{52})(@(?P<domain>[a-zA-Z0-9\.]+)(:(?P<port>[0-9]*))?)?$";
 const KEYBASE_ADDRESS_REGEX: &str = r"^(keybase://)?(?P<username>[0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_]{1,16})(:(?P<topic>[a-zA-Z0-9_-]+))?$";
 const DEFAULT_GRINBOX_DOMAIN: &str = "grinbox.io";
@@ -16,6 +17,7 @@ pub const DEFAULT_GRINBOX_PORT: u16 = 443;
 pub enum AddressType {
     Grinbox,
     Keybase,
+    Https,
 }
 
 pub trait Address: Debug + Display {
@@ -37,6 +39,7 @@ impl Address {
         let address: Box<Address> = match address_type.as_ref() {
             "keybase" => Box::new(KeybaseAddress::from_str(address)?),
             "grinbox" => Box::new(GrinboxAddress::from_str(address)?),
+            "https" => Box::new(HttpsAddress::from_str(address)?),
             x => Err(ErrorKind::UnknownAddressType(x.to_string()))?,
         };
         Ok(address)
@@ -247,6 +250,37 @@ impl Display for GrinboxAddress {
                 write!(f, ":{}", self.port.unwrap())?;
             }
         }
+        Ok(())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct HttpsAddress {
+    pub uri: String,
+}
+
+impl Address for HttpsAddress {
+    fn from_str(s: &str) -> Result<Self> {
+        Url::parse(s)
+            .map_err(|_| ErrorKind::HttpsAddressParsingError(s.to_string()))?;
+
+        Ok(Self {
+            uri: s.to_string(),
+        })
+    }
+
+    fn address_type(&self) -> AddressType {
+        AddressType::Https
+    }
+
+    fn stripped(&self) -> String {
+        self.uri.clone()
+    }
+}
+
+impl Display for HttpsAddress {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.uri)?;
         Ok(())
     }
 }

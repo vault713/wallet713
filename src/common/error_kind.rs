@@ -63,6 +63,8 @@ pub enum ErrorKind {
     GrinboxAddressParsingError(String),
     #[fail(display = "could not parse `{}` to a keybase address!", 0)]
     KeybaseAddressParsingError(String),
+    #[fail(display = "could not parse `{}` to a https address!", 0)]
+    HttpsAddressParsingError(String),
     #[fail(display = "could not send keybase message!")]
     KeybaseMessageSendError,
     #[fail(display = "failed receiving slate!")]
@@ -93,4 +95,6 @@ pub enum ErrorKind {
     Restore,
     #[fail(display = "unknown account: {}", 0)]
     UnknownAccountLabel(String),
+    #[fail(display = "http request error")]
+    HttpRequest
 }
