@@ -17,6 +17,7 @@ extern crate ripemd160;
 extern crate ring;
 extern crate uuid;
 extern crate regex;
+extern crate rpassword;
 extern crate rustyline;
 extern crate chrono;
 extern crate term;
@@ -331,7 +332,7 @@ fn main() {
         .arg(Arg::from_usage("[config-path] -c, --config=<config-path> 'the path to the config file'"))
         .arg(Arg::from_usage("[log-config-path] -l, --log-config-path=<log-config-path> 'the path to the log config file'"))
         .arg(Arg::from_usage("[account] -a, --account=<account> 'the account to use'"))
-        .arg(Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'"))
+        .arg(Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'").min_values(0))
         .arg(Arg::from_usage("[daemon] -d, --daemon 'run daemon'"))
         .arg(Arg::from_usage("[floonet] -f, --floonet 'use floonet'"))
         .get_matches();
@@ -358,18 +359,21 @@ fn main() {
     let mut grinbox_broker: Option<(GrinboxPublisher, GrinboxSubscriber)> = None;
     let mut keybase_broker: Option<(KeybasePublisher, KeybaseSubscriber)> = None;
 
-    let account = matches.value_of("account");
-    let passphrase = matches.value_of("passphrase");
-    let result = wallet.lock().unwrap().unlock(&config, account.unwrap_or("default"), passphrase.unwrap_or(""));
-    let has_wallet = result.is_ok();
+
+    let account = matches.value_of("account").unwrap_or("default").to_string();
+    let has_wallet = if matches.is_present("passphrase") {
+        let passphrase = password_prompt(matches.value_of("passphrase"));
+        let result = wallet.lock().unwrap().unlock(&config, &account, &passphrase);
+        if let Err(ref err) = result {
+            println!("{}: {}", "ERROR".bright_red(), err);
+            std::process::exit(1);
+        }
+        result.is_ok()
+    } else {
+        wallet.lock().unwrap().unlock(&config, &account, "").is_ok()
+    };
 
     cli_message!("{}", WELCOME_HEADER.bright_yellow().bold());
-    if account.is_some() || passphrase.is_some() {
-        if let Err(err) = result {
-            cli_message!("{}: {}", "ERROR".bright_red(), err);
-        }
-    }
-
     if has_wallet {
         let der = derive_address_key(&mut config, wallet.clone(), &mut grinbox_broker);
         if der.is_err() {
@@ -454,6 +458,13 @@ fn show_address(config: &Wallet713Config, include_index: bool) -> Result<()> {
     Ok(())
 }
 
+fn password_prompt(opt: Option<&str>) -> String {
+    opt.map(String::from).
+        unwrap_or_else(
+            || { rpassword::prompt_password_stdout("passphrase: ").unwrap_or(String::from("")) }
+        )
+}
+
 fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>, keybase_broker: &mut Option<(KeybasePublisher, KeybaseSubscriber)>, grinbox_broker: &mut Option<(GrinboxPublisher, GrinboxSubscriber)>) -> Result<bool> {
     let matches = Parser::parse(command)?;
     match matches.subcommand_name() {
@@ -486,16 +497,19 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             if keybase_broker.is_some() || grinbox_broker.is_some() {
                 return Err(ErrorKind::HasListener.into());
             }
-
-            let passphrase = matches.subcommand_matches("init").unwrap().value_of("passphrase").unwrap_or("");
+            let args = matches.subcommand_matches("init").unwrap();
+            let passphrase = match args.is_present("passphrase") {
+                true => password_prompt(args.value_of("passphrase")),
+                false => "".to_string(),
+            };
             {
-                wallet.lock().unwrap().init(config, "default", passphrase)?;
+                wallet.lock().unwrap().init(config, "default", passphrase.as_str())?;
             }
             derive_address_key(config, wallet, grinbox_broker)?;
             if passphrase.is_empty() {
                 cli_message!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
             }
-            return Ok(false);
+            return Ok(args.value_of("passphrase").is_none());
         }
         Some("lock") => {
             if keybase_broker.is_some() || grinbox_broker.is_some() {
@@ -506,16 +520,21 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         Some("unlock") => {
             let args = matches.subcommand_matches("unlock").unwrap();
             let account = args.value_of("account").unwrap_or("default");
-            let passphrase = args.value_of("passphrase").unwrap_or("");
+            let passphrase = match args.is_present("passphrase") {
+                true => password_prompt(args.value_of("passphrase")),
+                false => "".to_string(),
+            };
+
             {
                 let mut w = wallet.lock().unwrap();
                 if !w.is_locked() {
                     return Err(ErrorKind::WalletAlreadyUnlocked.into());
                 }
-                w.unlock(config, account, passphrase)?;
+                w.unlock(config, account, passphrase.as_str())?;
             }
+
             derive_address_key(config, wallet, grinbox_broker)?;
-            return Ok(false);
+            return Ok(args.value_of("passphrase").is_none());
         }
         Some("accounts") => {
             wallet.lock().unwrap().list_accounts()?;
@@ -528,9 +547,13 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 wallet.lock().unwrap().create_account(args.value_of("name").unwrap())?;
             } else if let Some(args) = switch_args {
                 let account = args.value_of("name").unwrap();
-                let passphrase = args.value_of("passphrase").unwrap_or("");
-                wallet.lock().unwrap().unlock(config, account, passphrase)?;
+                let passphrase = match args.is_present("passphrase") {
+                    true => password_prompt(args.value_of("passphrase")),
+                    false => "".to_string(),
+                };
+                wallet.lock().unwrap().unlock(config, account, passphrase.as_str())?;
             }
+            return Ok(args.value_of("passphrase").is_none());
         }
         Some("listen") => {
             let grinbox = matches.subcommand_matches("listen").unwrap().is_present("grinbox");
@@ -781,16 +804,20 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             if keybase_broker.is_some() || grinbox_broker.is_some() {
                 return Err(ErrorKind::HasListener.into());
             }
-            println!("restoring... please wait as this could take a few minutes to complete.");
             let args = matches.subcommand_matches("restore").unwrap();
-            let passphrase = args.value_of("passphrase").unwrap_or("");
+            let passphrase = match args.is_present("passphrase") {
+                true => password_prompt(args.value_of("passphrase")),
+                false => "".to_string(),
+            };
+            println!("restoring... please wait as this could take a few minutes to complete.");
+
             {
                 let mut w = wallet.lock().unwrap();
                 if let Some(words) = args.values_of("words") {
                     let words: Vec<&str> = words.collect();
-                    w.restore_seed(config, &words, passphrase)?;
+                    w.restore_seed(config, &words, passphrase.as_str())?;
                 }
-                w.init(config, "default", passphrase)?;
+                w.init(config, "default", passphrase.as_str())?;
                 w.restore_state()?;
             }
 
@@ -801,7 +828,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
 
             cli_message!("wallet restoration done!");
 
-            return Ok(false);
+            return Ok(args.value_of("passphrase").is_none());
         }
         Some("check") => {
             if keybase_broker.is_some() || grinbox_broker.is_some() {
@@ -812,7 +839,6 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 wallet.check_repair()?;
                 cli_message!("check and repair done!");
             }
-            return Ok(false);
         }
         Some(subcommand) => {
             cli_message!("{}: subcommand `{}` not implemented!", "ERROR".bright_red(), subcommand.bright_green());

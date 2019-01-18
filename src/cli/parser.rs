@@ -52,6 +52,7 @@ impl<'a, 'b> Parser {
                     .about("initializes the wallet")
                     .arg(
                         Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'")
+                            .min_values(0)
                     )
             )
             .subcommand(
@@ -66,6 +67,7 @@ impl<'a, 'b> Parser {
                     )
                     .arg(
                         Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'")
+                            .min_values(0)
                     )
             )
             .subcommand(
@@ -89,6 +91,7 @@ impl<'a, 'b> Parser {
                             )
                             .arg(
                                 Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'")
+                                    .min_values(0)
                             )
                     )
             )
@@ -207,6 +210,7 @@ impl<'a, 'b> Parser {
                     .about("restores your wallet from existing seed")
                     .arg(
                         Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'")
+                            .min_values(0)
                     )
                     .arg(
                         Arg::from_usage("[words] -m, --mnemonic=<words>... 'the seed mnemonic'")
