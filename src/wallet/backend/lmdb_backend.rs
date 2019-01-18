@@ -17,7 +17,6 @@ use grin_wallet::WalletConfig;
 use super::types::{ErrorKind, Result, WalletSeed, WalletBackend, WalletBackendBatch, ChildNumber, Transaction, OutputData, TxLogEntry, AcctPathMapping, Context, ExtKeychain, Identifier, Keychain, NodeClient};
 use super::api::restore;
 
-pub const DATA_DIR: &'static str = "data";
 pub const DB_DIR: &'static str = "db";
 pub const TX_SAVE_DIR: &'static str = "saved_txs";
 
@@ -71,10 +70,10 @@ pub struct Backend<C, K> {
 
 impl<C, K> Backend<C, K> {
     pub fn new(config: &WalletConfig, passphrase: &str, n_client: C) -> Result<Self> {
-        let db_path = path::Path::new(DATA_DIR).join(DB_DIR);
+        let db_path = path::Path::new(&config.data_file_dir).join(DB_DIR);
         fs::create_dir_all(&db_path).expect("Couldn't create wallet backend directory!");
 
-        let stored_tx_path = path::Path::new(DATA_DIR).join(TX_SAVE_DIR);
+        let stored_tx_path = path::Path::new(&config.data_file_dir).join(TX_SAVE_DIR);
         fs::create_dir_all(&stored_tx_path)
             .expect("Couldn't create wallet backend tx storage directory!");
 
@@ -215,7 +214,7 @@ impl<C, K> WalletBackend<C, K> for Backend<C, K>
 
     fn get_stored_tx(&self, uuid: &str) -> Result<Transaction> {
         let filename = format!("{}.grintx", uuid);
-        let path = path::Path::new(DATA_DIR)
+        let path = path::Path::new(&self.config.data_file_dir)
             .join(TX_SAVE_DIR)
             .join(filename);
         let tx_file = Path::new(&path).to_path_buf();
@@ -338,7 +337,7 @@ impl<'a, C, K> WalletBackendBatch<K> for Batch<'a, C, K>
 
     fn store_tx(&self, uuid: &str, tx: &Transaction) -> Result<()> {
         let filename = format!("{}.grintx", uuid);
-        let path = path::Path::new(DATA_DIR)
+        let path = path::Path::new(&self._store.config.data_file_dir)
             .join(TX_SAVE_DIR)
             .join(filename);
         let path_buf = Path::new(&path).to_path_buf();

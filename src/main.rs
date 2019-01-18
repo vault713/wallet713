@@ -146,7 +146,6 @@ fn do_contacts(args: &ArgMatches, address_book: Arc<Mutex<AddressBook>>) -> Resu
 
 const WELCOME_HEADER: &str = r#"
 Welcome to wallet713
-
 "#;
 
 const WELCOME_FOOTER: &str = r#"Use `listen` to connect to grinbox or `help` to see available commands
@@ -364,10 +363,10 @@ fn main() {
     let result = wallet.lock().unwrap().unlock(&config, account.unwrap_or("default"), passphrase.unwrap_or(""));
     let has_wallet = result.is_ok();
 
-    print!("{}", WELCOME_HEADER.bright_yellow().bold());
+    cli_message!("{}", WELCOME_HEADER.bright_yellow().bold());
     if account.is_some() || passphrase.is_some() {
         if let Err(err) = result {
-            println!("{}: {}", "ERROR".bright_red(), err);
+            cli_message!("{}: {}", "ERROR".bright_red(), err);
         }
     }
 
@@ -377,9 +376,9 @@ fn main() {
             cli_message!("{}: {}", "ERROR".bright_red(), der.unwrap_err());
         }
     } else {
-        println!("{}", "Unlock your existing wallet or type `init` to initiate a new one".bright_blue().bold());
+        cli_message!("{}", "Unlock your existing wallet or type `init` to initiate a new one".bright_blue().bold());
     }
-    println!("{}", WELCOME_FOOTER.bright_blue());
+    cli_message!("{}", WELCOME_FOOTER.bright_blue());
 
     if let Some(auto_start) = config.grinbox_listener_auto_start {
         if auto_start {
@@ -443,12 +442,15 @@ fn derive_address_key(config: &mut Wallet713Config, wallet: Arc<Mutex<Wallet>>, 
     let index = config.grinbox_address_index();
     let key = wallet.lock().unwrap().derive_address_key(index)?;
     config.grinbox_address_key = Some(key);
+    show_address(config, false)?;
     Ok(())
 }
 
-fn show_address(config: &Wallet713Config) -> Result<()> {
+fn show_address(config: &Wallet713Config, include_index: bool) -> Result<()> {
     cli_message!("{}: {}", "Your grinbox address".bright_yellow(), config.get_grinbox_address()?.stripped().bright_green());
-    cli_message!("Derived with index [{}]", config.grinbox_address_index().to_string().bright_blue());
+    if include_index {
+        cli_message!("Derived with index [{}]", config.grinbox_address_index().to_string().bright_blue());
+    }
     Ok(())
 }
 
@@ -474,11 +476,11 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
 
             if new_address_index.is_some() {
                 derive_address_key(config, wallet, grinbox_broker)?;
-                show_address(config)?;
+                cli_message!("Derived with index [{}]", config.grinbox_address_index().to_string().bright_blue());
             }
         }
         Some("address") => {
-            show_address(config)?;
+            show_address(config, true)?;
         }
         Some("init") => {
             if keybase_broker.is_some() || grinbox_broker.is_some() {
