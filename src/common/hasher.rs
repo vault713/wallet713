@@ -8,7 +8,7 @@ use grin_keychain::Keychain;
 use grin_keychain::extkey_bip32::{BIP32Hasher, ChildNumber, ExtendedPrivKey};
 use grin_util::secp::key::SecretKey;
 
-use crate::common::Wallet713Error;
+use crate::common::Result;
 
 type HmacSha512 = Hmac<Sha512>;
 
@@ -71,7 +71,7 @@ impl BIP32Hasher for BIP32GrinboxHasher {
 	}
 }
 
-pub fn derive_address_key<K: Keychain>(keychain: &K, index: u32) -> Result<SecretKey, Wallet713Error> {
+pub fn derive_address_key<K: Keychain>(keychain: &K, index: u32) -> Result<SecretKey> {
 	let root = keychain.derive_key(713, &K::root_key_id())?;
 	let mut hasher = BIP32GrinboxHasher::new(is_floonet());
 	let secp = keychain.secp();

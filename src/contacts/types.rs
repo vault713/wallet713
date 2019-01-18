@@ -3,7 +3,7 @@ use regex::Regex;
 
 use grin_core::global::is_mainnet;
 
-use common::{Error, Wallet713Error};
+use common::{Result, ErrorKind};
 use common::crypto::{PublicKey, Base58, GRINBOX_ADDRESS_VERSION_MAINNET, GRINBOX_ADDRESS_VERSION_TESTNET};
 
 const ADDRESS_REGEX: &str = r"^((?P<address_type>keybase|grinbox)://).+$";
@@ -17,40 +17,42 @@ pub enum AddressType {
     Grinbox,
     Keybase,
 }
+
 pub trait Address: Debug + Display {
-    fn from_str(s: &str) -> Result<Self, Error> where Self: Sized;
+    fn from_str(s: &str) -> Result<Self> where Self: Sized;
     fn address_type(&self) -> AddressType;
     fn stripped(&self) -> String;
 }
 
 impl Address {
-    pub fn parse(address: &str) -> Result<Box<Address>, Error> {
+    pub fn parse(address: &str) -> Result<Box<Address>> {
         let re = Regex::new(ADDRESS_REGEX)?;
         let captures = re.captures(address);
         if captures.is_none() {
-            Err(Wallet713Error::MissingAddressType(address.to_string()))?;
+            return Ok(Box::new(GrinboxAddress::from_str(address)?));
         }
+
         let captures = captures.unwrap();
         let address_type = captures.name("address_type").unwrap().as_str().to_string();
         let address: Box<Address> = match address_type.as_ref() {
             "keybase" => Box::new(KeybaseAddress::from_str(address)?),
             "grinbox" => Box::new(GrinboxAddress::from_str(address)?),
-            x => Err(Wallet713Error::UnknownAddressType(x.to_string()))?,
+            x => Err(ErrorKind::UnknownAddressType(x.to_string()))?,
         };
         Ok(address)
     }
 }
 
 pub trait AddressBookBackend {
-    fn get_contact(&mut self, name: &[u8]) -> Result<Contact, Error>;
-    fn contact_iter(&self) -> Box<Iterator<Item=Contact>>;
-    fn batch<'a>(&'a mut self) -> Result<Box<AddressBookBatch + 'a>, Error>;
+    fn get_contact(&mut self, name: &[u8]) -> Result<Contact>;
+    fn contacts(&self) -> Box<Iterator<Item=Contact>>;
+    fn batch<'a>(&'a self) -> Result<Box<AddressBookBatch + 'a>>;
 }
 
 pub trait AddressBookBatch {
-    fn save_contact(&mut self, contact: &Contact) -> Result<(), Error>;
-    fn delete_contact(&mut self, public_key: &[u8]) -> Result<(), Error>;
-    fn commit(&self) -> Result<(), Error>;
+    fn save_contact(&mut self, contact: &Contact) -> Result<()>;
+    fn delete_contact(&mut self, public_key: &[u8]) -> Result<()>;
+    fn commit(&mut self) -> Result<()>;
 }
 
 pub struct AddressBook {
@@ -58,17 +60,17 @@ pub struct AddressBook {
 }
 
 impl AddressBook {
-    pub fn new(backend: Box<AddressBookBackend + Send>) -> Result<Self, Error> {
+    pub fn new(backend: Box<AddressBookBackend + Send>) -> Result<Self> {
         let address_book = Self {
             backend
         };
         Ok(address_book)
     }
 
-    pub fn add_contact(&mut self, contact: &Contact) -> Result<(), Error> {
+    pub fn add_contact(&mut self, contact: &Contact) -> Result<()> {
         let result = self.get_contact(&contact.name);
         if result.is_ok() {
-            return Err(Wallet713Error::ContactAlreadyExists(contact.name.clone()))?;
+            return Err(ErrorKind::ContactAlreadyExists(contact.name.clone()))?;
         }
         let mut batch = self.backend.batch()?;
         batch.save_contact(contact)?;
@@ -76,43 +78,43 @@ impl AddressBook {
         Ok(())
     }
 
-    pub fn remove_contact(&mut self, name: &str) -> Result<(), Error> {
+    pub fn remove_contact(&mut self, name: &str) -> Result<()> {
         let mut batch = self.backend.batch()?;
         batch.delete_contact(name.as_bytes())?;
         batch.commit()?;
         Ok(())
     }
 
-    pub fn get_contact(&mut self, name: &str) -> Result<Contact, Error> {
+    pub fn get_contact(&mut self, name: &str) -> Result<Contact> {
         let contact = self.backend.get_contact(name.as_bytes())?;
         Ok(contact)
     }
 
-    pub fn get_contact_by_address(&mut self, address: &str) -> Result<Contact, Error> {
-        for contact in self.contact_iter() {
-            if contact.address.to_string() == address {
+    pub fn get_contact_by_address(&mut self, address: &str) -> Result<Contact> {
+        for contact in self.contacts() {
+            if contact.address == address {
                 return Ok(contact);
             }
         }
-        Err(Wallet713Error::ContactNotFound(address.to_string()))?
+        Err(ErrorKind::ContactNotFound(address.to_string()))?
     }
 
-    pub fn contact_iter(&self) -> Box<Iterator<Item=Contact>> {
-        self.backend.contact_iter()
+    pub fn contacts(&self) -> Box<Iterator<Item=Contact>> {
+        self.backend.contacts()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Contact {
     name: String,
-    address: Box<Address>
+    address: String,
 }
 
 impl Contact {
-    pub fn new(name: &str, address: Box<Address>) -> Result<Self, Error> {
+    pub fn new(name: &str, address: Box<Address>) -> Result<Self> {
         Ok(Self {
             name: name.to_string(),
-            address,
+            address: address.to_string(),
         })
     }
 
@@ -120,7 +122,7 @@ impl Contact {
         &self.name
     }
 
-    pub fn get_address(&self) -> &Box<Address> {
+    pub fn get_address(&self) -> &String {
         &self.address
     }
 }
@@ -135,15 +137,15 @@ impl Display for Contact {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KeybaseAddress {
     pub username: String,
-    pub topic: Option<String>
+    pub topic: Option<String>,
 }
 
 impl Address for KeybaseAddress {
-    fn from_str(s: &str) -> Result<Self, Error> {
+    fn from_str(s: &str) -> Result<Self> {
         let re = Regex::new(KEYBASE_ADDRESS_REGEX).unwrap();
         let captures = re.captures(s);
         if captures.is_none() {
-            Err(Wallet713Error::KeybaseAddressParsingError(s.to_string()))?;
+            Err(ErrorKind::KeybaseAddressParsingError(s.to_string()))?;
         }
 
         let captures = captures.unwrap();
@@ -151,7 +153,7 @@ impl Address for KeybaseAddress {
         let topic = captures.name("topic").map(|m| m.as_str().to_string());
         Ok(Self {
             username,
-            topic
+            topic,
         })
     }
 
@@ -177,8 +179,7 @@ impl Display for KeybaseAddress {
 pub fn version_bytes() -> Vec<u8> {
     if is_mainnet() {
         GRINBOX_ADDRESS_VERSION_MAINNET.to_vec()
-    }
-    else {
+    } else {
         GRINBOX_ADDRESS_VERSION_TESTNET.to_vec()
     }
 }
@@ -195,21 +196,21 @@ impl GrinboxAddress {
         Self {
             public_key: public_key.to_base58_check(version_bytes()),
             domain,
-            port
+            port,
         }
     }
 
-    pub fn public_key(&self) -> Result<PublicKey, Error> {
+    pub fn public_key(&self) -> Result<PublicKey> {
         PublicKey::from_base58_check(&self.public_key, version_bytes())
     }
 }
 
 impl Address for GrinboxAddress {
-    fn from_str(s: &str) -> Result<Self, Error> {
+    fn from_str(s: &str) -> Result<Self> {
         let re = Regex::new(GRINBOX_ADDRESS_REGEX).unwrap();
         let captures = re.captures(s);
         if captures.is_none() {
-            Err(Wallet713Error::GrinboxAddressParsingError(s.to_string()))?;
+            Err(ErrorKind::GrinboxAddressParsingError(s.to_string()))?;
         }
 
         let captures = captures.unwrap();
@@ -222,7 +223,7 @@ impl Address for GrinboxAddress {
         let address = Self {
             public_key,
             domain,
-            port
+            port,
         };
 
         Ok(address)

@@ -3,7 +3,7 @@ pub use grin_util::secp::key::{PublicKey ,SecretKey};
 
 use std::fmt::Write;
 use super::base58::{ToBase58, FromBase58};
-use common::{Wallet713Error, Result};
+use common::{ErrorKind, Result};
 use sha2::{Sha256, Digest};
 use rand::Rng;
 use rand::thread_rng;
@@ -36,7 +36,7 @@ impl Hex<PublicKey> for PublicKey {
     fn from_hex(str: &str) -> Result<PublicKey> {
         let secp = Secp256k1::new();
         let hex = from_hex(str.to_string())?;
-        PublicKey::from_slice(&secp, &hex).map_err(|_| Wallet713Error::InvalidBase58Key.into())
+        PublicKey::from_slice(&secp, &hex).map_err(|_| ErrorKind::InvalidBase58Key.into())
     }
 
     fn to_hex(&self) -> String {
@@ -48,7 +48,7 @@ impl Base58<PublicKey> for PublicKey {
     fn from_base58(str: &str) -> Result<PublicKey> {
         let secp = Secp256k1::new();
         let str = str::from_base58(str)?;
-        PublicKey::from_slice(&secp, &str).map_err(|_| Wallet713Error::InvalidBase58Key.into())
+        PublicKey::from_slice(&secp, &str).map_err(|_| ErrorKind::InvalidBase58Key.into())
     }
 
     fn to_base58(&self) -> String {
@@ -60,9 +60,9 @@ impl Base58<PublicKey> for PublicKey {
         let n_version = version_expect.len();
         let (version_actual, key_bytes) = str::from_base58_check(str, n_version)?;
         if version_actual != version_expect {
-            return Err(Wallet713Error::InvalidBase58Version.into());
+            return Err(ErrorKind::InvalidBase58Version.into());
         }
-        PublicKey::from_slice(&secp, &key_bytes).map_err(|_| Wallet713Error::InvalidBase58Key.into())
+        PublicKey::from_slice(&secp, &key_bytes).map_err(|_| ErrorKind::InvalidBase58Key.into())
     }
 
     fn to_base58_check(&self, version: Vec<u8>) -> String {
@@ -74,7 +74,7 @@ impl Hex<Signature> for Signature {
     fn from_hex(str: &str) -> Result<Signature> {
         let secp = Secp256k1::new();
         let hex = from_hex(str.to_string())?;
-        Signature::from_der(&secp, &hex).map_err(|_| Wallet713Error::Secp.into())
+        Signature::from_der(&secp, &hex).map_err(|_| ErrorKind::Secp.into())
     }
 
     fn to_hex(&self) -> String {
@@ -88,7 +88,7 @@ impl Hex<SecretKey> for SecretKey {
     fn from_hex(str: &str) -> Result<SecretKey> {
         let secp = Secp256k1::new();
         let data = from_hex(str.to_string())?;
-        SecretKey::from_slice(&secp, &data).map_err(|_| Wallet713Error::Secp.into())
+        SecretKey::from_slice(&secp, &data).map_err(|_| ErrorKind::Secp.into())
     }
 
     fn to_hex(&self) -> String {
@@ -98,7 +98,7 @@ impl Hex<SecretKey> for SecretKey {
 
 pub fn public_key_from_secret_key(secret_key: &SecretKey) -> Result<PublicKey> {
     let secp = Secp256k1::new();
-    PublicKey::from_secret_key(&secp, secret_key).map_err(|_| Wallet713Error::Secp.into())
+    PublicKey::from_secret_key(&secp, secret_key).map_err(|_| ErrorKind::Secp.into())
 }
 
 pub fn sign_challenge(challenge: &str, secret_key: &SecretKey) -> Result<Signature> {
@@ -106,7 +106,7 @@ pub fn sign_challenge(challenge: &str, secret_key: &SecretKey) -> Result<Signatu
     hasher.input(challenge.as_bytes());
     let message = Message::from_slice(hasher.result().as_slice())?;
     let secp = Secp256k1::new();
-    secp.sign(&message, secret_key).map_err(|_| Wallet713Error::Secp.into())
+    secp.sign(&message, secret_key).map_err(|_| ErrorKind::Secp.into())
 }
 
 pub fn verify_signature(challenge: &str, signature: &Signature, public_key: &PublicKey) -> Result<()> {
@@ -114,7 +114,7 @@ pub fn verify_signature(challenge: &str, signature: &Signature, public_key: &Pub
     hasher.input(challenge.as_bytes());
     let message = Message::from_slice(hasher.result().as_slice())?;
     let secp = Secp256k1::new();
-    secp.verify(&message, signature, public_key).map_err(|_| Wallet713Error::Secp.into())
+    secp.verify(&message, signature, public_key).map_err(|_| ErrorKind::Secp.into())
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -128,7 +128,7 @@ impl EncryptedMessage {
     pub fn new(message: String, receiver_public_key: &PublicKey, secret_key: &SecretKey) -> Result<EncryptedMessage> {
         let secp = Secp256k1::new();
         let mut common_secret = receiver_public_key.clone();
-        common_secret.mul_assign(&secp, secret_key).map_err(|_| Wallet713Error::Encryption)?;
+        common_secret.mul_assign(&secp, secret_key).map_err(|_| ErrorKind::Encryption)?;
         let common_secret_ser = common_secret.serialize_vec(&secp, true);
         let common_secret_slice = &common_secret_ser[1..33];
 
@@ -142,9 +142,9 @@ impl EncryptedMessage {
             enc_bytes.push(0);
         }
         let sealing_key = aead::SealingKey::new(&aead::CHACHA20_POLY1305, &key)
-            .map_err(|_| Wallet713Error::Encryption)?;
+            .map_err(|_| ErrorKind::Encryption)?;
         aead::seal_in_place(&sealing_key, &nonce, &[], &mut enc_bytes, suffix_len)
-            .map_err(|_| Wallet713Error::Encryption)?;
+            .map_err(|_| ErrorKind::Encryption)?;
 
         Ok(EncryptedMessage {
             encrypted_message: to_hex(enc_bytes),
@@ -154,24 +154,24 @@ impl EncryptedMessage {
     }
 
     pub fn decrypt(&self, sender_public_key: &PublicKey, secret_key: &SecretKey) -> Result<String> {
-        let mut encrypted_message = from_hex(self.encrypted_message.clone()).map_err(|_| Wallet713Error::Decryption)?;
-        let salt = from_hex(self.salt.clone()).map_err(|_| Wallet713Error::Decryption)?;
-        let nonce = from_hex(self.nonce.clone()).map_err(|_| Wallet713Error::Decryption)?;
+        let mut encrypted_message = from_hex(self.encrypted_message.clone()).map_err(|_| ErrorKind::Decryption)?;
+        let salt = from_hex(self.salt.clone()).map_err(|_| ErrorKind::Decryption)?;
+        let nonce = from_hex(self.nonce.clone()).map_err(|_| ErrorKind::Decryption)?;
 
         let secp = Secp256k1::new();
         let mut common_secret = sender_public_key.clone();
-        common_secret.mul_assign(&secp, secret_key).map_err(|_| Wallet713Error::Decryption)?;
+        common_secret.mul_assign(&secp, secret_key).map_err(|_| ErrorKind::Decryption)?;
         let common_secret_ser = common_secret.serialize_vec(&secp, true);
         let common_secret_slice = &common_secret_ser[1..33];
 
         let mut key = [0; 32];
         pbkdf2::derive(&digest::SHA512, 100, &salt, common_secret_slice, &mut key);
         let opening_key = aead::OpeningKey::new(&aead::CHACHA20_POLY1305, &key)
-            .map_err(|_| Wallet713Error::Decryption)?;
+            .map_err(|_| ErrorKind::Decryption)?;
         let decrypted_data = aead::open_in_place(&opening_key, &nonce, &[], 0, &mut encrypted_message)
-            .map_err(|_| Wallet713Error::Decryption)?;
+            .map_err(|_| ErrorKind::Decryption)?;
 
-        String::from_utf8(decrypted_data.to_vec()).map_err(|_| Wallet713Error::Decryption.into())
+        String::from_utf8(decrypted_data.to_vec()).map_err(|_| ErrorKind::Decryption.into())
     }
 }
 
@@ -188,7 +188,7 @@ pub fn to_hex(bytes: Vec<u8>) -> String {
 /// Decode a hex string into bytes.
 pub fn from_hex(hex_str: String) -> Result<Vec<u8>> {
     if hex_str.len() % 2 == 1 {
-        Err(Wallet713Error::NumberParsingError)?;
+        Err(ErrorKind::NumberParsingError)?;
     }
     let hex_trim = if &hex_str[..2] == "0x" {
         hex_str[2..].to_owned()
@@ -199,10 +199,10 @@ pub fn from_hex(hex_str: String) -> Result<Vec<u8>> {
         .iter()
         .map(|b| {
             u8::from_str_radix(b, 16).map_err(|_| {
-                Wallet713Error::NumberParsingError
+                ErrorKind::NumberParsingError.into()
             })
         })
-        .collect::<std::result::Result<Vec<u8>, Wallet713Error>>()?;
+        .collect::<Result<Vec<u8>>>()?;
     Ok(vec)
 }
 
