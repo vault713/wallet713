@@ -35,7 +35,9 @@ term = "0.5"
 blake2-rfc = "0.2"
 log = "0.4"
 rpassword = "2.1.0"
+url = "1.7"
 
+grin_api = { git = "https://github.com/mimblewimble/grin" }
 grin_core = { git = "https://github.com/mimblewimble/grin" }
 grin_wallet = { git = "https://github.com/mimblewimble/grin" }
 grin_keychain = { git = "https://github.com/mimblewimble/grin" }

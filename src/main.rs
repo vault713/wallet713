@@ -22,7 +22,9 @@ extern crate rustyline;
 extern crate chrono;
 extern crate term;
 extern crate blake2_rfc;
+extern crate url;
 
+extern crate grin_api;
 extern crate grin_core;
 extern crate grin_keychain;
 extern crate grin_util;
@@ -37,9 +39,10 @@ use std::path::Path;
 use clap::{App, Arg, ArgMatches};
 use colored::*;
 use rustyline::Editor;
-
+use grin_api::client;
 use grin_core::core;
 use grin_core::global::{ChainTypes, set_mining_mode};
+use url::Url;
 
 #[macro_use]
 mod common;
@@ -678,10 +681,9 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let message = args.value_of("message").map(|s| s.to_string());
 
             let change_outputs = args.value_of("change-outputs").unwrap_or("1");
-            let change_outputs = usize::from_str_radix(change_outputs, 10)
-                .map_err(|_| {
-                    ErrorKind::InvalidNumOutputs(change_outputs.to_string())
-                })?;
+            let change_outputs = usize::from_str_radix(change_outputs, 10).map_err(|_| {
+                ErrorKind::InvalidNumOutputs(change_outputs.to_string())
+            })?;
 
             let amount = args.value_of("amount").unwrap();
             let amount = core::amount_from_hr_string(amount).map_err(|_| {
@@ -732,16 +734,27 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                     } else {
                         Err(ErrorKind::ClosedListener("grinbox".to_string()))?
                     }
+                },
+                AddressType::Https => {
+                    let url = Url::parse(&format!("{}/v1/wallet/foreign/receive_tx", to.to_string()))?;
+                    let slate = wallet.lock().unwrap().initiate_send_tx(amount, 10, "smallest", change_outputs, 500, message)?;
+                    client::post(url.as_str(), None, &slate)
+                        .map_err(|_| ErrorKind::HttpRequest.into())
                 }
             };
 
-            let slate = slate?;
+            let mut slate = slate?;
 
             cli_message!("slate [{}] for [{}] grins sent successfully to [{}]",
                 slate.id.to_string().bright_green(),
                 core::amount_to_hr_string(slate.amount, false).bright_green(),
                 to.stripped().bright_green()
             );
+
+            if to.address_type() == AddressType::Https {
+                wallet.lock().unwrap().finalize_slate(&mut slate)?;
+                cli_message!("slate [{}] finalized successfully", slate.id.to_string().bright_green());
+            }
         }
         Some("invoice") => {
             let args = matches.subcommand_matches("invoice").unwrap();
@@ -790,7 +803,8 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                     } else {
                         Err(ErrorKind::ClosedListener("grinbox".to_string()))?
                     }
-                }
+                },
+                _ => Err(ErrorKind::HttpRequest.into()),
             };
 
             let slate = slate?;
