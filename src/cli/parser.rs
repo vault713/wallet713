@@ -172,6 +172,12 @@ impl<'a, 'b> Parser {
                         Arg::from_usage("<amount> 'the amount of grins to send'")
                     )
                     .arg(
+                        Arg::from_usage("[strategy] -s, --strategy=<strategy> 'the input selection strategy (all/smallest). Default: smallest'")
+                    )
+                    .arg(
+                        Arg::from_usage("[confirmations] -c, --confirmations=<confirmations> 'the number of confirmations required for inputs'")
+                    )
+                    .arg(
                         Arg::from_usage("[change-outputs] -o, --change-outputs=<change-outputs> 'the number of change outputs'")
                     )
                     .arg(

@@ -680,6 +680,16 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let input = args.value_of("file");
             let message = args.value_of("message").map(|s| s.to_string());
 
+            let strategy = args.value_of("strategy").unwrap_or("smallest");
+            if strategy != "smallest" && strategy != "all" {
+                return Err(ErrorKind::InvalidStrategy.into());
+            }
+
+            let confirmations = args.value_of("confirmations").unwrap_or("10");
+            let confirmations = u64::from_str_radix(confirmations, 10).map_err(|_| {
+                ErrorKind::InvalidMinConfirmations(confirmations.to_string())
+            })?;
+
             let change_outputs = args.value_of("change-outputs").unwrap_or("1");
             let change_outputs = usize::from_str_radix(change_outputs, 10).map_err(|_| {
                 ErrorKind::InvalidNumOutputs(change_outputs.to_string())
@@ -692,7 +702,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
 
             if let Some(input) = input {
                 let mut file = File::create(input)?;
-                let slate = wallet.lock().unwrap().initiate_send_tx(amount, 10, "smallest", change_outputs, 500, message)?;
+                let slate = wallet.lock().unwrap().initiate_send_tx(amount, confirmations, strategy, change_outputs, 500, message)?;
                 file.write_all(serde_json::to_string(&slate).unwrap().as_bytes())?;
                 cli_message!("{} created successfully.", input);
                 return Ok(true);
@@ -717,7 +727,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let slate: Result<Slate> = match to.address_type() {
                 AddressType::Keybase => {
                     if let Some((publisher, _)) = keybase_broker {
-                        let slate = wallet.lock().unwrap().initiate_send_tx(amount, 10, "smallest", change_outputs, 500, message)?;
+                        let slate = wallet.lock().unwrap().initiate_send_tx(amount, confirmations, strategy, change_outputs, 500, message)?;
                         let mut keybase_address = contacts::KeybaseAddress::from_str(&to.to_string())?;
                         keybase_address.topic = Some(broker::TOPIC_SLATE_NEW.to_string());
                         publisher.post_slate(&slate, keybase_address.borrow())?;
@@ -728,7 +738,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 }
                 AddressType::Grinbox => {
                     if let Some((publisher, _)) = grinbox_broker {
-                        let slate = wallet.lock().unwrap().initiate_send_tx(amount, 10, "smallest", change_outputs, 500, message)?;
+                        let slate = wallet.lock().unwrap().initiate_send_tx(amount, confirmations, strategy, change_outputs, 500, message)?;
                         publisher.post_slate(&slate, to.borrow())?;
                         Ok(slate)
                     } else {
@@ -737,7 +747,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 },
                 AddressType::Https => {
                     let url = Url::parse(&format!("{}/v1/wallet/foreign/receive_tx", to.to_string()))?;
-                    let slate = wallet.lock().unwrap().initiate_send_tx(amount, 10, "smallest", change_outputs, 500, message)?;
+                    let slate = wallet.lock().unwrap().initiate_send_tx(amount, confirmations, strategy, change_outputs, 500, message)?;
                     client::post(url.as_str(), None, &slate)
                         .map_err(|_| ErrorKind::HttpRequest.into())
                 }
