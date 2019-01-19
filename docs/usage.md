@@ -14,6 +14,9 @@ While running, wallet713 works with an internal command prompt. You type command
     + [Creating a file-based transaction](#creating-a-file-based-transaction)
     + [Receiving a file-based transaction](#receiving-a-file-based-transaction)
     + [Finalizing a file-based transaction](#finalizing-a-file-based-transaction)
+  * [Send configurations](#send-configurations)
+    + [Input selection strategy](#input-selection-strategy)
+    + [Minimum number of confirmations](#minimum-number-of-confirmations)
   * [Using Contacts](#using-contacts)
   * [Using a passphrase](#using-a-passphrase)
     + [Set a passphrase](#set-a-passphrase)
@@ -132,6 +135,26 @@ Having received back `transaction.tx.response`, the sender can then issue:
 wallet713> $ finalize --file ~/path/to/transaction.tx.response
 ```
 ...which will finalize the transaction and broadcast it.
+
+### Send configurations
+
+#### Input selection strategy
+
+Set the input selection strategy [`all`, `smallest`] with the `-s` option: 
+
+To send a transaction using "all" as input selection strategy:
+```
+wallet713> $ send 10 --to xd6p24toTTDj7sxCCM4WGpBVcegVjGi9q5jquq6VWZA1BJroX514 -s all
+```
+
+#### Minimum number of confirmations
+
+Set the minimum number of confirmation for inputs with the `-c` option, the default is `10`:
+
+To send a transaction with 3 required confirmations: 
+```
+wallet713> $ send 10 --to xd6p24toTTDj7sxCCM4WGpBVcegVjGi9q5jquq6VWZA1BJroX514 -c 3
+```
 
 ### Using Contacts
 
