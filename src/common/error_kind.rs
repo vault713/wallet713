@@ -31,6 +31,10 @@ pub enum ErrorKind {
     InvalidTxId(String),
     #[fail(display = "invalid amount given: `{}`", 0)]
     InvalidAmount(String),
+    #[fail(display = "invalid selection strategy, use either 'smallest' or 'all'")]
+    InvalidStrategy,
+    #[fail(display = "invalid number of minimum confirmations given: `{}`", 0)]
+    InvalidMinConfirmations(String),
     #[fail(display = "invalid number of outputs given: `{}`", 0)]
     InvalidNumOutputs(String),
     #[fail(display = "could not unlock wallet! are you using the correct passphrase?")]
