@@ -3,9 +3,13 @@
 While running, wallet713 works with an internal command prompt. You type commands in the same way as the CLI version of the grin wallet. **Ensure you are running a fully synced Grin node before using the wallet.**
 
 ## Contents
+
 - [Common use cases](#common-use-cases)
   * [Getting started](#getting-started)
   * [Transacting using Keybase](#transacting-using-keybase)
+  * [Transacting using https](#transacting-using-https)
+    + [Sending via https](#sending-via-https)
+    + [Receiving via https](#receiving-via-https)
   * [Transacting using files](#transacting-using-files)
     + [Creating a file-based transaction](#creating-a-file-based-transaction)
     + [Receiving a file-based transaction](#receiving-a-file-based-transaction)
@@ -20,10 +24,11 @@ While running, wallet713 works with an internal command prompt. You type command
   * [Splitting your outputs](#splitting-your-outputs)
 - [Running your own node](#running-your-own-node)
 - [Restoring your wallet](#restoring-your-wallet)
-    + [Restoring a wallet using your mnemonic BIP-39 phrase](#restoring-a-wallet-using-your-mnemonic-bip-39-phrase)
-    + [Manually importing a .seed](#manually-importing-a-seed)
+  * [Restoring a wallet using your mnemonic BIP-39 phrase](#restoring-a-wallet-using-your-mnemonic-bip-39-phrase)
 - [Supported address formats](#supported-address-formats)
   * [Grinbox](#grinbox)
+    + [Address derivation](#address-derivation)
+    + [Switching address](#switching-address)
   * [Keybase](#keybase)
 - [Command documentation](#command-documentation)
 
@@ -90,6 +95,21 @@ To send 10 grins to Igno on keybase:
 ```
 wallet713> $ send 10 --to keybase://ignotus
 ```
+
+### Transacting using https
+
+#### Sending via https
+
+wallet713 supports sending transactions to listening wallets via https. Only https is enabled for security reasons. 
+
+To send 10 grins to https://some.wallet.713.mw:13415:
+```
+wallet713> $ send 10 --to https://some.wallet.713.mw:13415
+```
+
+#### Receiving via https
+
+Not yet supported. Request this to us (open an issue, or chat with us on Gitter) if you need it. 
 
 ### Transacting using files
 
@@ -195,20 +215,11 @@ Set corresponding `grin_node_uri` and `grin_node_secret` in your `~/.wallet713/X
 
 ## Restoring your wallet
 
-#### Restoring a wallet using your mnemonic BIP-39 phrase
+### Restoring a wallet using your mnemonic BIP-39 phrase
 ```
 wallet713> $ restore -m word1 word2 ...
 ```
 If you had a passphrase, remember to include the `-p yourpassphrase` as you run the command.
-
-#### Manually importing a .seed
-
-To import an existing grin wallet to use in wallet713 follow these steps:
-1. Ensure you have the previous wallet's `wallet.seed`. In the default config of the grin wallet, this is stored in `~/.grin/wallet_data`.
-1. Build wallet713, run it, run `init`. Exit the wallet.  
-1. Copy and replace `wallet713/target/release/wallet713_data/wallet.seed` with the `wallet.seed` of the wallet you want to restore.
-1. Run wallet713, and then run `restore`.
-1. Your previous wallet should now have been restored, and you can validate this by running `info`.
 
 ## Supported address formats
 
