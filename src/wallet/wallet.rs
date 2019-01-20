@@ -126,11 +126,12 @@ impl Wallet {
         Ok(result)
     }
 
-    pub fn initiate_send_tx(&self, amount: u64, minimum_confirmations: u64, selection_strategy: &str, change_outputs: usize, max_outputs: usize, message: Option<String>) -> Result<Slate> {
+    pub fn initiate_send_tx(&self, address: Option<String>, amount: u64, minimum_confirmations: u64, selection_strategy: &str, change_outputs: usize, max_outputs: usize, message: Option<String>) -> Result<Slate> {
         let wallet = self.get_wallet_instance()?;
         let mut s: Slate = Slate::blank(0);
         controller::owner_single_use(wallet.clone(), |api| {
             let (slate, lock_fn) = api.initiate_tx(
+                address,
                 amount,
                 minimum_confirmations,
                 max_outputs,
@@ -208,10 +209,10 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn process_sender_initiated_slate(&self, slate: &mut Slate) -> Result<()> {
+    pub fn process_sender_initiated_slate(&self, address: Option<String>, slate: &mut Slate) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
         controller::foreign_single_use(wallet.clone(), |api| {
-            api.receive_tx(slate, None)?;
+            api.receive_tx(address, slate, None)?;
             Ok(())
         }).map_err(|_| {
             ErrorKind::GrinWalletReceiveError
