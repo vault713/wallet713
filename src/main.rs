@@ -389,7 +389,8 @@ fn main() {
 
     if let Some(auto_start) = config.grinbox_listener_auto_start {
         if auto_start {
-            let result = do_command("listen -g", &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker);
+            let mut is_safe = false;
+            let result = do_command("listen -g", &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker, &mut is_safe);
             if let Err(err) = result {
                 cli_message!("{}: {}", "ERROR".bright_red(), err);
             }
@@ -398,7 +399,8 @@ fn main() {
 
     if let Some(auto_start) = config.keybase_listener_auto_start {
         if auto_start {
-            let result = do_command("listen -k", &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker);
+            let mut is_safe = false;
+            let result = do_command("listen -k", &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker, &mut is_safe);
             if let Err(err) = result {
                 cli_message!("{}: {}", "ERROR".bright_red(), err);
             }
@@ -423,12 +425,16 @@ fn main() {
                 if command == "exit" {
                     break;
                 }
-                let result = do_command(&command, &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker);
-                match result {
-                    Err(err) => cli_message!("{}: {}", "ERROR".bright_red(), err),
-                    Ok(safe) => if safe {
-                        rl.add_history_entry(command);
-                    },
+
+                let mut out_is_safe = false;
+                let result = do_command(&command, &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker, &mut out_is_safe);
+
+                if let Err(err) = result {
+                    cli_message!("{}: {}", "ERROR".bright_red(), err);
+                }
+
+                if out_is_safe {
+                    rl.add_history_entry(command);
                 }
             }
             Err(_) => {
@@ -468,7 +474,9 @@ fn password_prompt(opt: Option<&str>) -> String {
         )
 }
 
-fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>, keybase_broker: &mut Option<(KeybasePublisher, KeybaseSubscriber)>, grinbox_broker: &mut Option<(GrinboxPublisher, GrinboxSubscriber)>) -> Result<bool> {
+fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>, keybase_broker: &mut Option<(KeybasePublisher, KeybaseSubscriber)>, grinbox_broker: &mut Option<(GrinboxPublisher, GrinboxSubscriber)>, out_is_safe: &mut bool) -> Result<()> {
+    *out_is_safe = true;
+
     let matches = Parser::parse(command)?;
     match matches.subcommand_name() {
         Some("config") => {
@@ -497,6 +505,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             show_address(config, true)?;
         }
         Some("init") => {
+            *out_is_safe = false;
             if keybase_broker.is_some() || grinbox_broker.is_some() {
                 return Err(ErrorKind::HasListener.into());
             }
@@ -505,6 +514,8 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 true => password_prompt(args.value_of("passphrase")),
                 false => "".to_string(),
             };
+            *out_is_safe = args.value_of("passphrase").is_none();
+
             {
                 wallet.lock().unwrap().init(config, "default", passphrase.as_str())?;
             }
@@ -512,7 +523,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             if passphrase.is_empty() {
                 cli_message!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
             }
-            return Ok(args.value_of("passphrase").is_none());
+            return Ok(());
         }
         Some("lock") => {
             if keybase_broker.is_some() || grinbox_broker.is_some() {
@@ -527,6 +538,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 true => password_prompt(args.value_of("passphrase")),
                 false => "".to_string(),
             };
+            *out_is_safe = args.value_of("passphrase").is_none();
 
             {
                 let mut w = wallet.lock().unwrap();
@@ -537,13 +549,15 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             }
 
             derive_address_key(config, wallet, grinbox_broker)?;
-            return Ok(args.value_of("passphrase").is_none());
+            return Ok(());
         }
         Some("accounts") => {
             wallet.lock().unwrap().list_accounts()?;
         }
         Some("account") => {
             let args = matches.subcommand_matches("account").unwrap();
+            *out_is_safe = args.value_of("passphrase").is_none();
+
             let create_args = args.subcommand_matches("create");
             let switch_args = args.subcommand_matches("switch");
             if let Some(args) = create_args {
@@ -556,7 +570,8 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 };
                 wallet.lock().unwrap().unlock(config, account, passphrase.as_str())?;
             }
-            return Ok(args.value_of("passphrase").is_none());
+
+            return Ok(());
         }
         Some("listen") => {
             let grinbox = matches.subcommand_matches("listen").unwrap().is_present("grinbox");
@@ -705,7 +720,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 let slate = wallet.lock().unwrap().initiate_send_tx(amount, confirmations, strategy, change_outputs, 500, message)?;
                 file.write_all(serde_json::to_string(&slate).unwrap().as_bytes())?;
                 cli_message!("{} created successfully.", input);
-                return Ok(true);
+                return Ok(());
             }
 
             let mut to = to.unwrap().to_string();
@@ -825,6 +840,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             );
         }
         Some("restore") => {
+            *out_is_safe = false;
             if keybase_broker.is_some() || grinbox_broker.is_some() {
                 return Err(ErrorKind::HasListener.into());
             }
@@ -833,6 +849,8 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 true => password_prompt(args.value_of("passphrase")),
                 false => "".to_string(),
             };
+            *out_is_safe = args.value_of("passphrase").is_none();
+
             println!("restoring... please wait as this could take a few minutes to complete.");
 
             {
@@ -851,8 +869,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             }
 
             cli_message!("wallet restoration done!");
-
-            return Ok(args.value_of("passphrase").is_none());
+            return Ok(());
         }
         Some("check") => {
             if keybase_broker.is_some() || grinbox_broker.is_some() {
@@ -869,5 +886,6 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         }
         None => {}
     };
-    Ok(true)
+
+    Ok(())
 }
