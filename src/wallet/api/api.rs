@@ -154,6 +154,7 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
 
     pub fn initiate_tx(
         &mut self,
+        address: Option<String>,
         amount: u64,
         minimum_confirmations: u64,
         max_outputs: usize,
@@ -172,6 +173,7 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
         let parent_key_id = w.get_parent_key_id();
         let (slate, context, lock_fn) = tx::create_send_tx(
             &mut *w,
+            address,
             amount,
             minimum_confirmations,
             max_outputs,
@@ -374,6 +376,7 @@ impl<W: ?Sized, C, K> Wallet713ForeignAPI<W, C, K>
 
     pub fn receive_tx(
         &mut self,
+        address: Option<String>,
         slate: &mut Slate,
         message: Option<String>,
     ) -> Result<(), Error> {
@@ -387,7 +390,7 @@ impl<W: ?Sized, C, K> Wallet713ForeignAPI<W, C, K>
                 return Err(ErrorKind::TransactionAlreadyReceived(slate.id.to_string()).into());
             }
         }
-        let res = tx::receive_tx(&mut *w, slate, &parent_key_id, message);
+        let res = tx::receive_tx(&mut *w, address, slate, &parent_key_id, message);
         w.close()?;
 
         if let Err(e) = res {

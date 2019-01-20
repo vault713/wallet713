@@ -128,38 +128,33 @@ pub fn txs(
     table.set_titles(row![
 		bMG->"Id",
 		bMG->"Type",
-		bMG->"Shared Transaction Id",
+		bMG->"TXID",
+		bMG->"Address",
 		bMG->"Creation Time",
 		bMG->"Confirmed?",
 		bMG->"Confirmation Time",
-		bMG->"Num. \nInputs",
-		bMG->"Num. \nOutputs",
-		bMG->"Amount \nCredited",
-		bMG->"Amount \nDebited",
-		bMG->"Fee",
 		bMG->"Net \nDifference",
 	]);
 
     for t in txs {
         let id = format!("{}", t.id);
         let slate_id = match t.tx_slate_id {
-            Some(m) => format!("{}", m),
-            None => "None".to_owned(),
+            Some(m) => grin_util::to_hex(m.as_bytes()[..4].to_vec()),
+            None => String::from(""),
+        };
+        let address = match t.address {
+            Some(a) => a.clone(),
+            None => String::from(""),
         };
         let entry_type = format!("{}", t.tx_type);
         let creation_ts = format!("{}", t.creation_ts.format("%Y-%m-%d %H:%M:%S"));
         let confirmation_ts = match t.confirmation_ts {
             Some(m) => format!("{}", m.format("%Y-%m-%d %H:%M:%S")),
-            None => "None".to_owned(),
+            None => String::from(""),
         };
-        let confirmed = format!("{}", t.confirmed);
-        let num_inputs = format!("{}", t.num_inputs);
-        let num_outputs = format!("{}", t.num_outputs);
-        let amount_debited_str = core::amount_to_hr_string(t.amount_debited, true);
-        let amount_credited_str = core::amount_to_hr_string(t.amount_credited, true);
-        let fee = match t.fee {
-            Some(f) => format!("{}", core::amount_to_hr_string(f, true)),
-            None => "None".to_owned(),
+        let confirmed = match t.confirmed {
+            true => "yes",
+            false => "no",
         };
         let net_diff = if t.amount_credited >= t.amount_debited {
             core::amount_to_hr_string(t.amount_credited - t.amount_debited, true)
@@ -173,15 +168,11 @@ pub fn txs(
             table.add_row(row![
 				bFC->id,
 				bFC->entry_type,
-				bFC->slate_id,
+				bFB->slate_id,
+				bFC->address,
 				bFB->creation_ts,
 				bFC->confirmed,
 				bFB->confirmation_ts,
-				bFC->num_inputs,
-				bFC->num_outputs,
-				bFG->amount_credited_str,
-				bFR->amount_debited_str,
-				bFR->fee,
 				bFY->net_diff,
 			]);
         } else {
@@ -190,14 +181,10 @@ pub fn txs(
 					bFD->id,
 					bFb->entry_type,
 					bFD->slate_id,
+					bFD->address,
 					bFB->creation_ts,
 					bFg->confirmed,
 					bFB->confirmation_ts,
-					bFD->num_inputs,
-					bFD->num_outputs,
-					bFG->amount_credited_str,
-					bFD->amount_debited_str,
-					bFD->fee,
 					bFG->net_diff,
 				]);
             } else {
@@ -205,14 +192,10 @@ pub fn txs(
 					bFD->id,
 					bFb->entry_type,
 					bFD->slate_id,
+					bFD->address,
 					bFB->creation_ts,
 					bFR->confirmed,
 					bFB->confirmation_ts,
-					bFD->num_inputs,
-					bFD->num_outputs,
-					bFG->amount_credited_str,
-					bFD->amount_debited_str,
-					bFD->fee,
 					bFG->net_diff,
 				]);
             }

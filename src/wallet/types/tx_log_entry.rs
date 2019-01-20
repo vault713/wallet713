@@ -17,6 +17,9 @@ pub struct TxLogEntry {
     pub tx_slate_id: Option<Uuid>,
     /// Transaction type (as above)
     pub tx_type: TxLogEntryType,
+    /// Address of the other party
+    #[serde(default)]
+    pub address: Option<String>,
     /// Time this tx entry was created
     /// #[serde(with = "tx_date_format")]
     pub creation_ts: DateTime<Utc>,
@@ -46,6 +49,7 @@ impl TxLogEntry {
             parent_key_id: parent_key_id,
             tx_type: t,
             id: id,
+            address: None,
             tx_slate_id: None,
             creation_ts: Utc::now(),
             confirmation_ts: None,

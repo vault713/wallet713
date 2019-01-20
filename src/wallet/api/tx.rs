@@ -6,6 +6,7 @@ use super::updater;
 
 pub fn receive_tx<T: ?Sized, C, K>(
     wallet: &mut T,
+    address: Option<String>,
     slate: &mut Slate,
     parent_key_id: &Identifier,
     message: Option<String>,
@@ -17,7 +18,7 @@ pub fn receive_tx<T: ?Sized, C, K>(
 {
     // create an output using the amount in the slate
     let (_, mut context, receiver_create_fn) =
-        selection::build_recipient_output_with_slate(wallet, slate, parent_key_id.clone())?;
+        selection::build_recipient_output_with_slate(wallet, address, slate, parent_key_id.clone())?;
 
     // fill public keys
     let _ = slate.fill_round_1(
@@ -39,6 +40,7 @@ pub fn receive_tx<T: ?Sized, C, K>(
 
 pub fn create_send_tx<T: ?Sized, C, K>(
     wallet: &mut T,
+    address: Option<String>,
     amount: u64,
     minimum_confirmations: u64,
     max_outputs: usize,
@@ -75,6 +77,7 @@ pub fn create_send_tx<T: ?Sized, C, K>(
     // this process can be split up in any way
     let (mut slate, mut context, sender_lock_fn) = selection::build_send_tx_slate(
         wallet,
+        address,
         2,
         amount,
         current_height,

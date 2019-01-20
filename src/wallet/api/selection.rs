@@ -7,6 +7,7 @@ use super::keys;
 
 pub fn build_send_tx_slate<T: ?Sized, C, K>(
     wallet: &mut T,
+    address: Option<String>,
     num_participants: usize,
     amount: u64,
     current_height: u64,
@@ -84,6 +85,7 @@ pub fn build_send_tx_slate<T: ?Sized, C, K>(
         let log_id = batch.next_tx_log_id(&parent_key_id)?;
         let mut t = TxLogEntry::new(parent_key_id.clone(), TxLogEntryType::TxSent, log_id);
         t.tx_slate_id = Some(slate_id);
+        t.address = address;
         t.fee = Some(fee);
         let mut amount_debited = 0;
         t.num_inputs = lock_inputs.len();
@@ -126,6 +128,7 @@ pub fn build_send_tx_slate<T: ?Sized, C, K>(
 
 pub fn build_recipient_output_with_slate<T: ?Sized, C, K>(
     wallet: &mut T,
+    address: Option<String>,
     slate: &mut Slate,
     parent_key_id: Identifier,
 ) -> Result<
@@ -172,6 +175,7 @@ pub fn build_recipient_output_with_slate<T: ?Sized, C, K>(
         let log_id = batch.next_tx_log_id(&parent_key_id)?;
         let mut t = TxLogEntry::new(parent_key_id.clone(), TxLogEntryType::TxReceived, log_id);
         t.tx_slate_id = Some(slate_id);
+        t.address = address;
         t.amount_credited = amount;
         t.num_outputs = 1;
         batch.save_output(&OutputData {
