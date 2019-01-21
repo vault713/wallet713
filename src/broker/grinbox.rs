@@ -6,6 +6,7 @@ use colored::*;
 
 use grin_core::libtx::slate::Slate;
 
+use crate::wallet::types::TxProof;
 use common::{ErrorKind, Result};
 use common::crypto::{SecretKey, Signature, verify_signature, sign_challenge, Hex, EncryptedMessage};
 use contacts::{Address, GrinboxAddress, DEFAULT_GRINBOX_PORT};
@@ -218,7 +219,7 @@ impl GrinboxClient {
         Ok(())
     }
 
-    fn verify_slate_signature(&self, from: &str, str: &str, challenge: &str, signature: &str) -> Result<()> {
+    fn verify_slate_signature(&self, from: &str, str: &str, challenge: &str, signature: &str) -> Result<Signature> {
         let from = GrinboxAddress::from_str(from)?;
         let public_key = from.public_key()?;
         let signature = Signature::from_hex(signature)?;
@@ -226,7 +227,7 @@ impl GrinboxClient {
         challenge_builder.push_str(str);
         challenge_builder.push_str(challenge);
         verify_signature(&challenge_builder, &signature, &public_key)?;
-        Ok(())
+        Ok(signature)
     }
 
     fn send(&self, request: &ProtocolRequest) -> Result<()> {
@@ -264,8 +265,8 @@ impl Handler for GrinboxClient {
                     WsError::new(WsErrorKind::Protocol, "error attempting to subscribe!")
                 })?;
             },
-            ProtocolResponse::Slate { from, str, challenge, signature } => {
-                if let Ok(_) = self.verify_slate_signature(&from, &str, &challenge, &signature) {
+            ProtocolResponse::Slate { from, message, challenge, signature } => {
+                if let Ok(signature) = self.verify_slate_signature(&from, &message, &challenge, &signature) {
                     let from = match GrinboxAddress::from_str(&from) {
                         Ok(x) => x,
                         Err(_) => {
@@ -274,15 +275,16 @@ impl Handler for GrinboxClient {
                         },
                     };
 
-                    let mut slate: Slate = match self.use_encryption {
+                    let (mut slate, proof) = match self.use_encryption {
                         true => {
-                            let encrypted_message: EncryptedMessage = match serde_json::from_str(&str) {
+                            let encrypted_message: EncryptedMessage = match serde_json::from_str(&message) {
                                 Ok(x) => x,
                                 Err(_) => {
                                     cli_message!("could not parse encrypted message!");
                                     return Ok(());
                                 },
                             };
+
                             let pkey = match from.public_key() {
                                 Ok(x) => x,
                                 Err(_) => {
@@ -291,7 +293,15 @@ impl Handler for GrinboxClient {
                                 },
                             };
 
-                            let decrypted_message = match encrypted_message.decrypt(&pkey, &self.secret_key) {
+                            let key = match encrypted_message.key(&pkey, &self.secret_key) {
+                                Ok(x) => x,
+                                Err(_) => {
+                                    cli_message!("could not determine decryption key!");
+                                    return Ok(());
+                                }
+                            };
+
+                            let decrypted_message = match encrypted_message.decrypt_with_key(&key) {
                                 Ok(x) => x,
                                 Err(_) => {
                                     cli_message!("could not decrypt message!");
@@ -307,9 +317,16 @@ impl Handler for GrinboxClient {
                                 },
                             };
 
-                            slate
+                            let proof = TxProof {
+                                message,
+                                challenge,
+                                signature,
+                                key,
+                            };
+
+                            (slate, proof)
                         },
-                        false => match serde_json::from_str(&str) {
+                        false => match serde_json::from_str(&message) {
                             Ok(x) => x,
                             Err(_) => {
                                 cli_message!("could not parse slate!");
@@ -318,7 +335,7 @@ impl Handler for GrinboxClient {
                         },
                     };
 
-                    self.handler.lock().unwrap().on_slate(&from, &mut slate);
+                    self.handler.lock().unwrap().on_slate(&from, &mut slate, Some(proof));
                 } else {
                     cli_message!("{}: received slate with invalid signature!", "ERROR".bright_red());
                 }

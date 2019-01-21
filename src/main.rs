@@ -56,6 +56,8 @@ use common::config::Wallet713Config;
 use wallet::Wallet;
 use cli::Parser;
 
+use crate::wallet::types::TxProof;
+
 use contacts::{Address, AddressType, GrinboxAddress, Contact, AddressBook, Backend};
 
 const CLI_HISTORY_PATH: &str = ".history";
@@ -213,7 +215,7 @@ impl SubscriptionHandler for Controller {
         cli_message!("listener started for [{}]", self.name.bright_green());
     }
 
-    fn on_slate(&self, from: &Address, slate: &mut Slate) {
+    fn on_slate(&self, from: &Address, slate: &mut Slate, proof: Option<TxProof>) {
         let mut display_from = from.stripped();
         if let Ok(contact) = self.address_book.lock().unwrap().get_contact_by_address(&from.to_string()) {
             display_from = contact.get_name().to_string();

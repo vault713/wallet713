@@ -99,7 +99,7 @@ impl Subscriber for KeybaseSubscriber {
                         username: sender.to_string(),
                         topic: Some(reply_topic),
                     };
-                    handler.on_slate(address.borrow(), &mut slate);
+                    handler.on_slate(address.borrow(), &mut slate, None);
                 }
             } else {
                 if !dropped {

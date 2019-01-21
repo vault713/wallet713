@@ -48,7 +48,7 @@ pub enum ProtocolResponse {
     Ok,
     Error { kind: ProtocolError, description: String },
     Challenge { str: String },
-    Slate { from: String, str: String, signature: String, challenge: String },
+    Slate { from: String, message: String, signature: String, challenge: String },
 }
 
 impl Display for ProtocolResponse {
@@ -57,7 +57,7 @@ impl Display for ProtocolResponse {
             ProtocolResponse::Ok => write!(f, "{}", "Ok".cyan()),
             ProtocolResponse::Error { ref kind, description: _ } => write!(f, "{}: {}", "ERROR".bright_red(), kind),
             ProtocolResponse::Challenge { ref str } => write!(f, "{} {}", "Challenge".cyan(), str.bright_green()),
-            ProtocolResponse::Slate { ref from, str: _, signature: _, challenge: _ } => write!(f, "{} from {}", "Slate".cyan(), from.bright_green()),
+            ProtocolResponse::Slate { ref from, message: _, signature: _, challenge: _ } => write!(f, "{} from {}", "Slate".cyan(), from.bright_green()),
         }
     }
 }

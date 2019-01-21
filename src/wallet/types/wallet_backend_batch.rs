@@ -16,5 +16,6 @@ pub trait WalletBackendBatch<K>
     fn save_private_context(&mut self, uuid: &str, ctx: &Context) -> Result<()>;
     fn delete_private_context(&mut self, uuid: &str) -> Result<()>;
     fn store_tx(&self, uuid: &str, tx: &Transaction) -> Result<()>;
+    fn store_tx_proof(&self, uuid: &str, tx: &Transaction) -> Result<()>;
     fn commit(&mut self) -> Result<()>;
 }

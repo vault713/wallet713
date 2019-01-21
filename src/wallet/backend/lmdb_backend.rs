@@ -19,6 +19,7 @@ use super::api::restore;
 
 pub const DB_DIR: &'static str = "db";
 pub const TX_SAVE_DIR: &'static str = "saved_txs";
+pub const TX_PROOF_SAVE_DIR: &'static str = "saved_proofs";
 
 const OUTPUT_PREFIX: u8 = 'o' as u8;
 const DERIV_PREFIX: u8 = 'd' as u8;
@@ -76,6 +77,10 @@ impl<C, K> Backend<C, K> {
         let stored_tx_path = path::Path::new(&config.data_file_dir).join(TX_SAVE_DIR);
         fs::create_dir_all(&stored_tx_path)
             .expect("Couldn't create wallet backend tx storage directory!");
+
+        let stored_tx_proof_path = path::Path::new(&config.data_file_dir).join(TX_PROOF_SAVE_DIR);
+        fs::create_dir_all(&stored_tx_proof_path)
+            .expect("Couldn't create wallet backend tx proof storage directory!");
 
         let lmdb_env = Arc::new(grin_store::new_env(db_path.to_str().unwrap().to_string()));
         let store = grin_store::Store::open(lmdb_env, DB_DIR);
@@ -337,6 +342,19 @@ impl<'a, C, K> WalletBackendBatch<K> for Batch<'a, C, K>
 
     fn store_tx(&self, uuid: &str, tx: &Transaction) -> Result<()> {
         let filename = format!("{}.grintx", uuid);
+        let path = path::Path::new(&self._store.config.data_file_dir)
+            .join(TX_SAVE_DIR)
+            .join(filename);
+        let path_buf = Path::new(&path).to_path_buf();
+        let mut stored_tx = File::create(path_buf)?;
+        let tx_hex = to_hex(ser::ser_vec(tx).unwrap());;
+        stored_tx.write_all(&tx_hex.as_bytes())?;
+        stored_tx.sync_all()?;
+        Ok(())
+    }
+
+    fn store_tx_proof(&self, uuid: &str, tx: &Transaction) -> Result<()> {
+        let filename = format!("{}.proof", uuid);
         let path = path::Path::new(&self._store.config.data_file_dir)
             .join(TX_SAVE_DIR)
             .join(filename);
