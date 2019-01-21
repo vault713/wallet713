@@ -48,7 +48,7 @@ impl TxProof {
             .map_err(|_| ErrorKind::ParseSlate)
     }
 
-    pub fn from_response(from: String, message: String, signature: String, challenge: String, secret_key: &SecretKey) -> Result<(Slate, TxProof), ErrorKind> {
+    pub fn from_response(from: String, message: String, challenge: String, signature: String, secret_key: &SecretKey) -> Result<(Slate, TxProof), ErrorKind> {
         let address = GrinboxAddress::from_str(from.as_str())
             .map_err(|_| ErrorKind::ParseAddress)?;
         let signature = Signature::from_hex(signature.as_str())
