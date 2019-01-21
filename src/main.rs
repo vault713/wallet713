@@ -194,7 +194,7 @@ impl Controller {
         })
     }
 
-    fn process_incoming_slate(&self, address: Option<String>, slate: &mut Slate) -> Result<bool> {
+    fn process_incoming_slate(&self, address: Option<String>, slate: &mut Slate, tx_proof: Option<&TxProof>) -> Result<bool> {
         if slate.num_participants > slate.participant_data.len() {
             //TODO: this needs to be changed to properly figure out if this slate is an invoice or a send
             if slate.tx.inputs().len() == 0 {
@@ -204,7 +204,7 @@ impl Controller {
             }
             Ok(false)
         } else {
-            self.wallet.lock().unwrap().finalize_slate(slate)?;
+            self.wallet.lock().unwrap().finalize_slate(slate, tx_proof)?;
             Ok(true)
         }
     }
@@ -215,7 +215,7 @@ impl SubscriptionHandler for Controller {
         cli_message!("listener started for [{}]", self.name.bright_green());
     }
 
-    fn on_slate(&self, from: &Address, slate: &mut Slate, proof: Option<TxProof>) {
+    fn on_slate(&self, from: &Address, slate: &mut Slate, tx_proof: Option<&TxProof>) {
         let mut display_from = from.stripped();
         if let Ok(contact) = self.address_book.lock().unwrap().get_contact_by_address(&from.to_string()) {
             display_from = contact.get_name().to_string();
@@ -239,7 +239,7 @@ impl SubscriptionHandler for Controller {
             GrinboxAddress::from_str(&from.to_string()).expect("invalid grinbox address");
         }
 
-        let result = self.process_incoming_slate(Some(from.to_string()), slate).and_then(|is_finalized| {
+        let result = self.process_incoming_slate(Some(from.to_string()), slate, tx_proof).and_then(|is_finalized| {
             if !is_finalized {
                 self.publisher.post_slate(slate, from).map_err(|e| {
                     cli_message!("{}: {}", "ERROR".bright_red(), e);
@@ -290,8 +290,8 @@ fn start_grinbox_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, 
     cli_message!("starting grinbox listener...");
     let grinbox_address = config.get_grinbox_address()?;
     let grinbox_secret_key = config.get_grinbox_secret_key()?;
-    let grinbox_publisher = GrinboxPublisher::new(&grinbox_address, &grinbox_secret_key, config.grinbox_protocol_unsecure(), config.grinbox_e2e_encryption())?;
-    let grinbox_subscriber = GrinboxSubscriber::new(&grinbox_address, &grinbox_secret_key, config.grinbox_protocol_unsecure(), config.grinbox_e2e_encryption()).expect("could not start grinbox subscriber!");
+    let grinbox_publisher = GrinboxPublisher::new(&grinbox_address, &grinbox_secret_key, config.grinbox_protocol_unsecure())?;
+    let grinbox_subscriber = GrinboxSubscriber::new(&grinbox_address, &grinbox_secret_key, config.grinbox_protocol_unsecure()).expect("could not start grinbox subscriber!");
     let cloned_publisher = grinbox_publisher.clone();
     let mut cloned_subscriber = grinbox_subscriber.clone();
     std::thread::spawn(move || {
@@ -688,7 +688,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let mut slate = String::new();
             file.read_to_string(&mut slate)?;
             let mut slate: Slate = serde_json::from_str(&slate)?;
-            wallet.lock().unwrap().finalize_slate(&mut slate)?;
+            wallet.lock().unwrap().finalize_slate(&mut slate, None)?;
             cli_message!("{} finalized.", input);
         }
         Some("send") => {
@@ -779,7 +779,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             );
 
             if to.address_type() == AddressType::Https {
-                wallet.lock().unwrap().finalize_slate(&mut slate)?;
+                wallet.lock().unwrap().finalize_slate(&mut slate, None)?;
                 cli_message!("slate [{}] finalized successfully", slate.id.to_string().bright_green());
             }
         }

@@ -14,6 +14,8 @@ use grin_core::{global, ser};
 use grin_store::{self, option_to_not_found, to_key, to_key_u64};
 use grin_wallet::WalletConfig;
 
+use crate::wallet::types::TxProof;
+
 use super::types::{ErrorKind, Result, WalletSeed, WalletBackend, WalletBackendBatch, ChildNumber, Transaction, OutputData, TxLogEntry, AcctPathMapping, Context, ExtKeychain, Identifier, Keychain, NodeClient};
 use super::api::restore;
 
@@ -353,15 +355,15 @@ impl<'a, C, K> WalletBackendBatch<K> for Batch<'a, C, K>
         Ok(())
     }
 
-    fn store_tx_proof(&self, uuid: &str, tx: &Transaction) -> Result<()> {
+    fn store_tx_proof(&self, uuid: &str, tx_proof: &TxProof) -> Result<()> {
         let filename = format!("{}.proof", uuid);
         let path = path::Path::new(&self._store.config.data_file_dir)
-            .join(TX_SAVE_DIR)
+            .join(TX_PROOF_SAVE_DIR)
             .join(filename);
         let path_buf = Path::new(&path).to_path_buf();
         let mut stored_tx = File::create(path_buf)?;
-        let tx_hex = to_hex(ser::ser_vec(tx).unwrap());;
-        stored_tx.write_all(&tx_hex.as_bytes())?;
+        let proof_ser = serde_json::to_string(tx_proof)?;
+        stored_tx.write_all(&proof_ser.as_bytes())?;
         stored_tx.sync_all()?;
         Ok(())
     }

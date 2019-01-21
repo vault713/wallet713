@@ -9,6 +9,7 @@ use super::backend::Backend;
 use super::api::{controller, display};
 
 use crate::common::hasher::derive_address_key;
+use crate::wallet::types::TxProof;
 
 pub struct Wallet {
     active_account: String,
@@ -245,7 +246,7 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn finalize_slate(&self, slate: &mut Slate) -> Result<()> {
+    pub fn finalize_slate(&self, slate: &mut Slate, tx_proof: Option<&TxProof>) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
         let mut should_post: bool = false;
         controller::owner_single_use(wallet.clone(), |api| {
@@ -255,7 +256,7 @@ impl Wallet {
             ErrorKind::GrinWalletVerifySlateMessagesError
         })?;
         controller::owner_single_use(wallet.clone(), |api| {
-            should_post = api.finalize_tx(slate)?;
+            should_post = api.finalize_tx(slate, tx_proof)?;
             Ok(())
         }).map_err(|_| {
             ErrorKind::GrinWalletFinalizeError

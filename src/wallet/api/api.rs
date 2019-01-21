@@ -6,6 +6,8 @@ use grin_core::ser;
 use grin_util::Mutex;
 use grin_util::secp::{pedersen, ContextFlag, Secp256k1};
 
+use crate::wallet::types::TxProof;
+
 use super::types::{Transaction, Slate, Keychain, Identifier, NodeClient, TxWrapper, WalletBackend, AcctPathMapping, OutputData, TxLogEntry, TxLogEntryType, WalletInfo, ContextType, Error, ErrorKind};
 use super::tx;
 use super::keys;
@@ -206,7 +208,7 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
         Ok(())
     }
 
-    pub fn finalize_tx(&mut self, slate: &mut Slate) -> Result<bool, Error> {
+    pub fn finalize_tx(&mut self, slate: &mut Slate, tx_proof: Option<&TxProof>) -> Result<bool, Error> {
         let context = {
             let mut w = self.wallet.lock();
             w.open_with_credentials()?;
@@ -220,7 +222,7 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
                 let mut w = self.wallet.lock();
                 w.open_with_credentials()?;
                 tx::complete_tx(&mut *w, slate, &context)?;
-                tx::update_stored_tx(&mut *w, slate)?;
+                tx::update_stored_tx(&mut *w, slate, tx_proof)?;
                 {
                     let mut batch = w.batch()?;
                     batch.delete_private_context(&slate.id.to_string())?;

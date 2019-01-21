@@ -179,11 +179,6 @@ impl EncryptedMessage {
 
         String::from_utf8(decrypted_data.to_vec()).map_err(|_| ErrorKind::Decryption.into())
     }
-
-    pub fn decrypt(&self, sender_public_key: &PublicKey, secret_key: &SecretKey) -> Result<String> {
-        let key = self.key(sender_public_key, secret_key)?;
-        self.decrypt_with_key(&key)
-    }
 }
 
 

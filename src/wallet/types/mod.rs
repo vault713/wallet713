@@ -37,6 +37,7 @@ pub use self::cb_data::CbData;
 pub use self::tx_log_entry_type::TxLogEntryType;
 pub use self::tx_log_entry::TxLogEntry;
 pub use self::tx_proof::TxProof;
+pub use self::tx_proof::ErrorKind as TxProofErrorKind;
 pub use self::acct_path_mapping::AcctPathMapping;
 pub use self::wallet_backend::WalletBackend;
 pub use self::wallet_backend_batch::WalletBackendBatch;
