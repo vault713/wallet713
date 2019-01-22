@@ -35,10 +35,16 @@ use std::sync::{Arc, Mutex};
 use std::io::{Read, Write};
 use std::fs::File;
 use std::path::Path;
+use std::borrow::Cow::{self, Borrowed, Owned};
 
 use clap::{App, Arg, ArgMatches};
 use colored::*;
-use rustyline::Editor;
+use rustyline::config::OutputStreamType;
+use rustyline::{CompletionType, Config, EditMode, Editor, Helper};
+use rustyline::completion::{Completer, FilenameCompleter, Pair};
+use rustyline::error::ReadlineError;
+use rustyline::hint::Hinter;
+use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
 use grin_api::client;
 use grin_core::core;
 use grin_core::global::{ChainTypes, set_mining_mode};
@@ -59,6 +65,8 @@ use cli::Parser;
 use contacts::{Address, AddressType, GrinboxAddress, Contact, AddressBook, Backend};
 
 const CLI_HISTORY_PATH: &str = ".history";
+const COLORED_PROMPT: &'static str = "\x1b[34mwallet713>\x1b[0m ";
+const PROMPT: &'static str = "wallet713> ";
 
 fn do_config(args: &ArgMatches, chain: &Option<ChainTypes>, silent: bool, new_address_index: Option<u32>, config_path: Option<&str>) -> Result<Wallet713Config> {
     let mut config;
@@ -330,6 +338,46 @@ fn start_keybase_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, 
     Ok((keybase_publisher, keybase_subscriber))
 }
 
+struct EditorHelper(FilenameCompleter, MatchingBracketHighlighter);
+
+impl Completer for EditorHelper {
+    type Candidate = Pair;
+
+    fn complete(&self, line: &str, pos: usize) -> std::result::Result<(usize, Vec<Pair>), ReadlineError> {
+        self.0.complete(line, pos)
+    }
+}
+
+impl Hinter for EditorHelper {
+    fn hint(&self, _line: &str, _pos: usize) -> Option<String> {
+        None
+    }
+}
+
+impl Highlighter for EditorHelper {
+    fn highlight_prompt<'p>(&self, prompt: &'p str) -> Cow<'p, str> {
+        if prompt == PROMPT {
+            Borrowed(COLORED_PROMPT)
+        } else {
+            Borrowed(prompt)
+        }
+    }
+
+    fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
+        Owned("\x1b[1m".to_owned() + hint + "\x1b[m")
+    }
+
+    fn highlight<'l>(&self, line: &'l str, pos: usize) -> Cow<'l, str> {
+        self.1.highlight(line, pos)
+    }
+
+    fn highlight_char(&self, line: &str, pos: usize) -> bool {
+        self.1.highlight_char(line, pos)
+    }
+}
+
+impl Helper for EditorHelper {}
+
 fn main() {
     let matches = App::new("wallet713")
         .arg(Arg::from_usage("[config-path] -c, --config=<config-path> 'the path to the config file'"))
@@ -407,7 +455,14 @@ fn main() {
         }
     }
 
-    let mut rl = Editor::<()>::new();
+    let editor_config = Config::builder()
+        .history_ignore_space(true)
+        .completion_type(CompletionType::List)
+        .edit_mode(EditMode::Emacs)
+        .output_stream(OutputStreamType::Stdout)
+        .build();
+    let mut rl = Editor::with_config(editor_config);
+    rl.set_helper(Some(EditorHelper(FilenameCompleter::new(), MatchingBracketHighlighter::new())));
 
     let wallet713_home_path_buf = Wallet713Config::default_home_path(&config.chain).unwrap();
     let wallet713_home_path = wallet713_home_path_buf.to_str().unwrap();
@@ -417,7 +472,7 @@ fn main() {
     }
 
     loop {
-        let command = rl.readline("wallet713> ");
+        let command = rl.readline(PROMPT);
         match command {
             Ok(command) => {
                 let command = command.trim();
@@ -476,6 +531,7 @@ fn password_prompt(opt: Option<&str>) -> String {
 
 fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>, keybase_broker: &mut Option<(KeybasePublisher, KeybaseSubscriber)>, grinbox_broker: &mut Option<(GrinboxPublisher, GrinboxSubscriber)>, out_is_safe: &mut bool) -> Result<()> {
     *out_is_safe = true;
+    let home_dir = dirs::home_dir().map(|p| p.to_str().unwrap().to_string()).unwrap_or("~".to_string());
 
     let matches = Parser::parse(command)?;
     match matches.subcommand_name() {
@@ -669,11 +725,11 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         Some("receive") => {
             let args = matches.subcommand_matches("receive").unwrap();
             let input = args.value_of("file").unwrap();
-            let mut file = File::open(input)?;
+            let mut file = File::open(input.replace("~", &home_dir))?;
             let mut slate = String::new();
             file.read_to_string(&mut slate)?;
             let mut slate: Slate = serde_json::from_str(&slate)?;
-            let mut file = File::create(&format!("{}.response", input))?;
+            let mut file = File::create(&format!("{}.response", input.replace("~", &home_dir)))?;
             wallet.lock().unwrap().process_sender_initiated_slate(Some(String::from("file")), &mut slate)?;
             cli_message!("{} received.", input);
             file.write_all(serde_json::to_string(&slate).unwrap().as_bytes())?;
@@ -682,7 +738,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         Some("finalize") => {
             let args = matches.subcommand_matches("finalize").unwrap();
             let input = args.value_of("file").unwrap();
-            let mut file = File::open(input)?;
+            let mut file = File::open(input.replace("~", &home_dir))?;
             let mut slate = String::new();
             file.read_to_string(&mut slate)?;
             let mut slate: Slate = serde_json::from_str(&slate)?;
@@ -717,7 +773,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
 
             // Store slate in a file
             if let Some(input) = input {
-                let mut file = File::create(input)?;
+                let mut file = File::create(input.replace("~", &home_dir))?;
                 let slate = wallet.lock().unwrap().initiate_send_tx(Some(String::from("file")), amount, confirmations, strategy, change_outputs, 500, message)?;
                 file.write_all(serde_json::to_string(&slate).unwrap().as_bytes())?;
                 cli_message!("{} created successfully.", input);
