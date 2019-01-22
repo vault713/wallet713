@@ -3,13 +3,20 @@
 While running, wallet713 works with an internal command prompt. You type commands in the same way as the CLI version of the grin wallet. **Ensure you are running a fully synced Grin node before using the wallet.**
 
 ## Contents
+
 - [Common use cases](#common-use-cases)
   * [Getting started](#getting-started)
   * [Transacting using Keybase](#transacting-using-keybase)
+  * [Transacting using https](#transacting-using-https)
+    + [Sending via https](#sending-via-https)
+    + [Receiving via https](#receiving-via-https)
   * [Transacting using files](#transacting-using-files)
     + [Creating a file-based transaction](#creating-a-file-based-transaction)
     + [Receiving a file-based transaction](#receiving-a-file-based-transaction)
     + [Finalizing a file-based transaction](#finalizing-a-file-based-transaction)
+  * [Send configurations](#send-configurations)
+    + [Input selection strategy](#input-selection-strategy)
+    + [Minimum number of confirmations](#minimum-number-of-confirmations)
   * [Using Contacts](#using-contacts)
   * [Using a passphrase](#using-a-passphrase)
     + [Set a passphrase](#set-a-passphrase)
@@ -18,11 +25,13 @@ While running, wallet713 works with an internal command prompt. You type command
     + [Issuing invoices](#issuing-invoices)
     + [Paying invoices](#paying-invoices)
   * [Splitting your outputs](#splitting-your-outputs)
+- [Running your own node](#running-your-own-node)
 - [Restoring your wallet](#restoring-your-wallet)
-    + [Restoring a wallet using your mnemonic BIP-39 phrase](#restoring-a-wallet-using-your-mnemonic-bip-39-phrase)
-    + [Manually importing a .seed](#manually-importing-a-seed)
+  * [Restoring a wallet using your mnemonic BIP-39 phrase](#restoring-a-wallet-using-your-mnemonic-bip-39-phrase)
 - [Supported address formats](#supported-address-formats)
   * [Grinbox](#grinbox)
+    + [Address derivation](#address-derivation)
+    + [Switching address](#switching-address)
   * [Keybase](#keybase)
 - [Command documentation](#command-documentation)
 
@@ -90,6 +99,21 @@ To send 10 grins to Igno on keybase:
 wallet713> $ send 10 --to keybase://ignotus
 ```
 
+### Transacting using https
+
+#### Sending via https
+
+wallet713 supports sending transactions to listening wallets via https. Only https is enabled for security reasons. 
+
+To send 10 grins to https://some.wallet.713.mw:13415:
+```
+wallet713> $ send 10 --to https://some.wallet.713.mw:13415
+```
+
+#### Receiving via https
+
+Not yet supported. Request this to us (open an issue, or chat with us on Gitter) if you need it. 
+
 ### Transacting using files
 
 #### Creating a file-based transaction
@@ -111,6 +135,26 @@ Having received back `transaction.tx.response`, the sender can then issue:
 wallet713> $ finalize --file ~/path/to/transaction.tx.response
 ```
 ...which will finalize the transaction and broadcast it.
+
+### Send configurations
+
+#### Input selection strategy
+
+Set the input selection strategy [`all`, `smallest`] with the `-s` option: 
+
+To send a transaction using "all" as input selection strategy:
+```
+wallet713> $ send 10 --to xd6p24toTTDj7sxCCM4WGpBVcegVjGi9q5jquq6VWZA1BJroX514 -s all
+```
+
+#### Minimum number of confirmations
+
+Set the minimum number of confirmation for inputs with the `-c` option, the default is `10`:
+
+To send a transaction with 3 required confirmations: 
+```
+wallet713> $ send 10 --to xd6p24toTTDj7sxCCM4WGpBVcegVjGi9q5jquq6VWZA1BJroX514 -c 3
+```
 
 ### Using Contacts
 
@@ -188,22 +232,17 @@ Similarly, as part of `invoice` you can specify in how many outputs you would li
 wallet713> $ invoice 10 --to @faucet -o 2
 ```
 
+## Running your own node
+
+Set corresponding `grin_node_uri` and `grin_node_secret` in your `~/.wallet713/XXX/wallet713.toml` where `XXX` is `floo` or `main` depending on which network you run the wallet for.
+
 ## Restoring your wallet
 
-#### Restoring a wallet using your mnemonic BIP-39 phrase
+### Restoring a wallet using your mnemonic BIP-39 phrase
 ```
 wallet713> $ restore -m word1 word2 ...
 ```
 If you had a passphrase, remember to include the `-p yourpassphrase` as you run the command.
-
-#### Manually importing a .seed
-
-To import an existing grin wallet to use in wallet713 follow these steps:
-1. Ensure you have the previous wallet's `wallet.seed`. In the default config of the grin wallet, this is stored in `~/.grin/wallet_data`.
-1. Build wallet713, run it, run `init`. Exit the wallet.  
-1. Copy and replace `wallet713/target/release/wallet713_data/wallet.seed` with the `wallet.seed` of the wallet you want to restore.
-1. Run wallet713, and then run `restore`.
-1. Your previous wallet should now have been restored, and you can validate this by running `info`.
 
 ## Supported address formats
 

@@ -1,16 +1,40 @@
-pub use failure::Error;
+use failure::Fail;
+use grin_core::libtx;
 
-use grin_keychain::Error as KeychainError;
-use grin_keychain::extkey_bip32::Error as ExtKeyError;
-
-#[derive(Debug, Fail)]
-pub enum Wallet713Error {
+#[derive(Clone, Eq, PartialEq, Debug, Fail)]
+pub enum ErrorKind {
     #[fail(display = "secp error")]
     Secp,
+    #[fail(display = "model not found!")]
+    ModelNotFound,
+    #[fail(display = "error opening wallet!")]
+    OpenWalletError,
+    #[fail(display = "error deriving keychain!")]
+    DeriveKeychainError,
+    #[fail(display = "wallet should be empty before attempting restore!")]
+    WalletShouldBeEmpty,
+    #[fail(display = "transaction with slate id {} already received!", 0)]
+    TransactionAlreadyReceived(String),
+    #[fail(display = "transaction with slate id {} does not exist!", 0)]
+    TransactionDoesntExist(String),
+    #[fail(display = "transaction with slate id {} can not be cancelled!", 0)]
+    TransactionNotCancellable(String),
+    #[fail(display = "transaction cancellation error: {}", _0)]
+    TransactionCancellationError(&'static str),
+    #[fail(display = "internal transaction error!")]
+    LibTX(libtx::ErrorKind),
+    #[fail(display = "Not enough funds. Required: {}, Available: {}", needed_disp, available_disp)]
+    NotEnoughFunds { available: u64, available_disp: String, needed: u64, needed_disp: String },
+    #[fail(display = "Account label {} already exists!", 0)]
+    AccountLabelAlreadyExists(String),
     #[fail(display = "invalid transaction id given: `{}`", 0)]
     InvalidTxId(String),
     #[fail(display = "invalid amount given: `{}`", 0)]
     InvalidAmount(String),
+    #[fail(display = "invalid selection strategy, use either 'smallest' or 'all'")]
+    InvalidStrategy,
+    #[fail(display = "invalid number of minimum confirmations given: `{}`", 0)]
+    InvalidMinConfirmations(String),
     #[fail(display = "invalid number of outputs given: `{}`", 0)]
     InvalidNumOutputs(String),
     #[fail(display = "could not unlock wallet! are you using the correct passphrase?")]
@@ -39,12 +63,12 @@ pub enum Wallet713Error {
     NumberParsingError,
     #[fail(display = "unknown address type `{}`!", 0)]
     UnknownAddressType(String),
-    #[fail(display = "address `{}` is missing a type! psst.. to send to one of your contacts use '@' before the name.", 0)]
-    MissingAddressType(String),
     #[fail(display = "could not parse `{}` to a grinbox address!", 0)]
     GrinboxAddressParsingError(String),
     #[fail(display = "could not parse `{}` to a keybase address!", 0)]
     KeybaseAddressParsingError(String),
+    #[fail(display = "could not parse `{}` to a https address!", 0)]
+    HttpsAddressParsingError(String),
     #[fail(display = "could not send keybase message!")]
     KeybaseMessageSendError,
     #[fail(display = "failed receiving slate!")]
@@ -71,16 +95,10 @@ pub enum Wallet713Error {
     Encryption,
     #[fail(display = "unable to decrypt message")]
     Decryption,
-}
-
-impl From<KeychainError> for Wallet713Error {
-	fn from(_: KeychainError) -> Wallet713Error {
-		Wallet713Error::Secp
-	}
-}
-
-impl From<ExtKeyError> for Wallet713Error {
-	fn from(_: ExtKeyError) -> Wallet713Error {
-		Wallet713Error::Secp
-	}
+    #[fail(display = "restore error")]
+    Restore,
+    #[fail(display = "unknown account: {}", 0)]
+    UnknownAccountLabel(String),
+    #[fail(display = "http request error")]
+    HttpRequest
 }

@@ -44,10 +44,15 @@ impl<'a, 'b> Parser {
                     )
             )
             .subcommand(
+                SubCommand::with_name("address")
+                    .about("shows your current grinbox address")
+            )
+            .subcommand(
                 SubCommand::with_name("init")
                     .about("initializes the wallet")
                     .arg(
                         Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'")
+                            .min_values(0)
                     )
             )
             .subcommand(
@@ -62,6 +67,7 @@ impl<'a, 'b> Parser {
                     )
                     .arg(
                         Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'")
+                            .min_values(0)
                     )
             )
             .subcommand(
@@ -85,6 +91,7 @@ impl<'a, 'b> Parser {
                             )
                             .arg(
                                 Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'")
+                                    .min_values(0)
                             )
                     )
             )
@@ -125,7 +132,7 @@ impl<'a, 'b> Parser {
                 SubCommand::with_name("outputs")
                     .about("displays outputs")
                     .arg(
-                        Arg::from_usage("[show-spent] -spent, --show-spent 'show spent outputs'")
+                        Arg::from_usage("[show-spent] -s, --show-spent 'show spent outputs'")
                     )
             )
             .subcommand(
@@ -163,6 +170,12 @@ impl<'a, 'b> Parser {
                     )
                     .arg(
                         Arg::from_usage("<amount> 'the amount of grins to send'")
+                    )
+                    .arg(
+                        Arg::from_usage("[strategy] -s, --strategy=<strategy> 'the input selection strategy (all/smallest). Default: smallest'")
+                    )
+                    .arg(
+                        Arg::from_usage("[confirmations] -c, --confirmations=<confirmations> 'the number of confirmations required for inputs'")
                     )
                     .arg(
                         Arg::from_usage("[change-outputs] -o, --change-outputs=<change-outputs> 'the number of change outputs'")
@@ -203,6 +216,7 @@ impl<'a, 'b> Parser {
                     .about("restores your wallet from existing seed")
                     .arg(
                         Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'")
+                            .min_values(0)
                     )
                     .arg(
                         Arg::from_usage("[words] -m, --mnemonic=<words>... 'the seed mnemonic'")

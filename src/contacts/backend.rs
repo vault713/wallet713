@@ -13,11 +13,11 @@ use common::Error;
 const DB_DIR: &'static str = "contacts";
 const CONTACT_PREFIX: u8 = 'X' as u8;
 
-pub struct LMDBBackend {
+pub struct Backend {
     db: grin_store::Store,
 }
 
-impl LMDBBackend {
+impl Backend {
     pub fn new(data_path: &str) -> Result<Self, Error> {
         let db_path = Path::new(data_path).join(DB_DIR);
         create_dir_all(&db_path)?;
@@ -25,14 +25,14 @@ impl LMDBBackend {
         let lmdb_env = Arc::new(grin_store::new_env(db_path.to_str().unwrap().to_string()));
         let store = grin_store::Store::open(lmdb_env, DB_DIR);
 
-        let res = LMDBBackend {
+        let res = Backend {
             db: store,
         };
         Ok(res)
     }
 }
 
-impl AddressBookBackend for LMDBBackend {
+impl AddressBookBackend for Backend {
     fn get_contact(&mut self, name: &[u8]) -> Result<Contact, Error> {
         let contact_key = to_key(CONTACT_PREFIX, &mut name.to_vec());
         option_to_not_found(
@@ -41,12 +41,12 @@ impl AddressBookBackend for LMDBBackend {
         ).map_err(|e| e.into())
     }
 
-    fn contact_iter(&self) -> Box<Iterator<Item = Contact>> {
+    fn contacts(&self) -> Box<Iterator<Item = Contact>> {
         Box::new(self.db.iter(&[CONTACT_PREFIX]).unwrap())
     }
 
 
-    fn batch<'a>(&'a mut self) -> Result<Box<AddressBookBatch + 'a>, Error>
+    fn batch<'a>(&'a self) -> Result<Box<AddressBookBatch + 'a>, Error>
     {
         let batch = self.db.batch()?;
         let batch = Batch {
@@ -58,7 +58,7 @@ impl AddressBookBackend for LMDBBackend {
 }
 
 pub struct Batch<'a> {
-    _store: &'a LMDBBackend,
+    _store: &'a Backend,
     db: RefCell<Option<grin_store::Batch<'a>>>,
 }
 
@@ -80,7 +80,7 @@ impl<'a> AddressBookBatch for Batch<'a> {
             .map_err(|e| e.into())
     }
 
-    fn commit(&self) -> Result<(), Error> {
+    fn commit(&mut self) -> Result<(), Error> {
         let db = self.db.replace(None);
         db.unwrap().commit()?;
         Ok(())
