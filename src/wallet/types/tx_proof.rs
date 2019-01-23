@@ -1,11 +1,13 @@
 use grin_core::libtx::slate::Slate;
 use grin_util::secp::Signature;
 use grin_util::secp::key::SecretKey;
+use grin_util::secp::pedersen::Commitment;
 
 use crate::common::crypto::{EncryptedMessage, Hex};
 use crate::common::crypto::verify_signature;
 use crate::contacts::{Address, GrinboxAddress};
 
+#[derive(Debug)]
 pub enum ErrorKind {
     ParseAddress,
     ParsePublicKey,
@@ -24,6 +26,10 @@ pub struct TxProof {
     pub challenge: String,
     pub signature: Signature,
     pub key: [u8; 32],
+    pub amount: u64,
+    pub fee: u64,
+    pub inputs: Vec<Commitment>,
+    pub outputs: Vec<Commitment>,
 }
 
 impl TxProof {
@@ -65,7 +71,11 @@ impl TxProof {
             message,
             challenge,
             signature,
-            key
+            key,
+            amount: 0,
+            fee: 0,
+            inputs: vec![],
+            outputs: vec![],
         };
 
         let slate = proof.verify_extract()?;

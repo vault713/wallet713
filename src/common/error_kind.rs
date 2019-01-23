@@ -100,5 +100,7 @@ pub enum ErrorKind {
     #[fail(display = "unknown account: {}", 0)]
     UnknownAccountLabel(String),
     #[fail(display = "http request error")]
-    HttpRequest
+    HttpRequest,
+    #[fail(display = "unable to verify proof")]
+    VerifyProof,
 }

@@ -1,12 +1,16 @@
+use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use uuid::Uuid;
 
 use grin_core::ser;
 use grin_util::Mutex;
-use grin_util::secp::{pedersen, ContextFlag, Secp256k1};
+use grin_util::secp::{ContextFlag, Secp256k1};
+use grin_util::secp::key::PublicKey;
+use grin_util::secp::pedersen;
 
 use crate::wallet::types::TxProof;
+use crate::contacts::GrinboxAddress;
 
 use super::types::{Transaction, Slate, Keychain, Identifier, NodeClient, TxWrapper, WalletBackend, AcctPathMapping, OutputData, TxLogEntry, TxLogEntryType, WalletInfo, ContextType, Error, ErrorKind};
 use super::tx;
@@ -173,7 +177,7 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
         let mut w = self.wallet.lock();
         w.open_with_credentials()?;
         let parent_key_id = w.get_parent_key_id();
-        let (slate, context, lock_fn) = tx::create_send_tx(
+        let (slate, mut context, lock_fn) = tx::create_send_tx(
             &mut *w,
             address,
             amount,
@@ -184,6 +188,14 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
             &parent_key_id,
             message,
         )?;
+
+        for input in slate.tx.inputs() {
+            context.input_commits.push(input.commit.clone());
+        }
+
+        for output in slate.tx.outputs() {
+            context.output_commits.push(output.commit.clone());
+        }
 
         // Save the aggsig context in our DB for when we
         // recieve the transaction back
@@ -208,7 +220,7 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
         Ok(())
     }
 
-    pub fn finalize_tx(&mut self, slate: &mut Slate, tx_proof: Option<&TxProof>) -> Result<bool, Error> {
+    pub fn finalize_tx(&mut self, slate: &mut Slate, tx_proof: Option<&mut TxProof>) -> Result<bool, Error> {
         let context = {
             let mut w = self.wallet.lock();
             w.open_with_credentials()?;
@@ -222,6 +234,19 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
                 let mut w = self.wallet.lock();
                 w.open_with_credentials()?;
                 tx::complete_tx(&mut *w, slate, &context)?;
+
+                let tx_proof = tx_proof.map(|proof| {
+                    proof.amount = context.amount;
+                    proof.fee = context.fee;
+                    for input in context.input_commits {
+                        proof.inputs.push(input.clone());
+                    }
+                    for output in context.output_commits {
+                        proof.outputs.push(output.clone());
+                    }
+                    proof
+                });
+
                 tx::update_stored_tx(&mut *w, slate, tx_proof)?;
                 {
                     let mut batch = w.batch()?;
@@ -315,6 +340,56 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
             Ok(_) => true,
             Err(_) => false,
         }
+    }
+
+    pub fn verify_tx_proof(
+        &mut self,
+        tx_proof: &TxProof,
+    ) -> Result<(GrinboxAddress, u64, Vec<pedersen::Commitment>, PublicKey), Error> {
+        let mut w = self.wallet.lock();
+        let keychain = w.keychain();
+        let secp = keychain.secp();
+
+        let slate = tx_proof.verify_extract()
+            .map_err(|_| ErrorKind::VerifyProof)?;
+
+        let inputs_ex = tx_proof.inputs
+            .iter()
+            .collect::<HashSet<_>>();
+
+        let mut inputs: Vec<pedersen::Commitment> = slate.tx.inputs()
+            .iter()
+            .map(|i| i.commitment())
+            .filter(|c| !inputs_ex.contains(c))
+            .collect();
+
+        let outputs_ex = tx_proof.outputs
+            .iter()
+            .collect::<HashSet<_>>();
+
+        let outputs: Vec<pedersen::Commitment> = slate.tx.outputs()
+            .iter()
+            .map(|o| o.commitment())
+            .filter(|c| !outputs_ex.contains(c))
+            .collect();
+
+        let excess = &slate.participant_data[1].public_blind_excess;
+
+        let excess_parts: Vec<&PublicKey> = slate.participant_data.iter().map(|p| &p.public_blind_excess).collect();
+        let excess_sum = PublicKey::from_combination(secp, excess_parts)
+            .map_err(|_| ErrorKind::VerifyProof)?;
+
+        let commit_amount = secp.commit_value(tx_proof.amount)?;
+        inputs.push(commit_amount);
+
+        let commit_excess = secp.commit_sum(outputs.clone(), inputs)?;
+        let pubkey_excess = commit_excess.to_pubkey(secp)?;
+
+        if excess != &pubkey_excess {
+            return Err(ErrorKind::VerifyProof.into());
+        }
+
+        return Ok((tx_proof.address.clone(), tx_proof.amount, outputs, excess_sum));
     }
 }
 

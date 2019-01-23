@@ -159,7 +159,7 @@ pub fn cancel_tx<T: ?Sized, C, K>(
     Ok(())
 }
 
-pub fn update_stored_tx<T: ?Sized, C, K>(wallet: &mut T, slate: &Slate, tx_proof: Option<&TxProof>) -> Result<(), Error>
+pub fn update_stored_tx<T: ?Sized, C, K>(wallet: &mut T, slate: &Slate, tx_proof: Option<&mut TxProof>) -> Result<(), Error>
     where
         T: WalletBackend<C, K>,
         C: NodeClient,

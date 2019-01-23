@@ -1,6 +1,7 @@
 use grin_core::ser;
 use grin_core::libtx::aggsig;
 use grin_util::secp;
+use grin_util::secp::pedersen::Commitment;
 use super::{SecretKey, Identifier, ContextType};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -15,10 +16,19 @@ pub struct Context {
     pub output_ids: Vec<(Identifier, Option<u64>)>,
     /// store my inputs
     pub input_ids: Vec<(Identifier, Option<u64>)>,
+    /// store the transaction amount
+    #[serde(default)]
+    pub amount: u64,
     /// store the calculated fee
     pub fee: u64,
     /// Context type
     pub context_type: ContextType,
+    /// Output commitments
+    #[serde(default)]
+    pub output_commits: Vec<Commitment>,
+    /// Input commitments
+    #[serde(default)]
+    pub input_commits: Vec<Commitment>,
 }
 
 impl Context {
@@ -29,8 +39,11 @@ impl Context {
             sec_nonce: aggsig::create_secnonce(secp).unwrap(),
             input_ids: vec![],
             output_ids: vec![],
+            amount: 0,
             fee: 0,
             context_type,
+            output_commits: vec![],
+            input_commits: vec![],
         }
     }
 }

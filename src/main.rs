@@ -194,7 +194,7 @@ impl Controller {
         })
     }
 
-    fn process_incoming_slate(&self, address: Option<String>, slate: &mut Slate, tx_proof: Option<&TxProof>) -> Result<bool> {
+    fn process_incoming_slate(&self, address: Option<String>, slate: &mut Slate, tx_proof: Option<&mut TxProof>) -> Result<bool> {
         if slate.num_participants > slate.participant_data.len() {
             //TODO: this needs to be changed to properly figure out if this slate is an invoice or a send
             if slate.tx.inputs().len() == 0 {
@@ -215,7 +215,7 @@ impl SubscriptionHandler for Controller {
         cli_message!("listener started for [{}]", self.name.bright_green());
     }
 
-    fn on_slate(&self, from: &Address, slate: &mut Slate, tx_proof: Option<&TxProof>) {
+    fn on_slate(&self, from: &Address, slate: &mut Slate, tx_proof: Option<&mut TxProof>) {
         let mut display_from = from.stripped();
         if let Ok(contact) = self.address_book.lock().unwrap().get_contact_by_address(&from.to_string()) {
             display_from = contact.get_name().to_string();
@@ -881,6 +881,36 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             if let Ok(mut wallet) = wallet.lock() {
                 wallet.check_repair()?;
                 cli_message!("check and repair done!");
+            }
+        },
+        Some("verify-proof") => {
+            let args = matches.subcommand_matches("verify-proof").unwrap();
+            let input = args.value_of("file").unwrap();
+            let mut file = File::open(input)?;
+            let mut proof = String::new();
+            file.read_to_string(&mut proof)?;
+            let mut tx_proof: TxProof = serde_json::from_str(&proof)?;
+
+            if let Ok(mut wallet) = wallet.lock() {
+                match wallet.verify_tx_proof(&tx_proof) {
+                    Ok((address, amount, outputs, kernel)) => {
+                        println!("proof verification succesful!");
+                        println!("this file proves that [{}] received [{}] grins",
+                                 address.bright_green(),
+                                 core::amount_to_hr_string(amount, false).bright_green());
+                        println!("outputs:");
+                        for output in outputs {
+                            println!("   {}", output.bright_yellow());
+                        }
+                        println!("kernel:");
+                        println!("   {}", kernel.bright_yellow());
+                        println!("please check the on-chain status of these outputs and kernels!");
+                    },
+                    Err(_) => {
+                        cli_message!("unable to verify proof");
+                    }
+                }
+
             }
         }
         Some(subcommand) => {

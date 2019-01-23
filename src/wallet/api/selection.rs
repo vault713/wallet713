@@ -62,6 +62,9 @@ pub fn build_send_tx_slate<T: ?Sized, C, K>(
         ContextType::Tx,
     );
 
+    context.amount = amount;
+    context.fee = fee;
+
     // Store our private identifiers for each input
     for input in inputs {
         context.add_input(&input.key_id, &input.mmr_index);

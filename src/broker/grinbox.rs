@@ -247,7 +247,7 @@ impl Handler for GrinboxClient {
                 })?;
             },
             ProtocolResponse::Slate { from, str, challenge, signature } => {
-                let (mut slate, tx_proof) = match TxProof::from_response(from, str, challenge, signature, &self.secret_key) {
+                let (mut slate, mut tx_proof) = match TxProof::from_response(from, str, challenge, signature, &self.secret_key) {
                     Ok(x) => x,
                     Err(TxProofErrorKind::ParseAddress) => {
                         cli_message!("could not parse address!");
@@ -284,7 +284,7 @@ impl Handler for GrinboxClient {
                 };
 
                 let address = tx_proof.address.clone();
-                self.handler.lock().unwrap().on_slate(&address, &mut slate, Some(&tx_proof));
+                self.handler.lock().unwrap().on_slate(&address, &mut slate, Some(&mut tx_proof));
             },
             ProtocolResponse::Error { kind: _, description: _ } => {
                 cli_message!("{}", response);

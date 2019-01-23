@@ -9,7 +9,9 @@ use super::backend::Backend;
 use super::api::{controller, display};
 
 use crate::common::hasher::derive_address_key;
+use crate::common::crypto::Hex;
 use crate::wallet::types::TxProof;
+use crate::wallet::api::Wallet713OwnerAPI;
 
 pub struct Wallet {
     active_account: String,
@@ -246,7 +248,7 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn finalize_slate(&self, slate: &mut Slate, tx_proof: Option<&TxProof>) -> Result<()> {
+    pub fn finalize_slate(&self, slate: &mut Slate, tx_proof: Option<&mut TxProof>) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
         let mut should_post: bool = false;
         controller::owner_single_use(wallet.clone(), |api| {
@@ -277,6 +279,19 @@ impl Wallet {
         let mut w = wallet.lock();
         w.open_with_credentials()?;
         derive_address_key(w.keychain(), index).map_err(|e| e.into())
+    }
+
+    pub fn verify_tx_proof(&self, tx_proof: &TxProof) -> Result<(String, u64, Vec<String>, String)> {
+        let wallet = self.get_wallet_instance()?;
+        let mut api = Wallet713OwnerAPI::new(wallet.clone());
+        let (address, amount, outputs, excess_sum) = api.verify_tx_proof(tx_proof)?;
+
+        let outputs = outputs
+            .iter()
+            .map(|o| grin_util::to_hex(o.0.to_vec()))
+            .collect();
+
+        Ok((address.public_key.clone(), amount, outputs, excess_sum.to_hex()))
     }
 
     fn init_seed(&self, wallet_config: &WalletConfig, passphrase: &str) -> Result<WalletSeed> {
