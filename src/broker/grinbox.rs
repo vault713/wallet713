@@ -190,15 +190,7 @@ impl GrinboxBroker {
                     client
                 });
 
-                let is_stopped = if let Ok(mut guard) = cloned_inner.lock() {
-                    if guard.is_none() {
-                        true
-                    } else {
-                        false
-                    }
-                } else {
-                    false
-                };
+                let is_stopped = cloned_inner.lock().unwrap().is_none();
 
                 if is_stopped {
                     match result {
