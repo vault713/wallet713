@@ -57,7 +57,7 @@ mod wallet;
 mod contacts;
 mod cli;
 
-use common::{ErrorKind, Result, RuntimeMode};
+use common::{ErrorKind, Result, RuntimeMode, PROMPT, COLORED_PROMPT};
 use common::config::Wallet713Config;
 use wallet::Wallet;
 use cli::Parser;
@@ -65,8 +65,6 @@ use cli::Parser;
 use contacts::{Address, AddressType, GrinboxAddress, Contact, AddressBook, Backend};
 
 const CLI_HISTORY_PATH: &str = ".history";
-const COLORED_PROMPT: &'static str = "\x1b[34mwallet713>\x1b[0m ";
-const PROMPT: &'static str = "wallet713> ";
 
 fn do_config(args: &ArgMatches, chain: &Option<ChainTypes>, silent: bool, new_address_index: Option<u32>, config_path: Option<&str>) -> Result<Wallet713Config> {
     let mut config;
