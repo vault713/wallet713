@@ -26,5 +26,5 @@ pub unsafe fn is_cli() -> bool {
     RUNTIME_MODE == RuntimeMode::Cli
 }
 
-pub const COLORED_PROMPT: &'static str = "\x1b[34mwallet713>\x1b[0m ";
+pub const COLORED_PROMPT: &'static str = "\x1b[36mwallet713>\x1b[0m ";
 pub const PROMPT: &'static str = "wallet713> ";
