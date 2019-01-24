@@ -3,9 +3,9 @@ macro_rules! cli_message {
         () => {
             unsafe {
                 use std::io::Write;
-                use crate::common::is_cli;
+                use crate::common::{is_cli, COLORED_PROMPT};
                 if is_cli() {
-                    print!("\r{}", "wallet713> ");
+                    print!("\r{} ", COLORED_PROMPT);
                     std::io::stdout().flush().unwrap();
                 }
             }
@@ -14,11 +14,11 @@ macro_rules! cli_message {
         ($fmt_string:expr, $( $arg:expr ),+) => {
             unsafe {
                 use std::io::Write;
-                use crate::common::is_cli;
+                use crate::common::{is_cli, COLORED_PROMPT};
                 if is_cli() {
                     print!("\r");
                     print!($fmt_string, $( $arg ),*);
-                    print!("\n{}", "wallet713> ");
+                    print!("\n{} ", COLORED_PROMPT);
                     std::io::stdout().flush().unwrap();
                 } else {
                     info!($fmt_string, $( $arg ),*);
@@ -29,11 +29,11 @@ macro_rules! cli_message {
         ($fmt_string:expr) => {
             unsafe {
                 use std::io::Write;
-                use crate::common::is_cli;
+                use crate::common::{is_cli, COLORED_PROMPT};
                 if is_cli() {
                     print!("\r");
                     print!($fmt_string);
-                    print!("\n{}", "wallet713> ");
+                    print!("\n{} ", COLORED_PROMPT);
                     std::io::stdout().flush().unwrap();
                 } else {
                     info!($fmt_string);
