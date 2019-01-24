@@ -80,6 +80,20 @@ struct GrinboxBroker {
     protocol_unsecure: bool,
 }
 
+struct ConnectionMetadata {
+    retries: u32,
+    connected_at_least_once: bool
+}
+
+impl ConnectionMetadata {
+    pub fn new() -> Self {
+        Self {
+            retries: 0,
+            connected_at_least_once: false,
+        }
+    }
+}
+
 impl GrinboxBroker {
     fn new(protocol_unsecure: bool) -> Result<Self> {
         Ok(Self {
@@ -143,30 +157,49 @@ impl GrinboxBroker {
         let cloned_inner = self.inner.clone();
         let cloned_handler = handler.clone();
         thread::spawn(move || {
-            let cloned_cloned_inner = cloned_inner.clone();
-            let result = connect(url, move |sender| {
-                if let Ok(mut guard) = cloned_cloned_inner.lock() {
-                    *guard = Some(sender.clone());
-                };
+            let connection_meta_data = Arc::new(Mutex::new(ConnectionMetadata::new()));
+            loop {
+                let cloned_address = cloned_address.clone();
+                let cloned_handler = cloned_handler.clone();
+                let cloned_cloned_inner = cloned_inner.clone();
+                let cloned_connection_meta_data = connection_meta_data.clone();
+                let result = connect(url.clone(), move |sender| {
+                    if let Ok(mut guard) = cloned_cloned_inner.lock() {
+                        *guard = Some(sender.clone());
+                    };
 
-                let client = GrinboxClient {
-                    sender,
-                    handler: cloned_handler.clone(),
-                    challenge: None,
-                    address: cloned_address.clone(),
-                    secret_key,
-                };
-                client
-            });
+                    let client = GrinboxClient {
+                        sender,
+                        handler: cloned_handler.clone(),
+                        challenge: None,
+                        address: cloned_address.clone(),
+                        secret_key,
+                        connection_meta_data: cloned_connection_meta_data.clone(),
+                    };
+                    client
+                });
 
-            if let Ok(mut guard) = cloned_inner.lock() {
-                *guard = None;
-            };
+                let is_stopped = cloned_inner.lock().unwrap().is_none();
 
-            match result {
-                Err(_) => handler.lock().unwrap().on_close(CloseReason::Abnormal(ErrorKind::GrinboxWebsocketAbnormalTermination.into())),
-                _ => handler.lock().unwrap().on_close(CloseReason::Normal),
+                if is_stopped {
+                    match result {
+                        Err(_) => handler.lock().unwrap().on_close(CloseReason::Abnormal(ErrorKind::GrinboxWebsocketAbnormalTermination.into())),
+                        _ => handler.lock().unwrap().on_close(CloseReason::Normal),
+                    }
+                    break;
+                } else {
+                    let mut guard = connection_meta_data.lock().unwrap();
+                    if guard.retries == 0 && guard.connected_at_least_once {
+                        handler.lock().unwrap().on_dropped();
+                    }
+                    let secs = std::cmp::min(32, 2u64.pow(guard.retries));
+                    let duration = std::time::Duration::from_secs(secs);
+                    std::thread::sleep(duration);
+                    guard.retries += 1;
+                }
             }
+            let mut guard = cloned_inner.lock().unwrap();
+            *guard = None;
         });
         Ok(())
     }
@@ -191,6 +224,7 @@ struct GrinboxClient {
     challenge: Option<String>,
     address: GrinboxAddress,
     secret_key: SecretKey,
+    connection_meta_data: Arc<Mutex<ConnectionMetadata>>,
 }
 
 impl GrinboxClient {
@@ -215,7 +249,17 @@ impl GrinboxClient {
 
 impl Handler for GrinboxClient {
     fn on_open(&mut self, _shake: Handshake) -> WsResult<()> {
-        self.handler.lock().unwrap().on_open();
+        let mut guard = self.connection_meta_data.lock().unwrap();
+
+        if guard.connected_at_least_once {
+            self.handler.lock().unwrap().on_reestablished();
+        } else {
+            self.handler.lock().unwrap().on_open();
+            guard.connected_at_least_once = true;
+        }
+
+        guard.retries = 0;
+
         try!(self.sender.timeout(KEEPALIVE_INTERVAL_MS, KEEPALIVE_TOKEN));
         Ok(())
     }
