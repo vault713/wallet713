@@ -410,7 +410,6 @@ fn main() {
     let mut grinbox_broker: Option<(GrinboxPublisher, GrinboxSubscriber)> = None;
     let mut keybase_broker: Option<(KeybasePublisher, KeybaseSubscriber)> = None;
 
-
     let account = matches.value_of("account").unwrap_or("default").to_string();
     let has_wallet = if matches.is_present("passphrase") {
         let passphrase = password_prompt(matches.value_of("passphrase"));
@@ -485,7 +484,7 @@ fn main() {
                 let result = do_command(&command, &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker, &mut out_is_safe);
 
                 if let Err(err) = result {
-                    cli_message!("{}: {}", "ERROR".bright_red(), err);
+                    cli_message!("{}", err);
                 }
 
                 if out_is_safe {
