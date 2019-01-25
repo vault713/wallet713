@@ -383,6 +383,7 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
 
     pub fn get_stored_tx_proof(&mut self, id: u32) -> Result<TxProof, Error> {
         let mut w = self.wallet.lock();
+        w.open_with_credentials()?;
         let parent_key_id = w.get_parent_key_id();
         let txs: Vec<TxLogEntry> = updater::retrieve_txs(&mut *w, Some(id), None, Some(&parent_key_id), false)?;
         if txs.len() != 1 {
@@ -396,9 +397,7 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
         &mut self,
         tx_proof: &TxProof,
     ) -> Result<(GrinboxAddress, u64, Vec<pedersen::Commitment>, PublicKey), Error> {
-        let mut w = self.wallet.lock();
-        let keychain = w.keychain();
-        let secp = keychain.secp();
+        let secp = &Secp256k1::with_caps(ContextFlag::Commit);
 
         let slate = tx_proof.verify_extract()
             .map_err(|_| ErrorKind::VerifyProof)?;
