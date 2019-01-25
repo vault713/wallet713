@@ -153,10 +153,8 @@ impl EncryptedMessage {
         })
     }
 
-    pub fn decrypt(&self, sender_public_key: &PublicKey, secret_key: &SecretKey) -> Result<String> {
-        let mut encrypted_message = from_hex(self.encrypted_message.clone()).map_err(|_| ErrorKind::Decryption)?;
+    pub fn key(&self, sender_public_key: &PublicKey, secret_key: &SecretKey) -> Result<[u8; 32]> {
         let salt = from_hex(self.salt.clone()).map_err(|_| ErrorKind::Decryption)?;
-        let nonce = from_hex(self.nonce.clone()).map_err(|_| ErrorKind::Decryption)?;
 
         let secp = Secp256k1::new();
         let mut common_secret = sender_public_key.clone();
@@ -166,7 +164,15 @@ impl EncryptedMessage {
 
         let mut key = [0; 32];
         pbkdf2::derive(&digest::SHA512, 100, &salt, common_secret_slice, &mut key);
-        let opening_key = aead::OpeningKey::new(&aead::CHACHA20_POLY1305, &key)
+
+        Ok(key)
+    }
+
+    pub fn decrypt_with_key(&self, key: &[u8; 32]) -> Result<String> {
+        let mut encrypted_message = from_hex(self.encrypted_message.clone()).map_err(|_| ErrorKind::Decryption)?;
+        let nonce = from_hex(self.nonce.clone()).map_err(|_| ErrorKind::Decryption)?;
+
+        let opening_key = aead::OpeningKey::new(&aead::CHACHA20_POLY1305, key)
             .map_err(|_| ErrorKind::Decryption)?;
         let decrypted_data = aead::open_in_place(&opening_key, &nonce, &[], 0, &mut encrypted_message)
             .map_err(|_| ErrorKind::Decryption)?;

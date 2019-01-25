@@ -109,7 +109,7 @@ pub fn txs(
     account: &str,
     cur_height: u64,
     validated: bool,
-    txs: Vec<TxLogEntry>,
+    txs: Vec<(TxLogEntry, bool)>,
     include_status: bool,
     dark_background_color_scheme: bool,
 ) -> Result<(), Error> {
@@ -134,9 +134,10 @@ pub fn txs(
 		bMG->"Confirmed?",
 		bMG->"Confirmation Time",
 		bMG->"Net \nDifference",
+		bMG->"Proof?",
 	]);
 
-    for t in txs {
+    for (t, has_proof) in txs {
         let id = format!("{}", t.id);
         let slate_id = match t.tx_slate_id {
             Some(m) => grin_util::to_hex(m.as_bytes()[..4].to_vec()),
@@ -154,7 +155,7 @@ pub fn txs(
         };
         let confirmed = match t.confirmed {
             true => "yes",
-            false => "no",
+            false => "",
         };
         let net_diff = if t.amount_credited >= t.amount_debited {
             core::amount_to_hr_string(t.amount_credited - t.amount_debited, true)
@@ -164,6 +165,10 @@ pub fn txs(
                 core::amount_to_hr_string(t.amount_debited - t.amount_credited, true)
             )
         };
+        let proof = match has_proof {
+            true => "yes",
+            false => "",
+        };
         if dark_background_color_scheme {
             table.add_row(row![
 				bFC->id,
@@ -171,9 +176,10 @@ pub fn txs(
 				bFB->slate_id,
 				bFC->address,
 				bFB->creation_ts,
-				bFC->confirmed,
+				bFG->confirmed,
 				bFB->confirmation_ts,
 				bFY->net_diff,
+				bFG->proof,
 			]);
         } else {
             if t.confirmed {
@@ -186,6 +192,7 @@ pub fn txs(
 					bFg->confirmed,
 					bFB->confirmation_ts,
 					bFG->net_diff,
+					bFg->proof,
 				]);
             } else {
                 table.add_row(row![
@@ -197,6 +204,7 @@ pub fn txs(
 					bFR->confirmed,
 					bFB->confirmation_ts,
 					bFG->net_diff,
+					bFR->proof,
 				]);
             }
         }

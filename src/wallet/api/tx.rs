@@ -4,6 +4,8 @@ use super::types::{WalletBackend, Context, TxLogEntryType, Error, ErrorKind, Nod
 use super::selection;
 use super::updater;
 
+use crate::wallet::types::TxProof;
+
 pub fn receive_tx<T: ?Sized, C, K>(
     wallet: &mut T,
     address: Option<String>,
@@ -157,7 +159,7 @@ pub fn cancel_tx<T: ?Sized, C, K>(
     Ok(())
 }
 
-pub fn update_stored_tx<T: ?Sized, C, K>(wallet: &mut T, slate: &Slate) -> Result<(), Error>
+pub fn update_stored_tx<T: ?Sized, C, K>(wallet: &mut T, slate: &Slate, tx_proof: Option<&mut TxProof>) -> Result<(), Error>
     where
         T: WalletBackend<C, K>,
         C: NodeClient,
@@ -180,6 +182,9 @@ pub fn update_stored_tx<T: ?Sized, C, K>(wallet: &mut T, slate: &Slate) -> Resul
 
     let mut batch = wallet.batch()?;
     batch.store_tx(&slate.id.to_string(), &slate.tx)?;
+    if tx_proof.is_some() {
+        batch.store_tx_proof(&slate.id.to_string(), tx_proof.unwrap())?;
+    }
     batch.commit()?;
 
     Ok(())

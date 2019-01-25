@@ -240,5 +240,22 @@ impl<'a, 'b> Parser {
                 SubCommand::with_name("check")
                     .about("checks a wallet's outputs against a live node, repairing and restoring missing outputs if required")
             )
+            .subcommand(
+                SubCommand::with_name("export-proof")
+                    .about("exports a transaction proof to a file")
+                    .arg(
+                        Arg::from_usage("-i, --id=<id> 'the transaction id'")
+                    )
+                    .arg(
+                        Arg::from_usage("-f, --file=<file> 'the file to write to'")
+                    )
+            )
+            .subcommand(
+                SubCommand::with_name("verify-proof")
+                    .about("verifies a transaction proof")
+                    .arg(
+                        Arg::from_usage("-f, --file=<file> 'the file to read from'")
+                    )
+            )
     }
 }

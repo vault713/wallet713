@@ -14,11 +14,14 @@ use grin_core::{global, ser};
 use grin_store::{self, option_to_not_found, to_key, to_key_u64};
 use grin_wallet::WalletConfig;
 
+use crate::wallet::types::TxProof;
+
 use super::types::{ErrorKind, Result, WalletSeed, WalletBackend, WalletBackendBatch, ChildNumber, Transaction, OutputData, TxLogEntry, AcctPathMapping, Context, ExtKeychain, Identifier, Keychain, NodeClient};
 use super::api::restore;
 
 pub const DB_DIR: &'static str = "db";
 pub const TX_SAVE_DIR: &'static str = "saved_txs";
+pub const TX_PROOF_SAVE_DIR: &'static str = "saved_proofs";
 
 const OUTPUT_PREFIX: u8 = 'o' as u8;
 const DERIV_PREFIX: u8 = 'd' as u8;
@@ -76,6 +79,10 @@ impl<C, K> Backend<C, K> {
         let stored_tx_path = path::Path::new(&config.data_file_dir).join(TX_SAVE_DIR);
         fs::create_dir_all(&stored_tx_path)
             .expect("Couldn't create wallet backend tx storage directory!");
+
+        let stored_tx_proof_path = path::Path::new(&config.data_file_dir).join(TX_PROOF_SAVE_DIR);
+        fs::create_dir_all(&stored_tx_proof_path)
+            .expect("Couldn't create wallet backend tx proof storage directory!");
 
         let lmdb_env = Arc::new(grin_store::new_env(db_path.to_str().unwrap().to_string()));
         let store = grin_store::Store::open(lmdb_env, DB_DIR);
@@ -225,6 +232,30 @@ impl<C, K> WalletBackend<C, K> for Backend<C, K>
         Ok(ser::deserialize::<Transaction>(&mut &tx_bin[..]).unwrap())
     }
 
+    fn has_stored_tx_proof(&self, uuid: &str) -> Result<bool> {
+        let filename = format!("{}.proof", uuid);
+        let path = path::Path::new(&self.config.data_file_dir)
+            .join(TX_PROOF_SAVE_DIR)
+            .join(filename);
+        let tx_proof_file = Path::new(&path).to_path_buf();
+        Ok(tx_proof_file.exists())
+    }
+
+    fn get_stored_tx_proof(&self, uuid: &str) -> Result<TxProof> {
+        let filename = format!("{}.proof", uuid);
+        let path = path::Path::new(&self.config.data_file_dir)
+            .join(TX_PROOF_SAVE_DIR)
+            .join(filename);
+        let tx_proof_file = Path::new(&path).to_path_buf();
+        if !tx_proof_file.exists() {
+            return Err(ErrorKind::TransactionHasNoProof.into());
+        }
+        let mut tx_proof_f = File::open(tx_proof_file)?;
+        let mut content = String::new();
+        tx_proof_f.read_to_string(&mut content)?;
+        Ok(serde_json::from_str(&content)?)
+    }
+
     fn batch<'a>(&'a self) -> Result<Box<dyn WalletBackendBatch<K> + 'a>> {
         Ok(Box::new(Batch {
             _store: self,
@@ -344,6 +375,19 @@ impl<'a, C, K> WalletBackendBatch<K> for Batch<'a, C, K>
         let mut stored_tx = File::create(path_buf)?;
         let tx_hex = to_hex(ser::ser_vec(tx).unwrap());;
         stored_tx.write_all(&tx_hex.as_bytes())?;
+        stored_tx.sync_all()?;
+        Ok(())
+    }
+
+    fn store_tx_proof(&self, uuid: &str, tx_proof: &TxProof) -> Result<()> {
+        let filename = format!("{}.proof", uuid);
+        let path = path::Path::new(&self._store.config.data_file_dir)
+            .join(TX_PROOF_SAVE_DIR)
+            .join(filename);
+        let path_buf = Path::new(&path).to_path_buf();
+        let mut stored_tx = File::create(path_buf)?;
+        let proof_ser = serde_json::to_string(tx_proof)?;
+        stored_tx.write_all(&proof_ser.as_bytes())?;
         stored_tx.sync_all()?;
         Ok(())
     }

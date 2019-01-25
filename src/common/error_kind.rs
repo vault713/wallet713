@@ -21,6 +21,8 @@ pub enum ErrorKind {
     TransactionNotCancellable(String),
     #[fail(display = "\x1b[31;1merror:\x1b[0m transaction cancellation error: {}", _0)]
     TransactionCancellationError(&'static str),
+    #[fail(display = "\x1b[31;1merror:\x1b[0m transaction doesn't have a proof!")]
+    TransactionHasNoProof,
     #[fail(display = "\x1b[31;1merror:\x1b[0m internal transaction error!")]
     LibTX(libtx::ErrorKind),
     #[fail(display = "\x1b[31;1merror:\x1b[0m Not enough funds. Required: {}, Available: {}", needed_disp, available_disp)]
@@ -100,5 +102,9 @@ pub enum ErrorKind {
     #[fail(display = "\x1b[31;1merror:\x1b[0m unknown account: {}", 0)]
     UnknownAccountLabel(String),
     #[fail(display = "\x1b[31;1merror:\x1b[0m http request error")]
-    HttpRequest
+    HttpRequest,
+    #[fail(display = "\x1b[31;1merror:\x1b[0m unable to verify proof")]
+    VerifyProof,
+    #[fail(display = "\x1b[31;1merror:\x1b[0m file '{}' not found", 0)]
+    FileNotFound(String),
 }

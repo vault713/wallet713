@@ -9,6 +9,9 @@ use super::backend::Backend;
 use super::api::{controller, display};
 
 use crate::common::hasher::derive_address_key;
+use crate::common::crypto::Hex;
+use crate::wallet::types::TxProof;
+use crate::wallet::api::Wallet713OwnerAPI;
 
 pub struct Wallet {
     active_account: String,
@@ -94,7 +97,7 @@ impl Wallet {
         let wallet = self.get_wallet_instance()?;
         controller::owner_single_use(wallet.clone(), |api| {
             let (height, _) = api.node_height()?;
-            let (validated, txs) = api.retrieve_txs(true, None, None)?;
+            let (validated, txs) = api.retrieve_txs_with_proof_flag(true, None, None)?;
             display::txs(
                 &self.active_account,
                 height,
@@ -245,7 +248,7 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn finalize_slate(&self, slate: &mut Slate) -> Result<()> {
+    pub fn finalize_slate(&self, slate: &mut Slate, tx_proof: Option<&mut TxProof>) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
         let mut should_post: bool = false;
         controller::owner_single_use(wallet.clone(), |api| {
@@ -255,7 +258,7 @@ impl Wallet {
             ErrorKind::GrinWalletVerifySlateMessagesError
         })?;
         controller::owner_single_use(wallet.clone(), |api| {
-            should_post = api.finalize_tx(slate)?;
+            should_post = api.finalize_tx(slate, tx_proof)?;
             Ok(())
         }).map_err(|_| {
             ErrorKind::GrinWalletFinalizeError
@@ -276,6 +279,25 @@ impl Wallet {
         let mut w = wallet.lock();
         w.open_with_credentials()?;
         derive_address_key(w.keychain(), index).map_err(|e| e.into())
+    }
+
+    pub fn get_tx_proof(&self, id: u32) -> Result<TxProof> {
+        let wallet = self.get_wallet_instance()?;
+        let mut api = Wallet713OwnerAPI::new(wallet.clone());
+        api.get_stored_tx_proof(id)
+    }
+
+    pub fn verify_tx_proof(&self, tx_proof: &TxProof) -> Result<(String, u64, Vec<String>, String)> {
+        let wallet = self.get_wallet_instance()?;
+        let mut api = Wallet713OwnerAPI::new(wallet.clone());
+        let (address, amount, outputs, excess_sum) = api.verify_tx_proof(tx_proof)?;
+
+        let outputs = outputs
+            .iter()
+            .map(|o| grin_util::to_hex(o.0.to_vec()))
+            .collect();
+
+        Ok((address.public_key.clone(), amount, outputs, excess_sum.to_hex()))
     }
 
     fn init_seed(&self, wallet_config: &WalletConfig, passphrase: &str) -> Result<WalletSeed> {

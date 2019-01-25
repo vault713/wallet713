@@ -2,12 +2,12 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use ws::{connect, Sender, Handler, Handshake, Message, CloseCode, Result as WsResult, ErrorKind as WsErrorKind, Error as WsError};
 use ws::util::Token;
-use colored::*;
 
 use grin_core::libtx::slate::Slate;
 
+use crate::wallet::types::{TxProofErrorKind, TxProof};
 use common::{ErrorKind, Result};
-use common::crypto::{SecretKey, Signature, verify_signature, sign_challenge, Hex, EncryptedMessage};
+use common::crypto::{SecretKey, sign_challenge, Hex, EncryptedMessage};
 use contacts::{Address, GrinboxAddress, DEFAULT_GRINBOX_PORT};
 
 use super::types::{Publisher, Subscriber, SubscriptionHandler, CloseReason};
@@ -21,23 +21,21 @@ pub struct GrinboxPublisher {
     address: GrinboxAddress,
     secret_key: SecretKey,
     protocol_unsecure: bool,
-    use_encryption: bool,
 }
 
 impl GrinboxPublisher {
-    pub fn new(address: &GrinboxAddress, secert_key: &SecretKey, protocol_unsecure: bool, use_encryption: bool) -> Result<Self> {
+    pub fn new(address: &GrinboxAddress, secert_key: &SecretKey, protocol_unsecure: bool) -> Result<Self> {
         Ok(Self {
             address: address.clone(),
             secret_key: secert_key.clone(),
             protocol_unsecure,
-            use_encryption
         })
     }
 }
 
 impl Publisher for GrinboxPublisher {
     fn post_slate(&self, slate: &Slate, to: &Address) -> Result<()> {
-        let broker = GrinboxBroker::new(self.protocol_unsecure, self.use_encryption)?;
+        let broker = GrinboxBroker::new(self.protocol_unsecure)?;
         let to = GrinboxAddress::from_str(&to.to_string())?;
         broker.post_slate(slate, &to, &self.address, &self.secret_key)?;
         Ok(())
@@ -52,10 +50,10 @@ pub struct GrinboxSubscriber {
 }
 
 impl GrinboxSubscriber {
-    pub fn new(address: &GrinboxAddress, secret_key: &SecretKey, protocol_unsecure: bool, use_encryption: bool) -> Result<Self> {
+    pub fn new(address: &GrinboxAddress, secret_key: &SecretKey, protocol_unsecure: bool) -> Result<Self> {
         Ok(Self {
             address: address.clone(),
-            broker: GrinboxBroker::new(protocol_unsecure, use_encryption)?,
+            broker: GrinboxBroker::new(protocol_unsecure)?,
             secret_key: secret_key.clone(),
         })
     }
@@ -80,7 +78,6 @@ impl Subscriber for GrinboxSubscriber {
 struct GrinboxBroker {
     inner: Arc<Mutex<Option<Sender>>>,
     protocol_unsecure: bool,
-    use_encryption: bool,
 }
 
 struct ConnectionMetadata {
@@ -98,11 +95,10 @@ impl ConnectionMetadata {
 }
 
 impl GrinboxBroker {
-    fn new(protocol_unsecure: bool, use_encryption: bool) -> Result<Self> {
+    fn new(protocol_unsecure: bool) -> Result<Self> {
         Ok(Self {
             inner: Arc::new(Mutex::new(None)),
-            protocol_unsecure,
-            use_encryption
+            protocol_unsecure
         })
     }
 
@@ -121,15 +117,10 @@ impl GrinboxBroker {
                 let response = serde_json::from_str::<ProtocolResponse>(&msg.to_string()).expect("could not parse response!");
                 match response {
                     ProtocolResponse::Challenge { str } => {
-                        let slate_str = match self.use_encryption {
-                            true => {
-                                let message = EncryptedMessage::new(serde_json::to_string(&slate).unwrap(), &pkey, &skey).map_err(|_|
-                                    WsError::new(WsErrorKind::Protocol, "could not encrypt slate!")
-                                )?;
-                                serde_json::to_string(&message).unwrap()
-                            },
-                            false => serde_json::to_string(&slate).unwrap(),
-                        };
+                        let message = EncryptedMessage::new(serde_json::to_string(&slate).unwrap(), &pkey, &skey).map_err(|_|
+                            WsError::new(WsErrorKind::Protocol, "could not encrypt slate!")
+                        )?;
+                        let slate_str = serde_json::to_string(&message).unwrap();
 
                         let mut challenge = String::new();
                         challenge.push_str(&slate_str);
@@ -165,7 +156,6 @@ impl GrinboxBroker {
         let cloned_address = address.clone();
         let cloned_inner = self.inner.clone();
         let cloned_handler = handler.clone();
-        let use_encryption = self.use_encryption;
         thread::spawn(move || {
             let connection_meta_data = Arc::new(Mutex::new(ConnectionMetadata::new()));
             loop {
@@ -184,7 +174,6 @@ impl GrinboxBroker {
                         challenge: None,
                         address: cloned_address.clone(),
                         secret_key,
-                        use_encryption,
                         connection_meta_data: cloned_connection_meta_data.clone(),
                     };
                     client
@@ -235,7 +224,6 @@ struct GrinboxClient {
     challenge: Option<String>,
     address: GrinboxAddress,
     secret_key: SecretKey,
-    use_encryption: bool,
     connection_meta_data: Arc<Mutex<ConnectionMetadata>>,
 }
 
@@ -249,17 +237,6 @@ impl GrinboxClient {
         let signature = GrinboxClient::generate_signature(challenge, &self.secret_key);
         let request = ProtocolRequest::Subscribe { address: self.address.public_key.to_string(), signature };
         self.send(&request).expect("could not send subscribe request!");
-        Ok(())
-    }
-
-    fn verify_slate_signature(&self, from: &str, str: &str, challenge: &str, signature: &str) -> Result<()> {
-        let from = GrinboxAddress::from_str(from)?;
-        let public_key = from.public_key()?;
-        let signature = Signature::from_hex(signature)?;
-        let mut challenge_builder = String::new();
-        challenge_builder.push_str(str);
-        challenge_builder.push_str(challenge);
-        verify_signature(&challenge_builder, &signature, &public_key)?;
         Ok(())
     }
 
@@ -298,9 +275,14 @@ impl Handler for GrinboxClient {
     }
 
     fn on_message(&mut self, msg: Message) -> WsResult<()> {
-        let response = serde_json::from_str::<ProtocolResponse>(&msg.to_string()).map_err(|_| {
-            WsError::new(WsErrorKind::Protocol, "could not parse response!")
-        })?;
+        let response = match serde_json::from_str::<ProtocolResponse>(&msg.to_string()) {
+            Ok(x) => x,
+            Err(_) => {
+                cli_message!("could not parse response");
+                return Ok(());
+            },
+        };
+
         match response {
             ProtocolResponse::Challenge { str } => {
                 self.challenge = Some(str.clone());
@@ -309,63 +291,44 @@ impl Handler for GrinboxClient {
                 })?;
             },
             ProtocolResponse::Slate { from, str, challenge, signature } => {
-                if let Ok(_) = self.verify_slate_signature(&from, &str, &challenge, &signature) {
-                    let from = match GrinboxAddress::from_str(&from) {
-                        Ok(x) => x,
-                        Err(_) => {
-                            cli_message!("could not parse address!");
-                            return Ok(());
-                        },
-                    };
+                let (mut slate, mut tx_proof) = match TxProof::from_response(from, str, challenge, signature, &self.secret_key) {
+                    Ok(x) => x,
+                    Err(TxProofErrorKind::ParseAddress) => {
+                        cli_message!("could not parse address!");
+                        return Ok(());
+                    },
+                    Err(TxProofErrorKind::ParsePublicKey) => {
+                        cli_message!("could not parse public key!");
+                        return Ok(());
+                    },
+                    Err(TxProofErrorKind::ParseSignature) => {
+                        cli_message!("could not parse signature!");
+                        return Ok(());
+                    },
+                    Err(TxProofErrorKind::VerifySignature) => {
+                        cli_message!("invalid slate signature!");
+                        return Ok(());
+                    },
+                    Err(TxProofErrorKind::ParseEncryptedMessage) => {
+                        cli_message!("could not parse encrypted slate!");
+                        return Ok(());
+                    },
+                    Err(TxProofErrorKind::DecryptionKey) => {
+                        cli_message!("could not determine decryption key!");
+                        return Ok(());
+                    },
+                    Err(TxProofErrorKind::DecryptMessage) => {
+                        cli_message!("could not decrypt slate!");
+                        return Ok(());
+                    },
+                    Err(TxProofErrorKind::ParseSlate) => {
+                        cli_message!("could not parse decrypted slate!");
+                        return Ok(());
+                    },
+                };
 
-                    let mut slate: Slate = match self.use_encryption {
-                        true => {
-                            let encrypted_message: EncryptedMessage = match serde_json::from_str(&str) {
-                                Ok(x) => x,
-                                Err(_) => {
-                                    cli_message!("could not parse encrypted message!");
-                                    return Ok(());
-                                },
-                            };
-                            let pkey = match from.public_key() {
-                                Ok(x) => x,
-                                Err(_) => {
-                                    cli_message!("could not parse public key!");
-                                    return Ok(());
-                                },
-                            };
-
-                            let decrypted_message = match encrypted_message.decrypt(&pkey, &self.secret_key) {
-                                Ok(x) => x,
-                                Err(_) => {
-                                    cli_message!("could not decrypt message!");
-                                    return Ok(());
-                                },
-                            };
-
-                            let slate: Slate = match serde_json::from_str(&decrypted_message) {
-                                Ok(x) => x,
-                                Err(_) => {
-                                    cli_message!("could not parse slate!");
-                                    return Ok(());
-                                },
-                            };
-
-                            slate
-                        },
-                        false => match serde_json::from_str(&str) {
-                            Ok(x) => x,
-                            Err(_) => {
-                                cli_message!("could not parse slate!");
-                                return Ok(());
-                            },
-                        },
-                    };
-
-                    self.handler.lock().unwrap().on_slate(&from, &mut slate);
-                } else {
-                    cli_message!("{}: received slate with invalid signature!", "ERROR".bright_red());
-                }
+                let address = tx_proof.address.clone();
+                self.handler.lock().unwrap().on_slate(&address, &mut slate, Some(&mut tx_proof));
             },
             ProtocolResponse::Error { kind: _, description: _ } => {
                 cli_message!("{}", response);

@@ -47,7 +47,7 @@ use rustyline::hint::Hinter;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
 use grin_api::client;
 use grin_core::core;
-use grin_core::global::{ChainTypes, set_mining_mode};
+use grin_core::global::{ChainTypes, set_mining_mode, is_mainnet};
 use url::Url;
 
 #[macro_use]
@@ -61,6 +61,8 @@ use common::{ErrorKind, Result, RuntimeMode, PROMPT, COLORED_PROMPT};
 use common::config::Wallet713Config;
 use wallet::Wallet;
 use cli::Parser;
+
+use crate::wallet::types::TxProof;
 
 use contacts::{Address, AddressType, GrinboxAddress, Contact, AddressBook, Backend};
 
@@ -198,7 +200,7 @@ impl Controller {
         })
     }
 
-    fn process_incoming_slate(&self, address: Option<String>, slate: &mut Slate) -> Result<bool> {
+    fn process_incoming_slate(&self, address: Option<String>, slate: &mut Slate, tx_proof: Option<&mut TxProof>) -> Result<bool> {
         if slate.num_participants > slate.participant_data.len() {
             //TODO: this needs to be changed to properly figure out if this slate is an invoice or a send
             if slate.tx.inputs().len() == 0 {
@@ -208,7 +210,7 @@ impl Controller {
             }
             Ok(false)
         } else {
-            self.wallet.lock().unwrap().finalize_slate(slate)?;
+            self.wallet.lock().unwrap().finalize_slate(slate, tx_proof)?;
             Ok(true)
         }
     }
@@ -219,7 +221,7 @@ impl SubscriptionHandler for Controller {
         cli_message!("listener started for [{}]", self.name.bright_green());
     }
 
-    fn on_slate(&self, from: &Address, slate: &mut Slate) {
+    fn on_slate(&self, from: &Address, slate: &mut Slate, tx_proof: Option<&mut TxProof>) {
         let mut display_from = from.stripped();
         if let Ok(contact) = self.address_book.lock().unwrap().get_contact_by_address(&from.to_string()) {
             display_from = contact.get_name().to_string();
@@ -243,7 +245,7 @@ impl SubscriptionHandler for Controller {
             GrinboxAddress::from_str(&from.to_string()).expect("invalid grinbox address");
         }
 
-        let result = self.process_incoming_slate(Some(from.to_string()), slate).and_then(|is_finalized| {
+        let result = self.process_incoming_slate(Some(from.to_string()), slate, tx_proof).and_then(|is_finalized| {
             if !is_finalized {
                 self.publisher.post_slate(slate, from).map_err(|e| {
                     cli_message!("{}: {}", "ERROR".bright_red(), e);
@@ -294,8 +296,8 @@ fn start_grinbox_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, 
     cli_message!("starting grinbox listener...");
     let grinbox_address = config.get_grinbox_address()?;
     let grinbox_secret_key = config.get_grinbox_secret_key()?;
-    let grinbox_publisher = GrinboxPublisher::new(&grinbox_address, &grinbox_secret_key, config.grinbox_protocol_unsecure(), config.grinbox_e2e_encryption())?;
-    let grinbox_subscriber = GrinboxSubscriber::new(&grinbox_address, &grinbox_secret_key, config.grinbox_protocol_unsecure(), config.grinbox_e2e_encryption()).expect("could not start grinbox subscriber!");
+    let grinbox_publisher = GrinboxPublisher::new(&grinbox_address, &grinbox_secret_key, config.grinbox_protocol_unsecure())?;
+    let grinbox_subscriber = GrinboxSubscriber::new(&grinbox_address, &grinbox_secret_key, config.grinbox_protocol_unsecure()).expect("could not start grinbox subscriber!");
     let cloned_publisher = grinbox_publisher.clone();
     let mut cloned_subscriber = grinbox_subscriber.clone();
     std::thread::spawn(move || {
@@ -526,6 +528,25 @@ fn password_prompt(opt: Option<&str>) -> String {
         )
 }
 
+fn proof_ok(address: String, amount: u64, outputs: Vec<String>, kernel: String) {
+    println!("this file proves that [{}] received [{}] grins",
+             address.bright_green(),
+             core::amount_to_hr_string(amount, false).bright_green());
+    println!("outputs:");
+    for output in outputs {
+        println!("   {}", output.bright_magenta());
+    }
+    println!("kernel:");
+    println!("   {}", kernel.bright_magenta());
+    println!("\n{}: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations", "WARNING".bright_yellow());
+    println!("please use a grin block explorer to verify this is the case. for example:");
+    let prefix = match is_mainnet() {
+        true => "",
+        false => "floonet."
+    };
+    cli_message!("   https://{}grinscan.net/kernel/{}", prefix, kernel);
+}
+
 fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>, keybase_broker: &mut Option<(KeybasePublisher, KeybaseSubscriber)>, grinbox_broker: &mut Option<(GrinboxPublisher, GrinboxSubscriber)>, out_is_safe: &mut bool) -> Result<()> {
     *out_is_safe = true;
     let home_dir = dirs::home_dir().map(|p| p.to_str().unwrap().to_string()).unwrap_or("~".to_string());
@@ -553,10 +574,10 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 derive_address_key(config, wallet, grinbox_broker)?;
                 cli_message!("Derived with index [{}]", config.grinbox_address_index().to_string().bright_blue());
             }
-        }
+        },
         Some("address") => {
             show_address(config, true)?;
-        }
+        },
         Some("init") => {
             *out_is_safe = false;
             if keybase_broker.is_some() || grinbox_broker.is_some() {
@@ -577,13 +598,13 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 cli_message!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
             }
             return Ok(());
-        }
+        },
         Some("lock") => {
             if keybase_broker.is_some() || grinbox_broker.is_some() {
                 return Err(ErrorKind::HasListener.into());
             }
             wallet.lock().unwrap().lock();
-        }
+        },
         Some("unlock") => {
             let args = matches.subcommand_matches("unlock").unwrap();
             let account = args.value_of("account").unwrap_or("default");
@@ -603,10 +624,10 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
 
             derive_address_key(config, wallet, grinbox_broker)?;
             return Ok(());
-        }
+        },
         Some("accounts") => {
             wallet.lock().unwrap().list_accounts()?;
-        }
+        },
         Some("account") => {
             let args = matches.subcommand_matches("account").unwrap();
             *out_is_safe = args.value_of("passphrase").is_none();
@@ -625,7 +646,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             }
 
             return Ok(());
-        }
+        },
         Some("listen") => {
             let grinbox = matches.subcommand_matches("listen").unwrap().is_present("grinbox");
             let keybase = matches.subcommand_matches("listen").unwrap().is_present("keybase");
@@ -653,7 +674,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                     *keybase_broker = Some((publisher, subscriber));
                 }
             }
-        }
+        },
         Some("stop") => {
             let grinbox = matches.subcommand_matches("stop").unwrap().is_present("grinbox");
             let keybase = matches.subcommand_matches("stop").unwrap().is_present("keybase");
@@ -687,22 +708,22 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                     Err(ErrorKind::ClosedListener("keybase".to_string()))?
                 }
             }
-        }
+        },
         Some("info") => {
             wallet.lock().unwrap().info()?;
-        }
+        },
         Some("txs") => {
             wallet.lock().unwrap().txs()?;
-        }
+        },
         Some("contacts") => {
             let arg_matches = matches.subcommand_matches("contacts").unwrap();
             do_contacts(&arg_matches, address_book.clone())?;
-        }
+        },
         Some("outputs") => {
             let args = matches.subcommand_matches("outputs").unwrap();
             let show_spent = args.is_present("show-spent");
             wallet.lock().unwrap().outputs(show_spent)?;
-        }
+        },
         Some("repost") => {
             let args = matches.subcommand_matches("repost").unwrap();
             let id = args.value_of("id").unwrap();
@@ -710,7 +731,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 ErrorKind::InvalidTxId(id.to_string())
             })?;
             wallet.lock().unwrap().repost(id, false)?;
-        }
+        },
         Some("cancel") => {
             let args = matches.subcommand_matches("cancel").unwrap();
             let id = args.value_of("id").unwrap();
@@ -718,7 +739,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 ErrorKind::InvalidTxId(id.to_string())
             })?;
             wallet.lock().unwrap().cancel(id)?;
-        }
+        },
         Some("receive") => {
             let args = matches.subcommand_matches("receive").unwrap();
             let input = args.value_of("file").unwrap();
@@ -731,7 +752,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             cli_message!("{} received.", input);
             file.write_all(serde_json::to_string(&slate).unwrap().as_bytes())?;
             cli_message!("{}.response created successfully.", input);
-        }
+        },
         Some("finalize") => {
             let args = matches.subcommand_matches("finalize").unwrap();
             let input = args.value_of("file").unwrap();
@@ -739,9 +760,9 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let mut slate = String::new();
             file.read_to_string(&mut slate)?;
             let mut slate: Slate = serde_json::from_str(&slate)?;
-            wallet.lock().unwrap().finalize_slate(&mut slate)?;
+            wallet.lock().unwrap().finalize_slate(&mut slate, None)?;
             cli_message!("{} finalized.", input);
-        }
+        },
         Some("send") => {
             let args = matches.subcommand_matches("send").unwrap();
             let to = args.value_of("to");
@@ -830,10 +851,10 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             );
 
             if to.address_type() == AddressType::Https {
-                wallet.lock().unwrap().finalize_slate(&mut slate)?;
+                wallet.lock().unwrap().finalize_slate(&mut slate, None)?;
                 cli_message!("slate [{}] finalized successfully", slate.id.to_string().bright_green());
             }
-        }
+        },
         Some("invoice") => {
             let args = matches.subcommand_matches("invoice").unwrap();
             let to = args.value_of("to").unwrap();
@@ -891,7 +912,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 core::amount_to_hr_string(slate.amount, false).bright_green(),
                 to.stripped().bright_green()
             );
-        }
+        },
         Some("restore") => {
             *out_is_safe = false;
             if keybase_broker.is_some() || grinbox_broker.is_some() {
@@ -923,7 +944,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
 
             cli_message!("wallet restoration done!");
             return Ok(());
-        }
+        },
         Some("check") => {
             if keybase_broker.is_some() || grinbox_broker.is_some() {
                 return Err(ErrorKind::HasListener.into());
@@ -933,11 +954,57 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 wallet.check_repair()?;
                 cli_message!("check and repair done!");
             }
+        },
+        Some("export-proof" ) => {
+            let args = matches.subcommand_matches("export-proof").unwrap();
+            let input = args.value_of("file").unwrap();
+            let id = args.value_of("id").unwrap();
+            let id = id.parse::<u32>().map_err(|_| {
+                ErrorKind::InvalidTxId(id.to_string())
+            })?;
+            let w = wallet.lock().unwrap();
+            let tx_proof = w.get_tx_proof(id)?;
+            match w.verify_tx_proof(&tx_proof) {
+                Ok((address, amount, outputs, kernel)) => {
+                    let mut file = File::create(input.replace("~", &home_dir))?;
+                    file.write_all(serde_json::to_string(&tx_proof)?.as_bytes())?;
+                    println!("proof written to {}", input);
+                    proof_ok(address, amount, outputs, kernel);
+                },
+                Err(_) => {
+                    cli_message!("unable to verify proof");
+                }
+            }
         }
+        Some("verify-proof") => {
+            let args = matches.subcommand_matches("verify-proof").unwrap();
+            let input = args.value_of("file").unwrap();
+            let path = Path::new(&input.replace("~", &home_dir)).to_path_buf();
+            if !path.exists() {
+                return Err(ErrorKind::FileNotFound(input.to_string()).into());
+            }
+            let mut file = File::open(path)?;
+            let mut proof = String::new();
+            file.read_to_string(&mut proof)?;
+            let mut tx_proof: TxProof = serde_json::from_str(&proof)?;
+
+            if let Ok(mut wallet) = wallet.lock() {
+                match wallet.verify_tx_proof(&tx_proof) {
+                    Ok((address, amount, outputs, kernel)) => {
+                        println!("proof verification succesful!");
+                        proof_ok(address, amount, outputs, kernel);
+                    },
+                    Err(_) => {
+                        cli_message!("unable to verify proof");
+                    }
+                }
+
+            }
+        },
         Some(subcommand) => {
             cli_message!("{}: subcommand `{}` not implemented!", "ERROR".bright_red(), subcommand.bright_green());
-        }
-        None => {}
+        },
+        None => {},
     };
 
     Ok(())
