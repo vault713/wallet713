@@ -556,10 +556,10 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 derive_address_key(config, wallet, grinbox_broker)?;
                 cli_message!("Derived with index [{}]", config.grinbox_address_index().to_string().bright_blue());
             }
-        }
+        },
         Some("address") => {
             show_address(config, true)?;
-        }
+        },
         Some("init") => {
             *out_is_safe = false;
             if keybase_broker.is_some() || grinbox_broker.is_some() {
@@ -580,13 +580,13 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 cli_message!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
             }
             return Ok(());
-        }
+        },
         Some("lock") => {
             if keybase_broker.is_some() || grinbox_broker.is_some() {
                 return Err(ErrorKind::HasListener.into());
             }
             wallet.lock().unwrap().lock();
-        }
+        },
         Some("unlock") => {
             let args = matches.subcommand_matches("unlock").unwrap();
             let account = args.value_of("account").unwrap_or("default");
@@ -606,10 +606,10 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
 
             derive_address_key(config, wallet, grinbox_broker)?;
             return Ok(());
-        }
+        },
         Some("accounts") => {
             wallet.lock().unwrap().list_accounts()?;
-        }
+        },
         Some("account") => {
             let args = matches.subcommand_matches("account").unwrap();
             *out_is_safe = args.value_of("passphrase").is_none();
@@ -628,7 +628,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             }
 
             return Ok(());
-        }
+        },
         Some("listen") => {
             let grinbox = matches.subcommand_matches("listen").unwrap().is_present("grinbox");
             let keybase = matches.subcommand_matches("listen").unwrap().is_present("keybase");
@@ -656,7 +656,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                     *keybase_broker = Some((publisher, subscriber));
                 }
             }
-        }
+        },
         Some("stop") => {
             let grinbox = matches.subcommand_matches("stop").unwrap().is_present("grinbox");
             let keybase = matches.subcommand_matches("stop").unwrap().is_present("keybase");
@@ -690,22 +690,22 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                     Err(ErrorKind::ClosedListener("keybase".to_string()))?
                 }
             }
-        }
+        },
         Some("info") => {
             wallet.lock().unwrap().info()?;
-        }
+        },
         Some("txs") => {
             wallet.lock().unwrap().txs()?;
-        }
+        },
         Some("contacts") => {
             let arg_matches = matches.subcommand_matches("contacts").unwrap();
             do_contacts(&arg_matches, address_book.clone())?;
-        }
+        },
         Some("outputs") => {
             let args = matches.subcommand_matches("outputs").unwrap();
             let show_spent = args.is_present("show-spent");
             wallet.lock().unwrap().outputs(show_spent)?;
-        }
+        },
         Some("repost") => {
             let args = matches.subcommand_matches("repost").unwrap();
             let id = args.value_of("id").unwrap();
@@ -713,7 +713,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 ErrorKind::InvalidTxId(id.to_string())
             })?;
             wallet.lock().unwrap().repost(id, false)?;
-        }
+        },
         Some("cancel") => {
             let args = matches.subcommand_matches("cancel").unwrap();
             let id = args.value_of("id").unwrap();
@@ -721,7 +721,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 ErrorKind::InvalidTxId(id.to_string())
             })?;
             wallet.lock().unwrap().cancel(id)?;
-        }
+        },
         Some("receive") => {
             let args = matches.subcommand_matches("receive").unwrap();
             let input = args.value_of("file").unwrap();
@@ -734,7 +734,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             cli_message!("{} received.", input);
             file.write_all(serde_json::to_string(&slate).unwrap().as_bytes())?;
             cli_message!("{}.response created successfully.", input);
-        }
+        },
         Some("finalize") => {
             let args = matches.subcommand_matches("finalize").unwrap();
             let input = args.value_of("file").unwrap();
@@ -744,7 +744,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let mut slate: Slate = serde_json::from_str(&slate)?;
             wallet.lock().unwrap().finalize_slate(&mut slate, None)?;
             cli_message!("{} finalized.", input);
-        }
+        },
         Some("send") => {
             let args = matches.subcommand_matches("send").unwrap();
             let to = args.value_of("to");
@@ -836,7 +836,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 wallet.lock().unwrap().finalize_slate(&mut slate, None)?;
                 cli_message!("slate [{}] finalized successfully", slate.id.to_string().bright_green());
             }
-        }
+        },
         Some("invoice") => {
             let args = matches.subcommand_matches("invoice").unwrap();
             let to = args.value_of("to").unwrap();
@@ -894,7 +894,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 core::amount_to_hr_string(slate.amount, false).bright_green(),
                 to.stripped().bright_green()
             );
-        }
+        },
         Some("restore") => {
             *out_is_safe = false;
             if keybase_broker.is_some() || grinbox_broker.is_some() {
@@ -926,7 +926,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
 
             cli_message!("wallet restoration done!");
             return Ok(());
-        }
+        },
         Some("check") => {
             if keybase_broker.is_some() || grinbox_broker.is_some() {
                 return Err(ErrorKind::HasListener.into());
@@ -937,10 +937,41 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 cli_message!("check and repair done!");
             }
         },
+        Some("export-proof" ) => {
+            let args = matches.subcommand_matches("export-proof").unwrap();
+            let input = args.value_of("file").unwrap();
+            let id = args.value_of("id").unwrap();
+            let id = id.parse::<u32>().map_err(|_| {
+                ErrorKind::InvalidTxId(id.to_string())
+            })?;
+            let w = wallet.lock().unwrap();
+            let tx_proof = w.get_tx_proof(id)?;
+            match w.verify_tx_proof(&tx_proof) {
+                Ok((address, amount, outputs, kernel)) => {
+                    let mut file = File::create(input.replace("~", &home_dir))?;
+                    file.write_all(serde_json::to_string(&tx_proof)?.as_bytes())?;
+                    println!("proof written to {}", input);
+                    println!("this file proves that [{}] received [{}] grins",
+                             address.bright_green(),
+                             core::amount_to_hr_string(amount, false).bright_green());
+                    println!("outputs:");
+                    for output in outputs {
+                        println!("   {}", output.bright_magenta());
+                    }
+                    println!("kernel:");
+                    println!("   {}", kernel.bright_magenta());
+                    println!("\n{}: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations", "WARNING".bright_yellow());
+                    cli_message!("please use a grin block explorer (such as grinscan.net) to verify this is the case");
+                },
+                Err(_) => {
+                    cli_message!("unable to verify proof");
+                }
+            }
+        }
         Some("verify-proof") => {
             let args = matches.subcommand_matches("verify-proof").unwrap();
             let input = args.value_of("file").unwrap();
-            let mut file = File::open(input)?;
+            let mut file = File::open(input.replace("~", &home_dir))?;
             let mut proof = String::new();
             file.read_to_string(&mut proof)?;
             let mut tx_proof: TxProof = serde_json::from_str(&proof)?;
@@ -967,11 +998,11 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 }
 
             }
-        }
+        },
         Some(subcommand) => {
             cli_message!("{}: subcommand `{}` not implemented!", "ERROR".bright_red(), subcommand.bright_green());
-        }
-        None => {}
+        },
+        None => {},
     };
 
     Ok(())

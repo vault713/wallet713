@@ -137,6 +137,45 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
         res
     }
 
+    pub fn retrieve_txs_with_proof_flag(
+        &self,
+        refresh_from_node: bool,
+        tx_id: Option<u32>,
+        tx_slate_id: Option<Uuid>,
+    ) -> Result<(bool, Vec<(TxLogEntry, bool)>), Error> {
+        let mut w = self.wallet.lock();
+        w.open_with_credentials()?;
+        let parent_key_id = w.get_parent_key_id();
+
+        let mut validated = false;
+        if refresh_from_node {
+            validated = self.update_outputs(&mut w, false);
+        }
+
+        let txs: Vec<TxLogEntry> = updater::retrieve_txs(&mut *w, tx_id, tx_slate_id, Some(&parent_key_id), false)?;
+        let txs = txs
+            .into_iter()
+            .map(|t| {
+                let tx_slate_id = t.tx_slate_id.clone();
+                (
+                    t,
+                    tx_slate_id.map(|i|
+                        w.has_stored_tx_proof(&i.to_string())
+                            .unwrap_or(false)
+                    ).unwrap_or(false)
+                )
+            })
+            .collect();
+
+        let res = Ok((
+            validated,
+            txs,
+        ));
+
+        w.close()?;
+        res
+    }
+
     pub fn retrieve_summary_info(
         &mut self,
         refresh_from_node: bool,
@@ -340,6 +379,17 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
             Ok(_) => true,
             Err(_) => false,
         }
+    }
+
+    pub fn get_stored_tx_proof(&mut self, id: u32) -> Result<TxProof, Error> {
+        let mut w = self.wallet.lock();
+        let parent_key_id = w.get_parent_key_id();
+        let txs: Vec<TxLogEntry> = updater::retrieve_txs(&mut *w, Some(id), None, Some(&parent_key_id), false)?;
+        if txs.len() != 1 {
+            return Err(ErrorKind::TransactionHasNoProof)?;
+        }
+        let uuid = txs[0].tx_slate_id.ok_or_else(|| ErrorKind::TransactionHasNoProof)?;
+        w.get_stored_tx_proof(&uuid.to_string())
     }
 
     pub fn verify_tx_proof(

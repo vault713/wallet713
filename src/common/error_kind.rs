@@ -21,6 +21,8 @@ pub enum ErrorKind {
     TransactionNotCancellable(String),
     #[fail(display = "transaction cancellation error: {}", _0)]
     TransactionCancellationError(&'static str),
+    #[fail(display = "transaction doesnt have a proof!")]
+    TransactionHasNoProof,
     #[fail(display = "internal transaction error!")]
     LibTX(libtx::ErrorKind),
     #[fail(display = "Not enough funds. Required: {}, Available: {}", needed_disp, available_disp)]

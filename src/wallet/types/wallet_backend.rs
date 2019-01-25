@@ -1,4 +1,4 @@
-use super::{Result, AcctPathMapping, OutputData, TxLogEntry, Context, Transaction, Keychain, Identifier, NodeClient, WalletBackendBatch};
+use super::{Result, AcctPathMapping, OutputData, TxLogEntry, Context, Transaction, Keychain, Identifier, NodeClient, WalletBackendBatch, TxProof};
 
 pub trait WalletBackend<C, K>
     where
@@ -21,6 +21,8 @@ pub trait WalletBackend<C, K>
     fn get_acct_path(&self, label: &str) -> Result<AcctPathMapping>;
     fn get_last_confirmed_height(&self) -> Result<u64>;
     fn get_stored_tx(&self, uuid: &str) -> Result<Transaction>;
+    fn has_stored_tx_proof(&self, uuid: &str) -> Result<bool>;
+    fn get_stored_tx_proof(&self, uuid: &str) -> Result<TxProof>;
     fn get_tx_log_by_slate_id(&self, slate_id: &str) -> Result<Option<TxLogEntry>>;
     fn outputs<'a>(&'a self) -> Box<dyn Iterator<Item = OutputData> + 'a>;
     fn tx_logs<'a>(&'a self) -> Box<dyn Iterator<Item = TxLogEntry> + 'a>;

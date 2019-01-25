@@ -97,7 +97,7 @@ impl Wallet {
         let wallet = self.get_wallet_instance()?;
         controller::owner_single_use(wallet.clone(), |api| {
             let (height, _) = api.node_height()?;
-            let (validated, txs) = api.retrieve_txs(true, None, None)?;
+            let (validated, txs) = api.retrieve_txs_with_proof_flag(true, None, None)?;
             display::txs(
                 &self.active_account,
                 height,
@@ -279,6 +279,12 @@ impl Wallet {
         let mut w = wallet.lock();
         w.open_with_credentials()?;
         derive_address_key(w.keychain(), index).map_err(|e| e.into())
+    }
+
+    pub fn get_tx_proof(&self, id: u32) -> Result<TxProof> {
+        let wallet = self.get_wallet_instance()?;
+        let mut api = Wallet713OwnerAPI::new(wallet.clone());
+        api.get_stored_tx_proof(id)
     }
 
     pub fn verify_tx_proof(&self, tx_proof: &TxProof) -> Result<(String, u64, Vec<String>, String)> {
