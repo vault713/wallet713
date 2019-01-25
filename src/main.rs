@@ -47,7 +47,7 @@ use rustyline::hint::Hinter;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
 use grin_api::client;
 use grin_core::core;
-use grin_core::global::{ChainTypes, set_mining_mode};
+use grin_core::global::{ChainTypes, set_mining_mode, is_mainnet};
 use url::Url;
 
 #[macro_use]
@@ -528,6 +528,25 @@ fn password_prompt(opt: Option<&str>) -> String {
         )
 }
 
+fn proof_ok(address: String, amount: u64, outputs: Vec<String>, kernel: String) {
+    println!("this file proves that [{}] received [{}] grins",
+             address.bright_green(),
+             core::amount_to_hr_string(amount, false).bright_green());
+    println!("outputs:");
+    for output in outputs {
+        println!("   {}", output.bright_magenta());
+    }
+    println!("kernel:");
+    println!("   {}", kernel.bright_magenta());
+    println!("\n{}: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations", "WARNING".bright_yellow());
+    println!("please use a grin block explorer to verify this is the case. for example:");
+    let prefix = match is_mainnet() {
+        true => "",
+        false => "floonet."
+    };
+    cli_message!("   https://{}grinscan.net/kernel/{}", prefix, kernel);
+}
+
 fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>, keybase_broker: &mut Option<(KeybasePublisher, KeybaseSubscriber)>, grinbox_broker: &mut Option<(GrinboxPublisher, GrinboxSubscriber)>, out_is_safe: &mut bool) -> Result<()> {
     *out_is_safe = true;
     let home_dir = dirs::home_dir().map(|p| p.to_str().unwrap().to_string()).unwrap_or("~".to_string());
@@ -950,17 +969,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                     let mut file = File::create(input.replace("~", &home_dir))?;
                     file.write_all(serde_json::to_string(&tx_proof)?.as_bytes())?;
                     println!("proof written to {}", input);
-                    println!("this file proves that [{}] received [{}] grins",
-                             address.bright_green(),
-                             core::amount_to_hr_string(amount, false).bright_green());
-                    println!("outputs:");
-                    for output in outputs {
-                        println!("   {}", output.bright_magenta());
-                    }
-                    println!("kernel:");
-                    println!("   {}", kernel.bright_magenta());
-                    println!("\n{}: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations", "WARNING".bright_yellow());
-                    cli_message!("please use a grin block explorer (such as grinscan.net) to verify this is the case");
+                    proof_ok(address, amount, outputs, kernel);
                 },
                 Err(_) => {
                     cli_message!("unable to verify proof");
@@ -983,17 +992,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 match wallet.verify_tx_proof(&tx_proof) {
                     Ok((address, amount, outputs, kernel)) => {
                         println!("proof verification succesful!");
-                        println!("this file proves that [{}] received [{}] grins",
-                                 address.bright_green(),
-                                 core::amount_to_hr_string(amount, false).bright_green());
-                        println!("outputs:");
-                        for output in outputs {
-                            println!("   {}", output.bright_magenta());
-                        }
-                        println!("kernel:");
-                        println!("   {}", kernel.bright_magenta());
-                        println!("\n{}: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations", "WARNING".bright_yellow());
-                        cli_message!("please use a grin block explorer (such as grinscan.net) to verify this is the case");
+                        proof_ok(address, amount, outputs, kernel);
                     },
                     Err(_) => {
                         cli_message!("unable to verify proof");
