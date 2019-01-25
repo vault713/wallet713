@@ -105,4 +105,6 @@ pub enum ErrorKind {
     HttpRequest,
     #[fail(display = "\x1b[31;1merror:\x1b[0m unable to verify proof")]
     VerifyProof,
+    #[fail(display = "\x1b[31;1merror:\x1b[0m file '{}' not found", 0)]
+    FileNotFound(String),
 }

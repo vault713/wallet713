@@ -247,6 +247,9 @@ impl<C, K> WalletBackend<C, K> for Backend<C, K>
             .join(TX_PROOF_SAVE_DIR)
             .join(filename);
         let tx_proof_file = Path::new(&path).to_path_buf();
+        if !tx_proof_file.exists() {
+            return Err(ErrorKind::TransactionHasNoProof.into());
+        }
         let mut tx_proof_f = File::open(tx_proof_file)?;
         let mut content = String::new();
         tx_proof_f.read_to_string(&mut content)?;

@@ -970,7 +970,11 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         Some("verify-proof") => {
             let args = matches.subcommand_matches("verify-proof").unwrap();
             let input = args.value_of("file").unwrap();
-            let mut file = File::open(input.replace("~", &home_dir))?;
+            let path = Path::new(&input.replace("~", &home_dir)).to_path_buf();
+            if !path.exists() {
+                return Err(ErrorKind::FileNotFound(input.to_string()).into());
+            }
+            let mut file = File::open(path)?;
             let mut proof = String::new();
             file.read_to_string(&mut proof)?;
             let mut tx_proof: TxProof = serde_json::from_str(&proof)?;
