@@ -954,11 +954,12 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                                  core::amount_to_hr_string(amount, false).bright_green());
                         println!("outputs:");
                         for output in outputs {
-                            println!("   {}", output.bright_yellow());
+                            println!("   {}", output.bright_magenta());
                         }
                         println!("kernel:");
-                        println!("   {}", kernel.bright_yellow());
-                        println!("please check the on-chain status of these outputs and kernels!");
+                        println!("   {}", kernel.bright_magenta());
+                        println!("\n{}: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations", "WARNING".bright_yellow());
+                        cli_message!("please use a grin block explorer (such as grinscan.net) to verify this is the case");
                     },
                     Err(_) => {
                         cli_message!("unable to verify proof");
