@@ -6,7 +6,8 @@ use grin_util::secp::pedersen;
 use grin_core::global;
 use grin_core::core::{self, amount_to_hr_string};
 
-use super::types::{AcctPathMapping, OutputData, OutputStatus, TxLogEntry, WalletInfo, Error};
+use super::types::{Arc, Mutex, AcctPathMapping, OutputData, OutputStatus, TxLogEntry, WalletInfo, Error};
+use crate::contacts::AddressBook;
 
 /// Display outputs in a pretty way
 pub fn outputs(
@@ -112,6 +113,7 @@ pub fn txs(
     txs: Vec<(TxLogEntry, bool)>,
     include_status: bool,
     dark_background_color_scheme: bool,
+    address_book: Option<Arc<Mutex<AddressBook>>>,
 ) -> Result<(), Error> {
     let title = format!(
         "Transaction Log - Account '{}' - Block Height: {}",
@@ -144,7 +146,19 @@ pub fn txs(
             None => String::from(""),
         };
         let address = match t.address {
-            Some(a) => a.clone(),
+            Some(ref a) => {
+                if let Some(ref address_book) = address_book {
+                    let mut address_book = address_book.lock();
+                    let contact = address_book.get_contact_by_address(a);
+                    if let Ok(contact) = contact {
+                        contact.get_name().to_string()
+                    } else {
+                        a.clone()
+                    }
+                } else {
+                    a.clone()
+                }
+            },
             None => String::from(""),
         };
         let entry_type = format!("{}", t.tx_type);

@@ -31,7 +31,7 @@ extern crate grin_util;
 extern crate grin_wallet;
 extern crate grin_store;
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::io::{Read, Write};
 use std::fs::File;
 use std::path::Path;
@@ -62,7 +62,7 @@ use common::config::Wallet713Config;
 use wallet::Wallet;
 use cli::Parser;
 
-use crate::wallet::types::TxProof;
+use crate::wallet::types::{TxProof, Mutex};
 
 use contacts::{Address, AddressType, GrinboxAddress, Contact, AddressBook, Backend};
 
@@ -121,7 +121,7 @@ fn do_config(args: &ArgMatches, chain: &Option<ChainTypes>, silent: bool, new_ad
 }
 
 fn do_contacts(args: &ArgMatches, address_book: Arc<Mutex<AddressBook>>) -> Result<()> {
-    let mut address_book = address_book.lock().unwrap();
+    let mut address_book = address_book.lock();
     if let Some(add_args) = args.subcommand_matches("add") {
         let name = add_args.value_of("name").expect("missing argument: name");
         let address = add_args.value_of("address").expect("missing argument: address");
@@ -204,13 +204,13 @@ impl Controller {
         if slate.num_participants > slate.participant_data.len() {
             //TODO: this needs to be changed to properly figure out if this slate is an invoice or a send
             if slate.tx.inputs().len() == 0 {
-                self.wallet.lock().unwrap().process_receiver_initiated_slate(slate)?;
+                self.wallet.lock().process_receiver_initiated_slate(slate)?;
             } else {
-                self.wallet.lock().unwrap().process_sender_initiated_slate(address, slate)?;
+                self.wallet.lock().process_sender_initiated_slate(address, slate)?;
             }
             Ok(false)
         } else {
-            self.wallet.lock().unwrap().finalize_slate(slate, tx_proof)?;
+            self.wallet.lock().finalize_slate(slate, tx_proof)?;
             Ok(true)
         }
     }
@@ -223,7 +223,7 @@ impl SubscriptionHandler for Controller {
 
     fn on_slate(&self, from: &Address, slate: &mut Slate, tx_proof: Option<&mut TxProof>) {
         let mut display_from = from.stripped();
-        if let Ok(contact) = self.address_book.lock().unwrap().get_contact_by_address(&from.to_string()) {
+        if let Ok(contact) = self.address_book.lock().get_contact_by_address(&from.to_string()) {
             display_from = contact.get_name().to_string();
         }
 
@@ -287,7 +287,8 @@ impl SubscriptionHandler for Controller {
 
 fn start_grinbox_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>) -> Result<(GrinboxPublisher, GrinboxSubscriber)> {
     // make sure wallet is not locked, if it is try to unlock with no passphrase
-    if let Ok(mut wallet) = wallet.lock() {
+    {
+        let mut wallet = wallet.lock();
         if wallet.is_locked() {
             wallet.unlock(config, "default", "")?;
         }
@@ -314,7 +315,8 @@ fn start_grinbox_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, 
 
 fn start_keybase_listener(config: &Wallet713Config, wallet: Arc<Mutex<Wallet>>, address_book: Arc<Mutex<AddressBook>>) -> Result<(KeybasePublisher, KeybaseSubscriber)> {
     // make sure wallet is not locked, if it is try to unlock with no passphrase
-    if let Ok(mut wallet) = wallet.lock() {
+    {
+        let mut wallet = wallet.lock();
         if wallet.is_locked() {
             wallet.unlock(config, "default", "")?;
         }
@@ -413,14 +415,14 @@ fn main() {
     let account = matches.value_of("account").unwrap_or("default").to_string();
     let has_wallet = if matches.is_present("passphrase") {
         let passphrase = password_prompt(matches.value_of("passphrase"));
-        let result = wallet.lock().unwrap().unlock(&config, &account, &passphrase);
+        let result = wallet.lock().unlock(&config, &account, &passphrase);
         if let Err(ref err) = result {
             println!("{}: {}", "ERROR".bright_red(), err);
             std::process::exit(1);
         }
         result.is_ok()
     } else {
-        wallet.lock().unwrap().unlock(&config, &account, "").is_ok()
+        wallet.lock().unlock(&config, &account, "").is_ok()
     };
 
     cli_message!("{}", WELCOME_HEADER.bright_yellow().bold());
@@ -507,7 +509,7 @@ fn derive_address_key(config: &mut Wallet713Config, wallet: Arc<Mutex<Wallet>>, 
         return Err(ErrorKind::HasListener.into());
     }
     let index = config.grinbox_address_index();
-    let key = wallet.lock().unwrap().derive_address_key(index)?;
+    let key = wallet.lock().derive_address_key(index)?;
     config.grinbox_address_key = Some(key);
     show_address(config, false)?;
     Ok(())
@@ -591,7 +593,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             *out_is_safe = args.value_of("passphrase").is_none();
 
             {
-                wallet.lock().unwrap().init(config, "default", passphrase.as_str())?;
+                wallet.lock().init(config, "default", passphrase.as_str())?;
             }
             derive_address_key(config, wallet, grinbox_broker)?;
             if passphrase.is_empty() {
@@ -603,7 +605,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             if keybase_broker.is_some() || grinbox_broker.is_some() {
                 return Err(ErrorKind::HasListener.into());
             }
-            wallet.lock().unwrap().lock();
+            wallet.lock().lock();
         },
         Some("unlock") => {
             let args = matches.subcommand_matches("unlock").unwrap();
@@ -615,7 +617,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             *out_is_safe = args.value_of("passphrase").is_none();
 
             {
-                let mut w = wallet.lock().unwrap();
+                let mut w = wallet.lock();
                 if !w.is_locked() {
                     return Err(ErrorKind::WalletAlreadyUnlocked.into());
                 }
@@ -626,7 +628,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             return Ok(());
         },
         Some("accounts") => {
-            wallet.lock().unwrap().list_accounts()?;
+            wallet.lock().list_accounts()?;
         },
         Some("account") => {
             let args = matches.subcommand_matches("account").unwrap();
@@ -635,14 +637,14 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let create_args = args.subcommand_matches("create");
             let switch_args = args.subcommand_matches("switch");
             if let Some(args) = create_args {
-                wallet.lock().unwrap().create_account(args.value_of("name").unwrap())?;
+                wallet.lock().create_account(args.value_of("name").unwrap())?;
             } else if let Some(args) = switch_args {
                 let account = args.value_of("name").unwrap();
                 let passphrase = match args.is_present("passphrase") {
                     true => password_prompt(args.value_of("passphrase")),
                     false => "".to_string(),
                 };
-                wallet.lock().unwrap().unlock(config, account, passphrase.as_str())?;
+                wallet.lock().unlock(config, account, passphrase.as_str())?;
             }
 
             return Ok(());
@@ -710,10 +712,10 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             }
         },
         Some("info") => {
-            wallet.lock().unwrap().info()?;
+            wallet.lock().info()?;
         },
         Some("txs") => {
-            wallet.lock().unwrap().txs()?;
+            wallet.lock().txs(Some(address_book.clone()))?;
         },
         Some("contacts") => {
             let arg_matches = matches.subcommand_matches("contacts").unwrap();
@@ -722,7 +724,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
         Some("outputs") => {
             let args = matches.subcommand_matches("outputs").unwrap();
             let show_spent = args.is_present("show-spent");
-            wallet.lock().unwrap().outputs(show_spent)?;
+            wallet.lock().outputs(show_spent)?;
         },
         Some("repost") => {
             let args = matches.subcommand_matches("repost").unwrap();
@@ -730,7 +732,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let id = id.parse::<u32>().map_err(|_| {
                 ErrorKind::InvalidTxId(id.to_string())
             })?;
-            wallet.lock().unwrap().repost(id, false)?;
+            wallet.lock().repost(id, false)?;
         },
         Some("cancel") => {
             let args = matches.subcommand_matches("cancel").unwrap();
@@ -738,7 +740,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let id = id.parse::<u32>().map_err(|_| {
                 ErrorKind::InvalidTxId(id.to_string())
             })?;
-            wallet.lock().unwrap().cancel(id)?;
+            wallet.lock().cancel(id)?;
         },
         Some("receive") => {
             let args = matches.subcommand_matches("receive").unwrap();
@@ -748,7 +750,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             file.read_to_string(&mut slate)?;
             let mut slate: Slate = serde_json::from_str(&slate)?;
             let mut file = File::create(&format!("{}.response", input.replace("~", &home_dir)))?;
-            wallet.lock().unwrap().process_sender_initiated_slate(Some(String::from("file")), &mut slate)?;
+            wallet.lock().process_sender_initiated_slate(Some(String::from("file")), &mut slate)?;
             cli_message!("{} received.", input);
             file.write_all(serde_json::to_string(&slate).unwrap().as_bytes())?;
             cli_message!("{}.response created successfully.", input);
@@ -760,7 +762,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let mut slate = String::new();
             file.read_to_string(&mut slate)?;
             let mut slate: Slate = serde_json::from_str(&slate)?;
-            wallet.lock().unwrap().finalize_slate(&mut slate, None)?;
+            wallet.lock().finalize_slate(&mut slate, None)?;
             cli_message!("{} finalized.", input);
         },
         Some("send") => {
@@ -792,16 +794,18 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             // Store slate in a file
             if let Some(input) = input {
                 let mut file = File::create(input.replace("~", &home_dir))?;
-                let slate = wallet.lock().unwrap().initiate_send_tx(Some(String::from("file")), amount, confirmations, strategy, change_outputs, 500, message)?;
+                let slate = wallet.lock().initiate_send_tx(Some(String::from("file")), amount, confirmations, strategy, change_outputs, 500, message)?;
                 file.write_all(serde_json::to_string(&slate).unwrap().as_bytes())?;
                 cli_message!("{} created successfully.", input);
                 return Ok(());
             }
 
             let mut to = to.unwrap().to_string();
+            let mut display_to = None;
             if to.starts_with("@") {
-                let contact = address_book.lock().unwrap().get_contact(&to[1..])?;
+                let contact = address_book.lock().get_contact(&to[1..])?;
                 to = contact.get_address().to_string();
+                display_to = Some(contact.get_name().to_string());
             }
 
             // try parse as a general address and fallback to grinbox address
@@ -813,10 +817,14 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 }
             };
             let to = address?;
+            if display_to.is_none() {
+                display_to = Some(to.stripped());
+            }
+
             let slate: Result<Slate> = match to.address_type() {
                 AddressType::Keybase => {
                     if let Some((publisher, _)) = keybase_broker {
-                        let slate = wallet.lock().unwrap().initiate_send_tx(Some(to.to_string()), amount, confirmations, strategy, change_outputs, 500, message)?;
+                        let slate = wallet.lock().initiate_send_tx(Some(to.to_string()), amount, confirmations, strategy, change_outputs, 500, message)?;
                         let mut keybase_address = contacts::KeybaseAddress::from_str(&to.to_string())?;
                         keybase_address.topic = Some(broker::TOPIC_SLATE_NEW.to_string());
                         publisher.post_slate(&slate, keybase_address.borrow())?;
@@ -827,7 +835,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 }
                 AddressType::Grinbox => {
                     if let Some((publisher, _)) = grinbox_broker {
-                        let slate = wallet.lock().unwrap().initiate_send_tx(Some(to.to_string()), amount, confirmations, strategy, change_outputs, 500, message)?;
+                        let slate = wallet.lock().initiate_send_tx(Some(to.to_string()), amount, confirmations, strategy, change_outputs, 500, message)?;
                         publisher.post_slate(&slate, to.borrow())?;
                         Ok(slate)
                     } else {
@@ -836,7 +844,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 },
                 AddressType::Https => {
                     let url = Url::parse(&format!("{}/v1/wallet/foreign/receive_tx", to.to_string()))?;
-                    let slate = wallet.lock().unwrap().initiate_send_tx(Some(to.to_string()), amount, confirmations, strategy, change_outputs, 500, message)?;
+                    let slate = wallet.lock().initiate_send_tx(Some(to.to_string()), amount, confirmations, strategy, change_outputs, 500, message)?;
                     client::post(url.as_str(), None, &slate)
                         .map_err(|_| ErrorKind::HttpRequest.into())
                 }
@@ -847,11 +855,11 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             cli_message!("slate [{}] for [{}] grins sent successfully to [{}]",
                 slate.id.to_string().bright_green(),
                 core::amount_to_hr_string(slate.amount, false).bright_green(),
-                to.stripped().bright_green()
+                display_to.unwrap().bright_green()
             );
 
             if to.address_type() == AddressType::Https {
-                wallet.lock().unwrap().finalize_slate(&mut slate, None)?;
+                wallet.lock().finalize_slate(&mut slate, None)?;
                 cli_message!("slate [{}] finalized successfully", slate.id.to_string().bright_green());
             }
         },
@@ -869,9 +877,11 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             })?;
 
             let mut to = to.to_string();
+            let mut display_to = None;
             if to.starts_with("@") {
-                let contact = address_book.lock().unwrap().get_contact(&to[1..])?;
+                let contact = address_book.lock().get_contact(&to[1..])?;
                 to = contact.get_address().to_string();
+                display_to = Some(contact.get_name().to_string());
             }
 
             // try parse as a general address
@@ -884,10 +894,13 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             };
 
             let to = address?;
+            if display_to.is_none() {
+                display_to = Some(to.stripped());
+            }
             let slate: Result<Slate> = match to.address_type() {
                 AddressType::Keybase => {
                     if let Some((publisher, _)) = keybase_broker {
-                        let slate = wallet.lock().unwrap().initiate_receive_tx(amount, outputs)?;
+                        let slate = wallet.lock().initiate_receive_tx(amount, outputs)?;
                         publisher.post_slate(&slate, to.borrow())?;
                         Ok(slate)
                     } else {
@@ -896,7 +909,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 }
                 AddressType::Grinbox => {
                     if let Some((publisher, _)) = grinbox_broker {
-                        let slate = wallet.lock().unwrap().initiate_receive_tx(amount, outputs)?;
+                        let slate = wallet.lock().initiate_receive_tx(amount, outputs)?;
                         publisher.post_slate(&slate, to.borrow())?;
                         Ok(slate)
                     } else {
@@ -910,7 +923,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             cli_message!("invoice slate [{}] for [{}] grins sent successfully to [{}]",
                 slate.id.to_string().bright_green(),
                 core::amount_to_hr_string(slate.amount, false).bright_green(),
-                to.stripped().bright_green()
+                display_to.unwrap().bright_green()
             );
         },
         Some("restore") => {
@@ -928,7 +941,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             println!("restoring... please wait as this could take a few minutes to complete.");
 
             {
-                let mut w = wallet.lock().unwrap();
+                let mut w = wallet.lock();
                 if let Some(words) = args.values_of("words") {
                     let words: Vec<&str> = words.collect();
                     w.restore_seed(config, &words, passphrase.as_str())?;
@@ -950,10 +963,9 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 return Err(ErrorKind::HasListener.into());
             }
             println!("checking and repairing... please wait as this could take a few minutes to complete.");
-            if let Ok(mut wallet) = wallet.lock() {
-                wallet.check_repair()?;
-                cli_message!("check and repair done!");
-            }
+            let mut wallet = wallet.lock();
+            wallet.check_repair()?;
+            cli_message!("check and repair done!");
         },
         Some("export-proof" ) => {
             let args = matches.subcommand_matches("export-proof").unwrap();
@@ -962,7 +974,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let id = id.parse::<u32>().map_err(|_| {
                 ErrorKind::InvalidTxId(id.to_string())
             })?;
-            let w = wallet.lock().unwrap();
+            let w = wallet.lock();
             let tx_proof = w.get_tx_proof(id)?;
             match w.verify_tx_proof(&tx_proof) {
                 Ok((address, amount, outputs, kernel)) => {
@@ -988,17 +1000,15 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             file.read_to_string(&mut proof)?;
             let mut tx_proof: TxProof = serde_json::from_str(&proof)?;
 
-            if let Ok(mut wallet) = wallet.lock() {
-                match wallet.verify_tx_proof(&tx_proof) {
-                    Ok((address, amount, outputs, kernel)) => {
-                        println!("proof verification succesful!");
-                        proof_ok(address, amount, outputs, kernel);
-                    },
-                    Err(_) => {
-                        cli_message!("unable to verify proof");
-                    }
+            let mut wallet = wallet.lock();
+            match wallet.verify_tx_proof(&tx_proof) {
+                Ok((address, amount, outputs, kernel)) => {
+                    println!("proof verification succesful!");
+                    proof_ok(address, amount, outputs, kernel);
+                },
+                Err(_) => {
+                    cli_message!("unable to verify proof");
                 }
-
             }
         },
         Some(subcommand) => {
