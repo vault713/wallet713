@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::cell::RefCell;
 use std::path::Path;
 use std::fs::{create_dir_all};
@@ -8,7 +7,7 @@ use grin_core::ser::{Readable, Writeable, Reader, Writer};
 use grin_core::ser::Error as CoreError;
 
 use super::types::{Address, Contact, AddressBookBackend, AddressBookBatch};
-use common::Error;
+use common::{Error, Arc};
 
 const DB_DIR: &'static str = "contacts";
 const CONTACT_PREFIX: u8 = 'X' as u8;

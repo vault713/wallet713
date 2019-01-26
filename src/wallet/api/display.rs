@@ -151,7 +151,7 @@ pub fn txs(
                     let mut address_book = address_book.lock();
                     let contact = address_book.get_contact_by_address(a);
                     if let Ok(contact) = contact {
-                        contact.get_name().to_string()
+                        format!("@{}", contact.get_name())
                     } else {
                         a.clone()
                     }

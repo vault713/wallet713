@@ -1,4 +1,3 @@
-use std::sync::{Arc, Mutex};
 use std::thread;
 use ws::{connect, Sender, Handler, Handshake, Message, CloseCode, Result as WsResult, ErrorKind as WsErrorKind, Error as WsError};
 use ws::util::Token;
@@ -6,7 +5,7 @@ use ws::util::Token;
 use grin_core::libtx::slate::Slate;
 
 use crate::wallet::types::{TxProofErrorKind, TxProof};
-use common::{ErrorKind, Result};
+use common::{ErrorKind, Result, Arc, Mutex};
 use common::crypto::{SecretKey, sign_challenge, Hex, EncryptedMessage};
 use contacts::{Address, GrinboxAddress, DEFAULT_GRINBOX_PORT};
 
@@ -164,9 +163,10 @@ impl GrinboxBroker {
                 let cloned_cloned_inner = cloned_inner.clone();
                 let cloned_connection_meta_data = connection_meta_data.clone();
                 let result = connect(url.clone(), move |sender| {
-                    if let Ok(mut guard) = cloned_cloned_inner.lock() {
+                    {
+                        let mut guard = cloned_cloned_inner.lock();
                         *guard = Some(sender.clone());
-                    };
+                    }
 
                     let client = GrinboxClient {
                         sender,
@@ -179,18 +179,18 @@ impl GrinboxBroker {
                     client
                 });
 
-                let is_stopped = cloned_inner.lock().unwrap().is_none();
+                let is_stopped = cloned_inner.lock().is_none();
 
                 if is_stopped {
                     match result {
-                        Err(_) => handler.lock().unwrap().on_close(CloseReason::Abnormal(ErrorKind::GrinboxWebsocketAbnormalTermination.into())),
-                        _ => handler.lock().unwrap().on_close(CloseReason::Normal),
+                        Err(_) => handler.lock().on_close(CloseReason::Abnormal(ErrorKind::GrinboxWebsocketAbnormalTermination.into())),
+                        _ => handler.lock().on_close(CloseReason::Normal),
                     }
                     break;
                 } else {
-                    let mut guard = connection_meta_data.lock().unwrap();
+                    let mut guard = connection_meta_data.lock();
                     if guard.retries == 0 && guard.connected_at_least_once {
-                        handler.lock().unwrap().on_dropped();
+                        handler.lock().on_dropped();
                     }
                     let secs = std::cmp::min(32, 2u64.pow(guard.retries));
                     let duration = std::time::Duration::from_secs(secs);
@@ -198,14 +198,14 @@ impl GrinboxBroker {
                     guard.retries += 1;
                 }
             }
-            let mut guard = cloned_inner.lock().unwrap();
+            let mut guard = cloned_inner.lock();
             *guard = None;
         });
         Ok(())
     }
 
     fn stop(&self) {
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.lock();
         if let Some(ref sender) = *guard {
             sender.close(CloseCode::Normal).is_ok();
         }
@@ -213,7 +213,7 @@ impl GrinboxBroker {
     }
 
     fn is_running(&self) -> bool {
-        let guard = self.inner.lock().unwrap();
+        let guard = self.inner.lock();
         guard.is_some()
     }
 }
@@ -249,12 +249,12 @@ impl GrinboxClient {
 
 impl Handler for GrinboxClient {
     fn on_open(&mut self, _shake: Handshake) -> WsResult<()> {
-        let mut guard = self.connection_meta_data.lock().unwrap();
+        let mut guard = self.connection_meta_data.lock();
 
         if guard.connected_at_least_once {
-            self.handler.lock().unwrap().on_reestablished();
+            self.handler.lock().on_reestablished();
         } else {
-            self.handler.lock().unwrap().on_open();
+            self.handler.lock().on_open();
             guard.connected_at_least_once = true;
         }
 
@@ -328,7 +328,7 @@ impl Handler for GrinboxClient {
                 };
 
                 let address = tx_proof.address.clone();
-                self.handler.lock().unwrap().on_slate(&address, &mut slate, Some(&mut tx_proof));
+                self.handler.lock().on_slate(&address, &mut slate, Some(&mut tx_proof));
             },
             ProtocolResponse::Error { kind: _, description: _ } => {
                 cli_message!("{}", response);

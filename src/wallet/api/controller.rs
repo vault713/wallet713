@@ -1,6 +1,4 @@
-use std::sync::Arc;
-
-use super::types::{WalletBackend, NodeClient, Error, Keychain, Mutex};
+use super::types::{WalletBackend, NodeClient, Error, Keychain, Arc, Mutex};
 use super::api::{Wallet713ForeignAPI, Wallet713OwnerAPI};
 
 pub fn owner_single_use<F, T: ?Sized, C, K>(wallet: Arc<Mutex<T>>, f: F) -> Result<(), Error>

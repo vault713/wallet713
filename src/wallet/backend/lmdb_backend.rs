@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::sync::Arc;
 use std::{fs, path};
 use std::fs::File;
 use std::io::{Read, Write};
@@ -14,9 +13,7 @@ use grin_core::{global, ser};
 use grin_store::{self, option_to_not_found, to_key, to_key_u64};
 use grin_wallet::WalletConfig;
 
-use crate::wallet::types::TxProof;
-
-use super::types::{ErrorKind, Result, WalletSeed, WalletBackend, WalletBackendBatch, ChildNumber, Transaction, OutputData, TxLogEntry, AcctPathMapping, Context, ExtKeychain, Identifier, Keychain, NodeClient};
+use super::types::{TxProof, Arc, ErrorKind, Result, WalletSeed, WalletBackend, WalletBackendBatch, ChildNumber, Transaction, OutputData, TxLogEntry, AcctPathMapping, Context, ExtKeychain, Identifier, Keychain, NodeClient};
 use super::api::restore;
 
 pub const DB_DIR: &'static str = "db";

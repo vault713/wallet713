@@ -14,9 +14,6 @@ mod wallet_backend_batch;
 mod wallet_inst;
 mod context_type;
 
-pub use std::sync::Arc;
-pub use failure::Error;
-pub use grin_util::Mutex;
 pub use grin_util::secp::key::{PublicKey, SecretKey};
 pub use grin_core::core::hash::Hash;
 pub use grin_core::core::{Output, TxKernel, Transaction};
@@ -25,7 +22,7 @@ pub use grin_keychain::{Identifier, Keychain, ChildNumber, ExtKeychain};
 pub use grin_wallet::{WalletSeed, EncryptedWalletSeed};
 pub use grin_wallet::libwallet::types::{NodeClient, TxWrapper};
 
-pub use common::{ErrorKind, Result};
+pub use common::{Error, ErrorKind, Result, Arc, Mutex};
 
 pub use self::output_data::OutputData;
 pub use self::output_status::OutputStatus;
