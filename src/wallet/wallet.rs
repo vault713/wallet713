@@ -12,6 +12,7 @@ use crate::common::hasher::derive_address_key;
 use crate::common::crypto::Hex;
 use crate::wallet::types::TxProof;
 use crate::wallet::api::Wallet713OwnerAPI;
+use crate::contacts::AddressBook;
 
 pub struct Wallet {
     active_account: String,
@@ -93,7 +94,7 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn txs(&self) -> Result<()> {
+    pub fn txs(&self, address_book: Option<Arc<Mutex<AddressBook>>>) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
         controller::owner_single_use(wallet.clone(), |api| {
             let (height, _) = api.node_height()?;
@@ -105,6 +106,7 @@ impl Wallet {
                 txs,
                 true,
                 true,
+                address_book,
             )?;
             Ok(())
         })?;

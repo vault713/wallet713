@@ -14,6 +14,7 @@ mod wallet_backend_batch;
 mod wallet_inst;
 mod context_type;
 
+pub use std::sync::Arc;
 pub use failure::Error;
 pub use grin_util::Mutex;
 pub use grin_util::secp::key::{PublicKey, SecretKey};
