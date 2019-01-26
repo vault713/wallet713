@@ -1,18 +1,15 @@
 use std::collections::HashSet;
 use std::marker::PhantomData;
-use std::sync::Arc;
 use uuid::Uuid;
 
 use grin_core::ser;
-use grin_util::Mutex;
 use grin_util::secp::{ContextFlag, Secp256k1};
 use grin_util::secp::key::PublicKey;
 use grin_util::secp::pedersen;
 
-use crate::wallet::types::TxProof;
 use crate::contacts::GrinboxAddress;
 
-use super::types::{Transaction, Slate, Keychain, Identifier, NodeClient, TxWrapper, WalletBackend, AcctPathMapping, OutputData, TxLogEntry, TxLogEntryType, WalletInfo, ContextType, Error, ErrorKind};
+use super::types::{TxProof, Arc, Mutex, Transaction, Slate, Keychain, Identifier, NodeClient, TxWrapper, WalletBackend, AcctPathMapping, OutputData, TxLogEntry, TxLogEntryType, WalletInfo, ContextType, Error, ErrorKind};
 use super::tx;
 use super::keys;
 use super::updater;

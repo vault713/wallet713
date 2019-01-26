@@ -31,7 +31,6 @@ extern crate grin_util;
 extern crate grin_wallet;
 extern crate grin_store;
 
-use std::sync::Arc;
 use std::io::{Read, Write};
 use std::fs::File;
 use std::path::Path;
@@ -62,7 +61,7 @@ use common::config::Wallet713Config;
 use wallet::Wallet;
 use cli::Parser;
 
-use crate::wallet::types::{TxProof, Mutex};
+use crate::wallet::types::{TxProof, Arc, Mutex};
 
 use contacts::{Address, AddressType, GrinboxAddress, Contact, AddressBook, Backend};
 

@@ -1,10 +1,9 @@
-use std::sync::Arc;
 use grin_wallet::{HTTPNodeClient, NodeClient, WalletConfig};
 
 use common::{ErrorKind, Result};
 use common::config::Wallet713Config;
 
-use super::types::{SecretKey, Slate, ExtKeychain, Mutex, WalletBackend, WalletInst, WalletSeed};
+use super::types::{Arc, SecretKey, Slate, ExtKeychain, Mutex, WalletBackend, WalletInst, WalletSeed};
 use super::backend::Backend;
 use super::api::{controller, display};
 

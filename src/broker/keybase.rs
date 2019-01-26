@@ -1,6 +1,5 @@
 use std::process::{Command, Stdio};
 use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::borrow::Borrow;
 use std::iter::FromIterator;
@@ -9,7 +8,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use grin_core::libtx::slate::Slate;
 
-use common::{ErrorKind, Result};
+use common::{ErrorKind, Result, Arc, Mutex};
 use contacts::{Address, KeybaseAddress};
 use super::types::{Publisher, Subscriber, SubscriptionHandler, CloseReason};
 
@@ -66,13 +65,15 @@ impl Publisher for KeybasePublisher {
 
 impl Subscriber for KeybaseSubscriber {
     fn start(&mut self, handler: Box<SubscriptionHandler + Send>) -> Result<()> {
-        if let Ok(mut guard) = self.stop_signal.lock() {
+        {
+           let mut guard = self.stop_signal.lock();
             *guard = false;
         }
+
         let mut subscribed = false;
         let mut dropped = false;
         let result: Result<()> = loop {
-            if *self.stop_signal.lock().unwrap() {
+            if *self.stop_signal.lock() {
                 break Ok(())
             };
             let result = KeybaseBroker::get_unread(HashSet::from_iter(vec![
@@ -121,12 +122,12 @@ impl Subscriber for KeybaseSubscriber {
     }
 
     fn stop(&self) {
-        let mut guard = self.stop_signal.lock().unwrap();
+        let mut guard = self.stop_signal.lock();
         *guard = true;
     }
 
     fn is_running(&self) -> bool {
-        let guard = self.stop_signal.lock().unwrap();
+        let guard = self.stop_signal.lock();
         !*guard
     }
 }
