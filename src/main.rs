@@ -799,9 +799,11 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             }
 
             let mut to = to.unwrap().to_string();
+            let mut display_to = None;
             if to.starts_with("@") {
                 let contact = address_book.lock().unwrap().get_contact(&to[1..])?;
                 to = contact.get_address().to_string();
+                display_to = Some(contact.get_name().to_string());
             }
 
             // try parse as a general address and fallback to grinbox address
@@ -813,6 +815,10 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
                 }
             };
             let to = address?;
+            if display_to.is_none() {
+                display_to = Some(to.stripped());
+            }
+
             let slate: Result<Slate> = match to.address_type() {
                 AddressType::Keybase => {
                     if let Some((publisher, _)) = keybase_broker {
@@ -847,7 +853,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             cli_message!("slate [{}] for [{}] grins sent successfully to [{}]",
                 slate.id.to_string().bright_green(),
                 core::amount_to_hr_string(slate.amount, false).bright_green(),
-                to.stripped().bright_green()
+                display_to.unwrap().bright_green()
             );
 
             if to.address_type() == AddressType::Https {
@@ -869,9 +875,11 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             })?;
 
             let mut to = to.to_string();
+            let mut display_to = None;
             if to.starts_with("@") {
                 let contact = address_book.lock().unwrap().get_contact(&to[1..])?;
                 to = contact.get_address().to_string();
+                display_to = Some(contact.get_name().to_string());
             }
 
             // try parse as a general address
@@ -884,6 +892,9 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             };
 
             let to = address?;
+            if display_to.is_none() {
+                display_to = Some(to.stripped());
+            }
             let slate: Result<Slate> = match to.address_type() {
                 AddressType::Keybase => {
                     if let Some((publisher, _)) = keybase_broker {
@@ -910,7 +921,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             cli_message!("invoice slate [{}] for [{}] grins sent successfully to [{}]",
                 slate.id.to_string().bright_green(),
                 core::amount_to_hr_string(slate.amount, false).bright_green(),
-                to.stripped().bright_green()
+                display_to.unwrap().bright_green()
             );
         },
         Some("restore") => {
