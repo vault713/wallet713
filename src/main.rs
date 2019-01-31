@@ -529,7 +529,8 @@ fn password_prompt(opt: Option<&str>) -> String {
         )
 }
 
-fn proof_ok(address: String, amount: u64, outputs: Vec<String>, kernel: String) {
+fn proof_ok(sender: Option<String>, receiver: String, amount: u64, outputs: Vec<String>, kernel: String) {
+
     println!("this file proves that [{}] received [{}] grins",
              address.bright_green(),
              core::amount_to_hr_string(amount, false).bright_green());
@@ -976,11 +977,11 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let w = wallet.lock();
             let tx_proof = w.get_tx_proof(id)?;
             match w.verify_tx_proof(&tx_proof) {
-                Ok((address, amount, outputs, kernel)) => {
+                Ok((sender, receiver, amount, outputs, kernel)) => {
                     let mut file = File::create(input.replace("~", &home_dir))?;
                     file.write_all(serde_json::to_string(&tx_proof)?.as_bytes())?;
                     println!("proof written to {}", input);
-                    proof_ok(address, amount, outputs, kernel);
+                    proof_ok(sender, receiver, amount, outputs, kernel);
                 },
                 Err(_) => {
                     cli_message!("unable to verify proof");
@@ -1001,9 +1002,9 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
 
             let mut wallet = wallet.lock();
             match wallet.verify_tx_proof(&tx_proof) {
-                Ok((address, amount, outputs, kernel)) => {
-                    println!("proof verification succesful!");
-                    proof_ok(address, amount, outputs, kernel);
+                Ok((sender, receiver, amount, outputs, kernel)) => {
+                    println!("proof verification successful!");
+                    proof_ok(sender, receiver, amount, outputs, kernel);
                 },
                 Err(_) => {
                     cli_message!("unable to verify proof");

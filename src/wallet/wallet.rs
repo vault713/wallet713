@@ -288,17 +288,17 @@ impl Wallet {
         api.get_stored_tx_proof(id)
     }
 
-    pub fn verify_tx_proof(&self, tx_proof: &TxProof) -> Result<(String, u64, Vec<String>, String)> {
+    pub fn verify_tx_proof(&self, tx_proof: &TxProof) -> Result<(Option<String>, String, u64, Vec<String>, String)> {
         let wallet = self.get_wallet_instance()?;
         let mut api = Wallet713OwnerAPI::new(wallet.clone());
-        let (address, amount, outputs, excess_sum) = api.verify_tx_proof(tx_proof)?;
+        let (sender, receiver, amount, outputs, excess_sum) = api.verify_tx_proof(tx_proof)?;
 
         let outputs = outputs
             .iter()
             .map(|o| grin_util::to_hex(o.0.to_vec()))
             .collect();
 
-        Ok((address.public_key.clone(), amount, outputs, excess_sum.to_hex()))
+        Ok((sender.map(|a| a.public_key.clone()), receiver.public_key.clone(), amount, outputs, excess_sum.to_hex()))
     }
 
     fn init_seed(&self, wallet_config: &WalletConfig, passphrase: &str) -> Result<WalletSeed> {

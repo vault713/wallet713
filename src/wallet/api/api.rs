@@ -393,10 +393,10 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
     pub fn verify_tx_proof(
         &mut self,
         tx_proof: &TxProof,
-    ) -> Result<(GrinboxAddress, u64, Vec<pedersen::Commitment>, PublicKey), Error> {
+    ) -> Result<(Option<GrinboxAddress>, GrinboxAddress, u64, Vec<pedersen::Commitment>, PublicKey), Error> {
         let secp = &Secp256k1::with_caps(ContextFlag::Commit);
 
-        let slate = tx_proof.verify_extract(None)
+        let (destination, slate) = tx_proof.verify_extract(None)
             .map_err(|_| ErrorKind::VerifyProof)?;
 
         let inputs_ex = tx_proof.inputs
@@ -435,7 +435,7 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
             return Err(ErrorKind::VerifyProof.into());
         }
 
-        return Ok((tx_proof.address.clone(), tx_proof.amount, outputs, excess_sum));
+        return Ok((destination, tx_proof.address.clone(), tx_proof.amount, outputs, excess_sum));
     }
 }
 

@@ -35,7 +35,7 @@ pub struct TxProof {
 }
 
 impl TxProof {
-    pub fn verify_extract(&self, expected_destination: Option<&GrinboxAddress>) -> Result<Slate, ErrorKind> {
+    pub fn verify_extract(&self, expected_destination: Option<&GrinboxAddress>) -> Result<(Option<GrinboxAddress>, Slate), ErrorKind> {
         let mut challenge = String::new();
         challenge.push_str(self.message.as_str());
         challenge.push_str(self.challenge.as_str());
@@ -50,7 +50,8 @@ impl TxProof {
             .map_err(|_| ErrorKind::ParseEncryptedMessage)?;
 
         // TODO: at some point, make this check required
-        if encrypted_message.destination.is_some() && expected_destination.is_some() && encrypted_message.destination.as_ref() != expected_destination {
+        let destination = encrypted_message.destination;
+        if encrypted_message.destination.is_some() && expected_destination.is_some() && destination.as_ref() != expected_destination {
             return Err(ErrorKind::VerifyDestination);
         }
 
@@ -58,6 +59,7 @@ impl TxProof {
             .map_err(|_| ErrorKind::DecryptMessage)?;
 
         serde_json::from_str(&decrypted_message)
+            .map(|message| (destination, message))
             .map_err(|_| ErrorKind::ParseSlate)
     }
 
@@ -85,7 +87,7 @@ impl TxProof {
             outputs: vec![],
         };
 
-        let slate = proof.verify_extract(expected_destination)?;
+        let (_, slate) = proof.verify_extract(expected_destination)?;
 
         Ok((slate, proof))
     }
