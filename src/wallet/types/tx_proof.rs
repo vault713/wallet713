@@ -3,8 +3,9 @@ use grin_util::secp::Signature;
 use grin_util::secp::key::SecretKey;
 use grin_util::secp::pedersen::Commitment;
 
-use crate::common::crypto::{EncryptedMessage, Hex};
+use crate::common::crypto::Hex;
 use crate::common::crypto::verify_signature;
+use crate::common::message::EncryptedMessage;
 use crate::contacts::{Address, GrinboxAddress};
 
 #[derive(Debug)]
@@ -49,7 +50,7 @@ impl TxProof {
             .map_err(|_| ErrorKind::ParseEncryptedMessage)?;
 
         // TODO: at some point, make this check required
-        if encrypted_message.destination.is_some() && encrypted_message.destination != expected_destination.map(|a| a.to_string()) {
+        if encrypted_message.destination.is_some() && expected_destination.is_some() && encrypted_message.destination.as_ref() != expected_destination {
             return Err(ErrorKind::VerifyDestination);
         }
 

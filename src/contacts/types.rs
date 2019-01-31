@@ -187,7 +187,7 @@ pub fn version_bytes() -> Vec<u8> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct GrinboxAddress {
     pub public_key: String,
     pub domain: String,

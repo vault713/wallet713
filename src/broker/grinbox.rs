@@ -6,7 +6,8 @@ use grin_core::libtx::slate::Slate;
 
 use crate::wallet::types::{TxProofErrorKind, TxProof};
 use common::{ErrorKind, Result, Arc, Mutex};
-use common::crypto::{SecretKey, sign_challenge, Hex, EncryptedMessage};
+use common::crypto::{SecretKey, sign_challenge, Hex};
+use common::message::EncryptedMessage;
 use contacts::{Address, GrinboxAddress, DEFAULT_GRINBOX_PORT};
 
 use super::types::{Publisher, Subscriber, SubscriptionHandler, CloseReason};
@@ -116,7 +117,7 @@ impl GrinboxBroker {
                 let response = serde_json::from_str::<ProtocolResponse>(&msg.to_string()).expect("could not parse response!");
                 match response {
                     ProtocolResponse::Challenge { str } => {
-                        let message = EncryptedMessage::new(serde_json::to_string(&slate).unwrap(), to.to_string(), &pkey, &skey).map_err(|_|
+                        let message = EncryptedMessage::new(serde_json::to_string(&slate).unwrap(), &to, &pkey, &skey).map_err(|_|
                             WsError::new(WsErrorKind::Protocol, "could not encrypt slate!")
                         )?;
                         let slate_str = serde_json::to_string(&message).unwrap();
