@@ -119,13 +119,15 @@ pub fn verify_signature(challenge: &str, signature: &Signature, public_key: &Pub
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EncryptedMessage {
+    #[serde(default)]
+    pub destination: Option<String>,
     encrypted_message: String,
     salt: String,
     nonce: String,
 }
 
 impl EncryptedMessage {
-    pub fn new(message: String, receiver_public_key: &PublicKey, secret_key: &SecretKey) -> Result<EncryptedMessage> {
+    pub fn new(message: String, destination: String, receiver_public_key: &PublicKey, secret_key: &SecretKey) -> Result<EncryptedMessage> {
         let secp = Secp256k1::new();
         let mut common_secret = receiver_public_key.clone();
         common_secret.mul_assign(&secp, secret_key).map_err(|_| ErrorKind::Encryption)?;
@@ -147,6 +149,7 @@ impl EncryptedMessage {
             .map_err(|_| ErrorKind::Encryption)?;
 
         Ok(EncryptedMessage {
+            destination: Some(destination),
             encrypted_message: to_hex(enc_bytes),
             salt: to_hex(salt.to_vec()),
             nonce: to_hex(nonce.to_vec()),

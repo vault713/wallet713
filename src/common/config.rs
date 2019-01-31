@@ -117,7 +117,7 @@ impl Wallet713Config {
 
     pub fn get_grinbox_address(&self) -> Result<GrinboxAddress> {
         let public_key = self.get_grinbox_public_key()?;
-        Ok(GrinboxAddress::new(public_key, self.grinbox_domain.clone(), self.grinbox_port))
+        Ok(GrinboxAddress::new(public_key, Some(self.grinbox_domain.clone()), self.grinbox_port))
     }
 
     pub fn get_grinbox_public_key(&self) -> Result<PublicKey> {

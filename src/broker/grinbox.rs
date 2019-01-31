@@ -116,7 +116,7 @@ impl GrinboxBroker {
                 let response = serde_json::from_str::<ProtocolResponse>(&msg.to_string()).expect("could not parse response!");
                 match response {
                     ProtocolResponse::Challenge { str } => {
-                        let message = EncryptedMessage::new(serde_json::to_string(&slate).unwrap(), &pkey, &skey).map_err(|_|
+                        let message = EncryptedMessage::new(serde_json::to_string(&slate).unwrap(), to.to_string(), &pkey, &skey).map_err(|_|
                             WsError::new(WsErrorKind::Protocol, "could not encrypt slate!")
                         )?;
                         let slate_str = serde_json::to_string(&message).unwrap();
@@ -291,7 +291,7 @@ impl Handler for GrinboxClient {
                 })?;
             },
             ProtocolResponse::Slate { from, str, challenge, signature } => {
-                let (mut slate, mut tx_proof) = match TxProof::from_response(from, str, challenge, signature, &self.secret_key) {
+                let (mut slate, mut tx_proof) = match TxProof::from_response(from, str, challenge, signature, &self.secret_key, Some(&self.address)) {
                     Ok(x) => x,
                     Err(TxProofErrorKind::ParseAddress) => {
                         cli_message!("could not parse address!");
@@ -311,6 +311,10 @@ impl Handler for GrinboxClient {
                     },
                     Err(TxProofErrorKind::ParseEncryptedMessage) => {
                         cli_message!("could not parse encrypted slate!");
+                        return Ok(());
+                    },
+                    Err(TxProofErrorKind::VerifyDestination) => {
+                        cli_message!("could not verify destination!");
                         return Ok(());
                     },
                     Err(TxProofErrorKind::DecryptionKey) => {

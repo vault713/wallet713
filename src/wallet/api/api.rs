@@ -396,7 +396,7 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
     ) -> Result<(GrinboxAddress, u64, Vec<pedersen::Commitment>, PublicKey), Error> {
         let secp = &Secp256k1::with_caps(ContextFlag::Commit);
 
-        let slate = tx_proof.verify_extract()
+        let slate = tx_proof.verify_extract(None)
             .map_err(|_| ErrorKind::VerifyProof)?;
 
         let inputs_ex = tx_proof.inputs

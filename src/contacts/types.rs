@@ -195,10 +195,10 @@ pub struct GrinboxAddress {
 }
 
 impl GrinboxAddress {
-    pub fn new(public_key: PublicKey, domain: String, port: Option<u16>) -> Self {
+    pub fn new(public_key: PublicKey, domain: Option<String>, port: Option<u16>) -> Self {
         Self {
             public_key: public_key.to_base58_check(version_bytes()),
-            domain,
+            domain: domain.unwrap_or(DEFAULT_GRINBOX_DOMAIN.to_string()),
             port,
         }
     }
@@ -218,18 +218,12 @@ impl Address for GrinboxAddress {
 
         let captures = captures.unwrap();
         let public_key = captures.name("public_key").unwrap().as_str().to_string();
-        let domain = captures.name("domain").map(|m| m.as_str().to_string()).unwrap_or(DEFAULT_GRINBOX_DOMAIN.to_string());
+        let domain = captures.name("domain").map(|m| m.as_str().to_string());
         let port = captures.name("port").map(|m| u16::from_str_radix(m.as_str(), 10).unwrap());
 
-        PublicKey::from_base58_check(&public_key, version_bytes())?;
+        let public_key = PublicKey::from_base58_check(&public_key, version_bytes())?;
 
-        let address = Self {
-            public_key,
-            domain,
-            port,
-        };
-
-        Ok(address)
+        Ok(GrinboxAddress::new(public_key, domain, port))
     }
 
     fn address_type(&self) -> AddressType {
