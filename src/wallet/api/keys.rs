@@ -11,6 +11,23 @@ pub fn next_available_key<T: ?Sized, C, K>(wallet: &mut T) -> Result<Identifier>
 	Ok(child)
 }
 
+/// Retrieve an existing key from a wallet
+pub fn retrieve_existing_key<T: ?Sized, C, K>(
+	wallet: &T,
+	key_id: Identifier,
+	mmr_index: Option<u64>,
+) -> Result<(Identifier, u32)>
+	where
+		T: WalletBackend<C, K>,
+		C: NodeClient,
+		K: Keychain,
+{
+	let existing = wallet.get_output(&key_id, &mmr_index)?;
+	let key_id = existing.key_id.clone();
+	let derivation = existing.n_child;
+	Ok((key_id, derivation))
+}
+
 /// Returns a list of account to BIP32 path mappings
 pub fn accounts<T: ?Sized, C, K>(wallet: &mut T) -> Result<Vec<AcctPathMapping>>
 	where

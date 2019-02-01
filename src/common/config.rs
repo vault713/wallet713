@@ -33,6 +33,13 @@ pub struct Wallet713Config {
     pub keybase_listener_auto_start: Option<bool>,
     pub max_auto_accept_invoice: Option<u64>,
     pub default_keybase_ttl: Option<String>,
+    pub owner_api: Option<bool>,
+    pub owner_api_address: Option<String>,
+    pub owner_api_secret: Option<String>,
+    pub owner_api_include_foreign: Option<bool>,
+    pub foreign_api: Option<bool>,
+    pub foreign_api_address: Option<String>,
+    pub foreign_api_secret: Option<String>,
     #[serde(skip)]
     pub config_home: Option<String>,
     #[serde(skip)]
@@ -159,6 +166,22 @@ impl Wallet713Config {
                 _ => Some(String::from("thanksvault713EcRXKbYS")),
             }
         }
+    }
+
+    pub fn owner_api_address(&self) -> String {
+        self.owner_api_address.as_ref().map(|a| a.clone()).unwrap_or_else(|| String::from("127.0.0.1:12233"))
+    }
+
+    pub fn foreign_api_address(&self) -> String {
+        self.foreign_api_address.as_ref().map(|a| a.clone()).unwrap_or_else(|| String::from("127.0.0.1:12234"))
+    }
+
+    pub fn owner_api(&self) -> bool {
+        self.owner_api.unwrap_or(false)
+    }
+
+    pub fn foreign_api(&self) -> bool {
+        self.foreign_api.unwrap_or(false)
     }
 }
 

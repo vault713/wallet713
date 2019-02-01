@@ -1,9 +1,11 @@
+use uuid::Uuid;
 use grin_wallet::{HTTPNodeClient, NodeClient, WalletConfig};
+use grin_util::secp::pedersen;
 
 use common::{ErrorKind, Result};
 use common::config::Wallet713Config;
 
-use super::types::{Arc, SecretKey, Slate, ExtKeychain, Mutex, WalletBackend, WalletInst, WalletSeed};
+use super::types::{Transaction, TxLogEntry, OutputData, Arc, SecretKey, BlockFees, CbData, Slate, ExtKeychain, Mutex, WalletBackend, WalletInst, WalletSeed, WalletInfo};
 use super::backend::Backend;
 use super::api::{controller, display};
 
@@ -213,6 +215,16 @@ impl Wallet {
         Ok(())
     }
 
+    pub fn build_coinbase(&self, block_fees: &BlockFees) -> Result<CbData> {
+        let wallet = self.get_wallet_instance()?;
+        let mut cb_data = None;
+        controller::foreign_single_use(wallet.clone(), |api| {
+            cb_data = Some(api.build_coinbase(block_fees)?);
+            Ok(())
+        })?;
+        Ok(cb_data.unwrap())
+    }
+
     pub fn process_sender_initiated_slate(&self, address: Option<String>, slate: &mut Slate) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
         controller::foreign_single_use(wallet.clone(), |api| {
@@ -273,6 +285,66 @@ impl Wallet {
             })?;
         }
         Ok(())
+    }
+
+    pub fn retrieve_summary_info(&self, refresh: bool) -> Result<WalletInfo> {
+        let wallet = self.get_wallet_instance()?;
+        let mut info = None;
+        controller::owner_single_use(wallet.clone(), |api| {
+            let (_, i) = api.retrieve_summary_info(refresh, 10)?;
+            info = Some(i);
+            Ok(())
+        })?;
+        Ok(info.unwrap())
+    }
+
+    pub fn retrieve_outputs(&self, include_spent: bool, refresh_from_node: bool, tx_id: Option<u32>) -> Result<(bool, Vec<(OutputData, pedersen::Commitment)>)> {
+        let wallet = self.get_wallet_instance()?;
+        let mut result= (false, vec![]);
+        controller::owner_single_use(wallet.clone(), |api| {
+            result = api.retrieve_outputs(include_spent, refresh_from_node, tx_id)?;
+            Ok(())
+        })?;
+        Ok(result)
+    }
+
+    pub fn retrieve_txs(&self, refresh_from_node: bool, tx_id: Option<u32>, tx_slate_id: Option<Uuid>) -> Result<(bool, Vec<TxLogEntry>)> {
+        let wallet = self.get_wallet_instance()?;
+        let mut result= (false, vec![]);
+        controller::owner_single_use(wallet.clone(), |api| {
+            result = api.retrieve_txs(refresh_from_node, tx_id, tx_slate_id)?;
+            Ok(())
+        })?;
+        Ok(result)
+    }
+
+    pub fn get_stored_tx(&self, uuid: &str) -> Result<Transaction> {
+        let wallet = self.get_wallet_instance()?;
+        let mut result = Transaction::default();
+        controller::owner_single_use(wallet.clone(), |api| {
+            result = api.get_stored_tx(uuid)?;
+            Ok(())
+        })?;
+        Ok(result)
+    }
+
+    pub fn post_tx(&self, tx: &Transaction, fluff: bool) -> Result<()> {
+        let wallet = self.get_wallet_instance()?;
+        controller::owner_single_use(wallet.clone(), |api| {
+            api.post_tx(tx, fluff)?;
+            Ok(())
+        })?;
+        Ok(())
+    }
+
+    pub fn node_height(&self) -> Result<(u64, bool)> {
+        let wallet = self.get_wallet_instance()?;
+        let mut result = (0, false);
+        controller::owner_single_use(wallet.clone(), |api| {
+            result = api.node_height()?;
+            Ok(())
+        })?;
+        Ok(result)
     }
 
     pub fn derive_address_key(&self, index: u32) -> Result<SecretKey> {

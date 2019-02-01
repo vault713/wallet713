@@ -1,10 +1,16 @@
 use std::collections::HashMap;
+use failure::ResultExt;
 use uuid::Uuid;
 
 use grin_util::secp::pedersen;
-use grin_util::from_hex;
+use grin_util::{to_hex, from_hex};
+use grin_core::{ser, global};
+use grin_core::core::{Output, TxKernel};
+use grin_core::consensus::reward;
+use grin_core::libtx::reward;
+use super::keys;
 
-use super::types::{Identifier, Keychain, NodeClient, Result, WalletBackend, OutputData, OutputStatus, TxLogEntry, TxLogEntryType, WalletInfo};
+use super::types::{BlockFees, CbData, Identifier, Keychain, NodeClient, Result, ErrorKind, WalletBackend, OutputData, OutputStatus, TxLogEntry, TxLogEntryType, WalletInfo};
 
 /// Retrieve all of the outputs (doesn't attempt to update from node)
 pub fn retrieve_outputs<T: ?Sized, C, K>(
@@ -397,4 +403,90 @@ pub fn retrieve_info<T: ?Sized, C, K>(
         amount_locked: locked_total,
         amount_currently_spendable: unspent_total,
     })
+}
+
+/// Build a coinbase output and insert into wallet
+pub fn build_coinbase<T: ?Sized, C, K>(
+    wallet: &mut T,
+    block_fees: &BlockFees,
+) -> Result<CbData>
+    where
+        T: WalletBackend<C, K>,
+        C: NodeClient,
+        K: Keychain,
+{
+    let (out, kern, block_fees) = receive_coinbase(wallet, block_fees).context(ErrorKind::Node)?;
+
+    let out_bin = ser::ser_vec(&out).context(ErrorKind::Node)?;
+
+    let kern_bin = ser::ser_vec(&kern).context(ErrorKind::Node)?;
+
+    let key_id_bin = match block_fees.key_id {
+        Some(key_id) => ser::ser_vec(&key_id).context(ErrorKind::Node)?,
+        None => vec![],
+    };
+
+    Ok(CbData {
+        output: to_hex(out_bin),
+        kernel: to_hex(kern_bin),
+        key_id: to_hex(key_id_bin),
+    })
+}
+
+//TODO: Split up the output creation and the wallet insertion
+/// Build a coinbase output and the corresponding kernel
+pub fn receive_coinbase<T: ?Sized, C, K>(
+    wallet: &mut T,
+    block_fees: &BlockFees,
+) -> Result<(Output, TxKernel, BlockFees)>
+    where
+        T: WalletBackend<C, K>,
+        C: NodeClient,
+        K: Keychain,
+{
+    let height = block_fees.height;
+    let lock_height = height + global::coinbase_maturity();
+    let key_id = block_fees.key_id();
+    let parent_key_id = wallet.get_parent_key_id();
+
+    let key_id = match key_id {
+        Some(key_id) => keys::retrieve_existing_key(wallet, key_id, None)?.0,
+        None => keys::next_available_key(wallet)?,
+    };
+
+    {
+        // Now acquire the wallet lock and write the new output.
+        let amount = reward(block_fees.fees);
+        let commit = wallet.calc_commit_for_cache(amount, &key_id)?;
+        let mut batch = wallet.batch()?;
+        batch.save_output(&OutputData {
+            root_key_id: parent_key_id,
+            key_id: key_id.clone(),
+            n_child: key_id.to_path().last_path_index(),
+            mmr_index: None,
+            commit: commit,
+            value: amount,
+            status: OutputStatus::Unconfirmed,
+            height: height,
+            lock_height: lock_height,
+            is_coinbase: true,
+            tx_log_entry: None,
+        })?;
+        batch.commit()?;
+    }
+
+    debug!(
+        "receive_coinbase: built candidate output - {:?}, {}",
+        key_id.clone(),
+        key_id,
+    );
+
+    let mut block_fees = block_fees.clone();
+    block_fees.key_id = Some(key_id.clone());
+
+    debug!("receive_coinbase: {:?}", block_fees);
+
+    let (out, kern) = reward::output(wallet.keychain(), &key_id, block_fees.fees).unwrap();
+    /* .context(ErrorKind::Keychain)?; */
+    Ok((out, kern, block_fees))
 }

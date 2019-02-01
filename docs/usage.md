@@ -31,6 +31,7 @@ While running, wallet713 works with an internal command prompt. You type command
       - [Paying invoices](#paying-invoices)
     + [Splitting your outputs](#splitting-your-outputs)
   * [Running your own node](#running-your-own-node)
+  * [Configuring Foreign & Owner APIs](#configuring_foreign_and_owner_apis)
   * [Restoring your wallet](#restoring-your-wallet)
     + [Restoring a wallet using your mnemonic BIP-39 phrase](#restoring-a-wallet-using-your-mnemonic-bip-39-phrase)
   * [Supported address formats](#supported-address-formats)
@@ -317,6 +318,40 @@ wallet713> $ invoice 10 --to @faucet -o 2
 ## Running your own node
 
 Set corresponding `grin_node_uri` and `grin_node_secret` in your `~/.wallet713/XXX/wallet713.toml` where `XXX` is `floo` or `main` depending on which network you run the wallet for.
+
+## Configuring Foreign and Owner APIs
+
+Wallet713 provides a *variant* of grin's default wallet foregin and owner APIs.
+
+In order to expose those API endpoints, you should use the following configuration parameters in `wallet713.toml`:
+
+### Foreign API
+```
+foreign_api = true
+foreign_api_address = "0.0.0.0:13415"
+foreign_api_secret = "<some secret string>"
+```
+
+Wallet713 Foreign API supports the default grin's wallet foregin API, allowing it to serve as a coinbase wallet, interacting directly with the default grin_miner.
+
+Additionally, the API supports a new route for receiving invoice slates: `/v1/wallet/foreign/receive_invoice`.
+
+### Owner API
+```
+owner_api = true
+owner_api_address = "127.0.0.1:13420"
+owner_api_secret = "<some secret string>"
+owner_api_include_foreign = <true|false>
+``` 
+
+Wallet713 Owner API supports the default grin's wallet owner API. Additionally `issue_send_tx` supports `grinbox` method where `dest` argument is a grinbox address.
+
+Note that in order to utilize `keybase` and `grinbox` methods, the grinbox and keybase listeners must be initialized automatically at start by using the following configuration parameters in `wallet713.toml`:
+
+```
+grinbox_listener_auto_start = true
+keybase_listener_auto_start = true
+```
 
 ## Restoring your wallet
 

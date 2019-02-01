@@ -2,6 +2,7 @@
 #[macro_use] extern crate prettytable;
 #[macro_use] extern crate log;
 #[macro_use] extern crate serde_json;
+#[macro_use] extern crate gotham_derive;
 extern crate failure;
 extern crate serde;
 extern crate clap;
@@ -23,6 +24,10 @@ extern crate chrono;
 extern crate term;
 extern crate blake2_rfc;
 extern crate url;
+extern crate gotham;
+extern crate hyper;
+extern crate mime;
+extern crate parking_lot;
 
 extern crate grin_api;
 extern crate grin_core;
@@ -46,7 +51,7 @@ use rustyline::hint::Hinter;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
 use grin_api::client;
 use grin_core::core;
-use grin_core::global::{ChainTypes, set_mining_mode, is_mainnet};
+use grin_core::global::{ChainTypes, set_mining_mode, is_floonet};
 use url::Url;
 
 #[macro_use]
@@ -55,11 +60,13 @@ mod broker;
 mod wallet;
 mod contacts;
 mod cli;
+mod api;
 
 use common::{ErrorKind, Result, RuntimeMode, PROMPT, COLORED_PROMPT};
 use common::config::Wallet713Config;
 use wallet::Wallet;
 use cli::Parser;
+use api::router::{build_owner_api_router, build_foreign_api_router};
 
 use crate::wallet::types::{TxProof, Arc, Mutex};
 
@@ -455,6 +462,38 @@ fn main() {
         }
     }
 
+    if config.owner_api() || config.foreign_api() {
+        let _owner_handle = match config.owner_api {
+            Some(true) => {
+                cli_message!("starting listener for owner api on [{}]", config.owner_api_address().bright_green());
+                if config.owner_api_secret.is_none() {
+                    cli_message!("{}: no api secret for owner api, it is recommended to set one.", "WARNING".bright_yellow());
+                }
+                let router = build_owner_api_router(wallet.clone(), grinbox_broker.clone(), keybase_broker.clone(), config.owner_api_secret.clone(), config.owner_api_include_foreign);
+                let address = config.owner_api_address();
+                Some(std::thread::spawn(move || {
+                    gotham::start(address, router);
+                }))
+            }
+            _ => None,
+        };
+
+        let _foreign_handle = match config.foreign_api {
+            Some(true) => {
+                cli_message!("starting listener for foreign api on [{}]", config.foreign_api_address().bright_green());
+                if config.foreign_api_secret.is_none() {
+                    cli_message!("{}: no api secret for foreign api, it is recommended to set one.", "WARNING".bright_yellow());
+                }
+                let router = build_foreign_api_router(wallet.clone(), grinbox_broker.clone(), keybase_broker.clone(), config.foreign_api_secret.clone());
+                let address = config.foreign_api_address();
+                Some(std::thread::spawn(move || {
+                    gotham::start(address, router);
+                }))
+            }
+            _ => None
+        };
+    }
+
     let editor_config = Config::builder()
         .history_ignore_space(true)
         .completion_type(CompletionType::List)
@@ -541,9 +580,9 @@ fn proof_ok(address: String, amount: u64, outputs: Vec<String>, kernel: String) 
     println!("   {}", kernel.bright_magenta());
     println!("\n{}: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations", "WARNING".bright_yellow());
     println!("please use a grin block explorer to verify this is the case. for example:");
-    let prefix = match is_mainnet() {
-        true => "",
-        false => "floonet."
+    let prefix = match is_floonet() {
+        true => "floonet.",
+        false => ""
     };
     cli_message!("   https://{}grinscan.net/kernel/{}", prefix, kernel);
 }
