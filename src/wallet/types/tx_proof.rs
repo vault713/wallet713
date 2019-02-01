@@ -50,8 +50,8 @@ impl TxProof {
             .map_err(|_| ErrorKind::ParseEncryptedMessage)?;
 
         // TODO: at some point, make this check required
-        let destination = encrypted_message.destination;
-        if encrypted_message.destination.is_some() && expected_destination.is_some() && destination.as_ref() != expected_destination {
+        let destination = encrypted_message.destination.clone();
+        if destination.is_some() && expected_destination.is_some() && destination.as_ref() != expected_destination {
             return Err(ErrorKind::VerifyDestination);
         }
 

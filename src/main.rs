@@ -530,10 +530,14 @@ fn password_prompt(opt: Option<&str>) -> String {
 }
 
 fn proof_ok(sender: Option<String>, receiver: String, amount: u64, outputs: Vec<String>, kernel: String) {
+    let sender_message = sender.map(|s| format!(" from [{}]", s)).unwrap_or(String::new());
 
-    println!("this file proves that [{}] received [{}] grins",
-             address.bright_green(),
-             core::amount_to_hr_string(amount, false).bright_green());
+    println!("this file proves that [{}] grins was sent to [{}]{}",
+        core::amount_to_hr_string(amount, false).bright_green(),
+        receiver.bright_green(),
+        sender_message
+    );
+
     println!("outputs:");
     for output in outputs {
         println!("   {}", output.bright_magenta());
