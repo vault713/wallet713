@@ -103,6 +103,10 @@ pub enum ErrorKind {
     UnknownAccountLabel(String),
     #[fail(display = "\x1b[31;1merror:\x1b[0m http request error")]
     HttpRequest,
+    #[fail(display = "Node API error")]
+    Node,
+    #[fail(display = "{}", 0)]
+    GenericError(String),
     #[fail(display = "\x1b[31;1merror:\x1b[0m unable to verify proof")]
     VerifyProof,
     #[fail(display = "\x1b[31;1merror:\x1b[0m file '{}' not found", 0)]

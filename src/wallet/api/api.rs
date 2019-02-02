@@ -9,7 +9,7 @@ use grin_util::secp::pedersen;
 
 use crate::contacts::GrinboxAddress;
 
-use super::types::{TxProof, Arc, Mutex, Transaction, Slate, Keychain, Identifier, NodeClient, TxWrapper, WalletBackend, AcctPathMapping, OutputData, TxLogEntry, TxLogEntryType, WalletInfo, ContextType, Error, ErrorKind};
+use super::types::{BlockFees, CbData, TxProof, Arc, Mutex, Transaction, Slate, Keychain, Identifier, NodeClient, TxWrapper, WalletBackend, AcctPathMapping, OutputData, TxLogEntry, TxLogEntryType, WalletInfo, ContextType, Error, ErrorKind};
 use super::tx;
 use super::keys;
 use super::updater;
@@ -495,6 +495,14 @@ impl<W: ?Sized, C, K> Wallet713ForeignAPI<W, C, K>
         w.open_with_credentials()?;
         add_fn(&mut *w, &slate.tx)?;
         Ok(())
+    }
+
+    pub fn build_coinbase(&mut self, block_fees: &BlockFees) -> Result<CbData, Error> {
+        let mut w = self.wallet.lock();
+        w.open_with_credentials()?;
+        let res = updater::build_coinbase(&mut *w, block_fees);
+        w.close()?;
+        res
     }
 
     pub fn receive_tx(
