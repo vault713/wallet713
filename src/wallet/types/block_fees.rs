@@ -10,3 +10,10 @@ pub struct BlockFees {
     /// key id
     pub key_id: Option<Identifier>,
 }
+
+impl BlockFees {
+    /// return key id
+    pub fn key_id(&self) -> Option<Identifier> {
+        self.key_id.clone()
+    }
+}

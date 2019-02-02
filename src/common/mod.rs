@@ -10,7 +10,7 @@ pub use self::error_kind::ErrorKind;
 pub use self::macros::*;
 pub use failure::Error;
 pub use std::sync::Arc;
-pub use grin_util::Mutex;
+pub use parking_lot::{Mutex, MutexGuard};
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, PartialEq)]

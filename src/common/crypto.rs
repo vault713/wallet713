@@ -1,5 +1,5 @@
 pub use grin_util::secp::{Message, Secp256k1, Signature};
-pub use grin_util::secp::key::{PublicKey ,SecretKey};
+pub use grin_util::secp::key::{PublicKey, SecretKey};
 use grin_util::secp::pedersen::Commitment;
 
 use std::fmt::Write;

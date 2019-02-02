@@ -33,6 +33,13 @@ pub struct Wallet713Config {
     pub keybase_listener_auto_start: Option<bool>,
     pub max_auto_accept_invoice: Option<u64>,
     pub default_keybase_ttl: Option<String>,
+    pub owner_api: Option<bool>,
+    pub owner_api_address: Option<String>,
+    pub owner_api_secret: Option<String>,
+    pub owner_api_include_foreign: Option<bool>,
+    pub foreign_api: Option<bool>,
+    pub foreign_api_address: Option<String>,
+    pub foreign_api_secret: Option<String>,
     #[serde(skip)]
     pub config_home: Option<String>,
     #[serde(skip)]
@@ -151,7 +158,7 @@ impl Wallet713Config {
     }
 
     pub fn grin_node_secret(&self) -> Option<String> {
-        let chain_type = self.chain.as_ref().unwrap_or(&ChainTypes::Floonet);
+        let chain_type = self.chain.as_ref().unwrap_or(&ChainTypes::Mainnet);
         match self.grin_node_uri {
             Some(_) => self.grin_node_secret.clone(),
             None => match chain_type {
@@ -159,6 +166,34 @@ impl Wallet713Config {
                 _ => Some(String::from("thanksvault713EcRXKbYS")),
             }
         }
+    }
+
+    pub fn owner_api_address(&self) -> String {
+        let chain_type = self.chain.as_ref().unwrap_or(&ChainTypes::Mainnet);
+        self.owner_api_address.as_ref().map(|a| a.clone()).unwrap_or_else(|| {
+            match chain_type {
+                ChainTypes::Mainnet => String::from("127.0.0.1:3420"),
+                _ => String::from("127.0.0.1:13420"),
+            }
+        })
+    }
+
+    pub fn foreign_api_address(&self) -> String {
+        let chain_type = self.chain.as_ref().unwrap_or(&ChainTypes::Mainnet);
+        self.foreign_api_address.as_ref().map(|a| a.clone()).unwrap_or_else(|| {
+            match chain_type {
+                ChainTypes::Mainnet => String::from("127.0.0.1:3415"),
+                _ => String::from("127.0.0.1:13415"),
+            }
+        })
+    }
+
+    pub fn owner_api(&self) -> bool {
+        self.owner_api.unwrap_or(false)
+    }
+
+    pub fn foreign_api(&self) -> bool {
+        self.foreign_api.unwrap_or(false)
     }
 }
 

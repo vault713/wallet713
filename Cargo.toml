@@ -1,6 +1,6 @@
 [package]
 name = "wallet713"
-version = "0.1.0"
+version = "1.0.1"
 authors = ["vault713 devs"]
 description = "A wallet that makes it easy to send, store, and swap Grin."
 keywords = [ "grin", "mimblewimble", "rust", "crypto", "cryptocurrency" ]
@@ -30,12 +30,17 @@ hmac = "0.6"
 ripemd160 = "0.7"
 ring = "0.13"
 prettytable-rs = "0.7"
+gotham = "0.3.0"
+gotham_derive = "0.3.0"
+hyper = "0.12"
+mime = "0.3"
 chrono = { version = "0.4.4", features = ["serde"] }
 term = "0.5"
 blake2-rfc = "0.2"
 log = "0.4"
 rpassword = "2.1.0"
 url = "1.7"
+parking_lot = {version = "0.6"}
 
 grin_api = { git = "https://github.com/mimblewimble/grin" }
 grin_core = { git = "https://github.com/mimblewimble/grin" }

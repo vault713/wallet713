@@ -22,7 +22,7 @@ pub use grin_keychain::{Identifier, Keychain, ChildNumber, ExtKeychain};
 pub use grin_wallet::{WalletSeed, EncryptedWalletSeed};
 pub use grin_wallet::libwallet::types::{NodeClient, TxWrapper};
 
-pub use common::{Error, ErrorKind, Result, Arc, Mutex};
+pub use common::{Error, ErrorKind, Result, Arc, Mutex, MutexGuard};
 
 pub use self::output_data::OutputData;
 pub use self::output_status::OutputStatus;
