@@ -51,7 +51,7 @@ use rustyline::hint::Hinter;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
 use grin_api::client;
 use grin_core::core;
-use grin_core::global::{ChainTypes, set_mining_mode, is_floonet};
+use grin_core::global::{ChainTypes, set_mining_mode, is_mainnet};
 use url::Url;
 
 #[macro_use]
@@ -580,9 +580,9 @@ fn proof_ok(address: String, amount: u64, outputs: Vec<String>, kernel: String) 
     println!("   {}", kernel.bright_magenta());
     println!("\n{}: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations", "WARNING".bright_yellow());
     println!("please use a grin block explorer to verify this is the case. for example:");
-    let prefix = match is_floonet() {
-        true => "floonet.",
-        false => ""
+    let prefix = match is_mainnet() {
+        true => "",
+        false => "floonet."
     };
     cli_message!("   https://{}grinscan.net/kernel/{}", prefix, kernel);
 }
