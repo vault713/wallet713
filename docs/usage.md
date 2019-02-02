@@ -332,7 +332,7 @@ foreign_api_address = "0.0.0.0:13415"
 foreign_api_secret = "<some secret string>"
 ```
 
-Wallet713 Foreign API supports the default grin's wallet foregin API, allowing it to serve as a coinbase wallet, interacting directly with the default grin_miner.
+Wallet713 Foreign API supports the default grin's wallet foreign API, allowing it to serve as a coinbase wallet, interacting directly with the default grin_miner.
 
 Additionally, the API supports a new route for receiving invoice slates: `/v1/wallet/foreign/receive_invoice`.
 

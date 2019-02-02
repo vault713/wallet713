@@ -310,7 +310,7 @@ impl Wallet {
 
     pub fn retrieve_txs(&self, refresh_from_node: bool, tx_id: Option<u32>, tx_slate_id: Option<Uuid>) -> Result<(bool, Vec<TxLogEntry>)> {
         let wallet = self.get_wallet_instance()?;
-        let mut result= (false, vec![]);
+        let mut result = (false, vec![]);
         controller::owner_single_use(wallet.clone(), |api| {
             result = api.retrieve_txs(refresh_from_node, tx_id, tx_slate_id)?;
             Ok(())

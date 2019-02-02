@@ -158,7 +158,7 @@ impl Wallet713Config {
     }
 
     pub fn grin_node_secret(&self) -> Option<String> {
-        let chain_type = self.chain.as_ref().unwrap_or(&ChainTypes::Floonet);
+        let chain_type = self.chain.as_ref().unwrap_or(&ChainTypes::Mainnet);
         match self.grin_node_uri {
             Some(_) => self.grin_node_secret.clone(),
             None => match chain_type {
@@ -169,11 +169,23 @@ impl Wallet713Config {
     }
 
     pub fn owner_api_address(&self) -> String {
-        self.owner_api_address.as_ref().map(|a| a.clone()).unwrap_or_else(|| String::from("127.0.0.1:12233"))
+        let chain_type = self.chain.as_ref().unwrap_or(&ChainTypes::Mainnet);
+        self.owner_api_address.as_ref().map(|a| a.clone()).unwrap_or_else(|| {
+            match chain_type {
+                ChainTypes::Mainnet => String::from("127.0.0.1:3420"),
+                _ => String::from("127.0.0.1:13420"),
+            }
+        })
     }
 
     pub fn foreign_api_address(&self) -> String {
-        self.foreign_api_address.as_ref().map(|a| a.clone()).unwrap_or_else(|| String::from("127.0.0.1:12234"))
+        let chain_type = self.chain.as_ref().unwrap_or(&ChainTypes::Mainnet);
+        self.foreign_api_address.as_ref().map(|a| a.clone()).unwrap_or_else(|| {
+            match chain_type {
+                ChainTypes::Mainnet => String::from("127.0.0.1:3415"),
+                _ => String::from("127.0.0.1:13415"),
+            }
+        })
     }
 
     pub fn owner_api(&self) -> bool {
