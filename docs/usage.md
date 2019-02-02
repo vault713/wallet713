@@ -173,13 +173,13 @@ Thanks to the use of grinbox, wallet713 supports proving that a particular amoun
 
 In the below example,
 1. Alice wants to send Bob 1.337 grins and prove to Carol that this transaction has occurred.
-1. Bob has grinbox address: `xd7auPddUmmEzSte48a2aZ9tWkjjCppgn41pemUfcVSqjxHHZ6cT`;
+1. Bob has grinbox address: `xd7sCQ9bQuQXp4yCn8GSELcuSxnpcPrPoEWJzvPBc5vxyXPQz6PJ`;
 
 #### Creating a transaction proof
 
 1. Alice uses grinbox to send Bob grins using grinbox and broadcasts the transaction to the blockchain:
    ```
-   wallet713> $ send 1.337 --to xd7auPddUmmEzSte48a2aZ9tWkjjCppgn41pemUfcVSqjxHHZ6cT
+   wallet713> $ send 0.233232 --to xd7sCQ9bQuQXp4yCn8GSELcuSxnpcPrPoEWJzvPBc5vxyXPQz6PJ
    ```
 1. Alice runs `txs` command to display the transaction log and to identify which ID her transaction has:
    ```
@@ -187,7 +187,7 @@ In the below example,
    ```
    The transaction in question should show a `yes` in the `proof` column. Example output:
    ```
-    23  Sent Tx      4b6ede9f  grinbox://xd7auPddUmmEzSte48a2aZ9tWkjjCppgn41pemUfcVSqjxHHZ6cT                 2019-01-27 20:45:01  yes         2019-01-31 01:02:18  -1.338      yes 
+    23  Sent Tx      4b6ede9f  grinbox://xd7sCQ9bQuQXp4yCn8GSELcuSxnpcPrPoEWJzvPBc5vxyXPQz6PJ                 2019-01-27 20:45:01  yes         2019-01-31 01:02:18  -0.234232      yes 
    ```
 
 1. Alice now generates a proof for this transaction:
@@ -213,7 +213,7 @@ In the below example,
    ```
 1. Alice can now send `proof.txt` to Carol, who then can use it to verify the proof. As per the output note above, the proof **is only valid if the kernel in question is found on-chain**. One way to verify this is to locate the specific kernel in a block using a blockchain explorer.
 
-**IMPORTANT NOTE:** When sending to older versions of the wallet, the address of the sender might be missing. In this case the proof only proves that the address of the receiving party. In this case, anyone in posession of this proof can claim they were the sender. If the sender field is missing, a warning will be displayed.
+**IMPORTANT NOTE:** When sending to older versions of the wallet, the address of the sender might be missing. In this case the proof only proves that the address of the receiving party. Anyone in posession of this proof can claim they were the sender. If the sender field is missing, a warning will be displayed.
 
 #### Verifying a transaction proof
 
@@ -237,7 +237,7 @@ please use a grin block explorer to verify this is the case. for example:
 ```
 Once again, as per the output note above, the proof **is only valid if the kernel in question is found on-chain**. One way to verify this is to locat the specific kernel in a block using a blockchain explorer.
 
-**IMPORTANT NOTE:** When sending to older versions of the wallet, the address of the sender might be missing. In this case the proof only proves that the address of the receiving party. In this case, anyone in posession of this proof can claim they were the sender. If the sender field is missing, a warning will be displayed.
+**IMPORTANT NOTE:** When sending to older versions of the wallet, the address of the sender might be missing. In this case the proof only proves that the address of the receiving party. Anyone in posession of this proof can claim they were the sender. If the sender field is missing, a warning will be displayed.
 
 ### Using Contacts
 
