@@ -1011,7 +1011,6 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             let mut wallet = wallet.lock();
             match wallet.verify_tx_proof(&tx_proof) {
                 Ok((sender, receiver, amount, outputs, kernel)) => {
-                    println!("proof verification successful!");
                     proof_ok(sender, receiver, amount, outputs, kernel);
                 },
                 Err(_) => {

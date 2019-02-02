@@ -1,5 +1,6 @@
 pub use grin_util::secp::{Message, Secp256k1, Signature};
 pub use grin_util::secp::key::{PublicKey ,SecretKey};
+use grin_util::secp::pedersen::Commitment;
 
 use std::fmt::Write;
 use super::base58::{ToBase58, FromBase58};
@@ -85,6 +86,17 @@ impl Hex<SecretKey> for SecretKey {
         let secp = Secp256k1::new();
         let data = from_hex(str.to_string())?;
         SecretKey::from_slice(&secp, &data).map_err(|_| ErrorKind::Secp.into())
+    }
+
+    fn to_hex(&self) -> String {
+        to_hex(self.0.to_vec())
+    }
+}
+
+impl Hex<Commitment> for Commitment {
+    fn from_hex(str: &str) -> Result<Commitment> {
+        let data = from_hex(str.to_string())?;
+        Ok(Commitment::from_vec(data))
     }
 
     fn to_hex(&self) -> String {

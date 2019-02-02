@@ -393,7 +393,7 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
     pub fn verify_tx_proof(
         &mut self,
         tx_proof: &TxProof,
-    ) -> Result<(Option<GrinboxAddress>, GrinboxAddress, u64, Vec<pedersen::Commitment>, PublicKey), Error> {
+    ) -> Result<(Option<GrinboxAddress>, GrinboxAddress, u64, Vec<pedersen::Commitment>, pedersen::Commitment), Error> {
         let secp = &Secp256k1::with_caps(ContextFlag::Commit);
 
         let (destination, slate) = tx_proof.verify_extract(None)
@@ -435,7 +435,27 @@ impl<W: ?Sized, C, K> Wallet713OwnerAPI<W, C, K>
             return Err(ErrorKind::VerifyProof.into());
         }
 
-        return Ok((destination, tx_proof.address.clone(), tx_proof.amount, outputs, excess_sum));
+        let mut input_com: Vec<pedersen::Commitment> = slate.tx.inputs()
+            .iter()
+            .map(|i| i.commitment())
+            .collect();
+
+        let mut output_com: Vec<pedersen::Commitment> = slate.tx.outputs()
+            .iter()
+            .map(|o| o.commitment())
+            .collect();
+
+        input_com.push(secp.commit(0, slate.tx.offset.secret_key(secp)?)?);
+
+        output_com.push(secp.commit_value(slate.fee)?);
+
+        let excess_sum_com = secp.commit_sum(output_com, input_com)?;
+
+        if excess_sum_com.to_pubkey(secp)? != excess_sum {
+            return Err(ErrorKind::VerifyProof.into());
+        }
+
+        return Ok((destination, tx_proof.address.clone(), tx_proof.amount, outputs, excess_sum_com));
     }
 }
 
