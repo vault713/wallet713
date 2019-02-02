@@ -3,8 +3,9 @@ use grin_util::secp::Signature;
 use grin_util::secp::key::SecretKey;
 use grin_util::secp::pedersen::Commitment;
 
-use crate::common::crypto::{EncryptedMessage, Hex};
+use crate::common::crypto::Hex;
 use crate::common::crypto::verify_signature;
+use crate::common::message::EncryptedMessage;
 use crate::contacts::{Address, GrinboxAddress};
 
 #[derive(Debug)]
@@ -14,6 +15,7 @@ pub enum ErrorKind {
     ParseSignature,
     VerifySignature,
     ParseEncryptedMessage,
+    VerifyDestination,
     DecryptionKey,
     DecryptMessage,
     ParseSlate,
@@ -33,7 +35,7 @@ pub struct TxProof {
 }
 
 impl TxProof {
-    pub fn verify_extract(&self) -> Result<Slate, ErrorKind> {
+    pub fn verify_extract(&self, expected_destination: Option<&GrinboxAddress>) -> Result<(Option<GrinboxAddress>, Slate), ErrorKind> {
         let mut challenge = String::new();
         challenge.push_str(self.message.as_str());
         challenge.push_str(self.challenge.as_str());
@@ -47,14 +49,21 @@ impl TxProof {
         let encrypted_message: EncryptedMessage = serde_json::from_str(&self.message)
             .map_err(|_| ErrorKind::ParseEncryptedMessage)?;
 
+        // TODO: at some point, make this check required
+        let destination = encrypted_message.destination.clone();
+        if destination.is_some() && expected_destination.is_some() && destination.as_ref() != expected_destination {
+            return Err(ErrorKind::VerifyDestination);
+        }
+
         let decrypted_message = encrypted_message.decrypt_with_key(&self.key)
             .map_err(|_| ErrorKind::DecryptMessage)?;
 
         serde_json::from_str(&decrypted_message)
+            .map(|message| (destination, message))
             .map_err(|_| ErrorKind::ParseSlate)
     }
 
-    pub fn from_response(from: String, message: String, challenge: String, signature: String, secret_key: &SecretKey) -> Result<(Slate, TxProof), ErrorKind> {
+    pub fn from_response(from: String, message: String, challenge: String, signature: String, secret_key: &SecretKey, expected_destination: Option<&GrinboxAddress>) -> Result<(Slate, TxProof), ErrorKind> {
         let address = GrinboxAddress::from_str(from.as_str())
             .map_err(|_| ErrorKind::ParseAddress)?;
         let signature = Signature::from_hex(signature.as_str())
@@ -64,7 +73,7 @@ impl TxProof {
         let encrypted_message: EncryptedMessage = serde_json::from_str(&message)
             .map_err(|_| ErrorKind::ParseEncryptedMessage)?;
         let key = encrypted_message.key(&public_key, secret_key)
-                .map_err(|_| ErrorKind::DecryptionKey)?;
+            .map_err(|_| ErrorKind::DecryptionKey)?;
 
         let proof = TxProof {
             address,
@@ -78,7 +87,7 @@ impl TxProof {
             outputs: vec![],
         };
 
-        let slate = proof.verify_extract()?;
+        let (_, slate) = proof.verify_extract(expected_destination)?;
 
         Ok((slate, proof))
     }
