@@ -19,7 +19,7 @@ While running, wallet713 works with an internal command prompt. You type command
     + [Send configurations](#send-configurations)
       - [Input selection strategy](#input-selection-strategy)
       - [Minimum number of confirmations](#minimum-number-of-confirmations)
-    + [Transaction proofs (grinbox only)](#transaction-proofs--grinbox-only-)
+    + [Transaction proofs (grinbox only)](#transaction-proofs-grinbox-only)
       - [Creating a transaction proof](#creating-a-transaction-proof)
       - [Verifying a transaction proof](#verifying-a-transaction-proof)
     + [Using Contacts](#using-contacts)
@@ -200,19 +200,20 @@ In the below example,
    ```
    wallet713> $ export-proof -i 23 -f proof.txt
    proof written to proof.txt
-   this file proves that [xd7auPddUmmEzSte48a2aZ9tWkjjCppgn41pemUfcVSqjxHHZ6cT] received [1.337000000] grins
+   this file proves that [0.233232000] grins was sent to [xd7sCQ9bQuQXp4yCn8GSELcuSxnpcPrPoEWJzvPBc5vxyXPQz6PJ] from [xd7auPddUmmEzSte48a2aZ9tWkjjCppgn41pemUfcVSqjxHHZ6cT]
+
    outputs:
-   0954b3ba69ad08e4e3e413d856997e2af1d986403d302efd4bc934959249ba4d64
+      08710be0b3fffa79b9423f8e007709a815f237dcfd31340cfa1fdfefd823dca30e
    kernel:
-   02bbbd9f7b70ad4782e301fdb5a6ecce511015d77f7f7d06c2323c001214dc2c41
-   
+      099c8a166acd426481c1b09707b9e6cdabb69718ee3ca86694579bf98a42c0c80d
+
    WARNING: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations
    please use a grin block explorer to verify this is the case. for example:
-   https://floonet.grinscan.net/kernel/02bbbd9f7b70ad4782e301fdb5a6ecce511015d77f7f7d06c2323c001214dc2c41
+      https://floonet.grinscan.net/kernel/099c8a166acd426481c1b09707b9e6cdabb69718ee3ca86694579bf98a42c0c80d
    ```
 1. Alice can now send `proof.txt` to Carol, who then can use it to verify the proof. As per the output note above, the proof **is only valid if the kernel in question is found on-chain**. One way to verify this is to locate the specific kernel in a block using a blockchain explorer.
 
-**IMPORTANT NOTE:** This proof only proves that Bob's grinbox address received the corresponding amount of grins,but not that it was _Alice_ who sent the funds. Anyone in posession of this proof can claim they were the sender.
+**IMPORTANT NOTE:** When sending to older versions of the wallet, the address of the sender might be missing. In this case the proof only proves that the address of the receiving party. In this case, anyone in posession of this proof can claim they were the sender. If the sender field is missing, a warning will be displayed.
 
 #### Verifying a transaction proof
 
@@ -223,20 +224,20 @@ wallet713> $ verify-proof -f <filename>
 ...where `<filename>` is the file path to the proof that should be verified (such as `proof.txt`). Example output:
 ```
 wallet713> $ verify-proof -f proof.txt
-proof verification succesful!
-this file proves that [xd7auPddUmmEzSte48a2aZ9tWkjjCppgn41pemUfcVSqjxHHZ6cT] received [1.337000000] grins
+this file proves that [0.233232000] grins was sent to [xd7sCQ9bQuQXp4yCn8GSELcuSxnpcPrPoEWJzvPBc5vxyXPQz6PJ] from [xd7auPddUmmEzSte48a2aZ9tWkjjCppgn41pemUfcVSqjxHHZ6cT]
+
 outputs:
-   0954b3ba69ad08e4e3e413d856997e2af1d986403d302efd4bc934959249ba4d64
+  08710be0b3fffa79b9423f8e007709a815f237dcfd31340cfa1fdfefd823dca30e
 kernel:
-   02bbbd9f7b70ad4782e301fdb5a6ecce511015d77f7f7d06c2323c001214dc2c41
+  099c8a166acd426481c1b09707b9e6cdabb69718ee3ca86694579bf98a42c0c80d
 
 WARNING: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations
 please use a grin block explorer to verify this is the case. for example:
-   https://floonet.grinscan.net/kernel/02bbbd9f7b70ad4782e301fdb5a6ecce511015d77f7f7d06c2323c001214dc2c41
+  https://floonet.grinscan.net/kernel/099c8a166acd426481c1b09707b9e6cdabb69718ee3ca86694579bf98a42c0c80d
 ```
 Once again, as per the output note above, the proof **is only valid if the kernel in question is found on-chain**. One way to verify this is to locat the specific kernel in a block using a blockchain explorer.
 
-**IMPORTANT NOTE:** This proof only proves that Bob's grinbox address received the corresponding amount of grins,but not that it was _Alice_ who sent the funds. Anyone in posession of this proof can claim they were the sender.
+**IMPORTANT NOTE:** When sending to older versions of the wallet, the address of the sender might be missing. In this case the proof only proves that the address of the receiving party. In this case, anyone in posession of this proof can claim they were the sender. If the sender field is missing, a warning will be displayed.
 
 ### Using Contacts
 
