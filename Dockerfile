@@ -40,6 +40,4 @@ WORKDIR /root/.wallet713
 
 VOLUME ["/root/.wallet713"]
 
-EXPOSE 3413 3414 3415 3416
-
 ENTRYPOINT ["wallet713"]
