@@ -4,36 +4,41 @@ While running, wallet713 works with an internal command prompt. You type command
 
 ## Contents
 
-- [Common use cases](#common-use-cases)
-  * [Getting started](#getting-started)
-  * [Transacting using Keybase](#transacting-using-keybase)
-  * [Transacting using https](#transacting-using-https)
-    + [Sending via https](#sending-via-https)
-    + [Receiving via https](#receiving-via-https)
-  * [Transacting using files](#transacting-using-files)
-    + [Creating a file-based transaction](#creating-a-file-based-transaction)
-    + [Receiving a file-based transaction](#receiving-a-file-based-transaction)
-    + [Finalizing a file-based transaction](#finalizing-a-file-based-transaction)
-  * [Send configurations](#send-configurations)
-    + [Input selection strategy](#input-selection-strategy)
-    + [Minimum number of confirmations](#minimum-number-of-confirmations)
-  * [Using Contacts](#using-contacts)
-  * [Using a passphrase](#using-a-passphrase)
-    + [Set a passphrase](#set-a-passphrase)
-    + [Locking & unlocking the wallet](#locking---unlocking-the-wallet)
-  * [Using invoice](#using-invoice)
-    + [Issuing invoices](#issuing-invoices)
-    + [Paying invoices](#paying-invoices)
-  * [Splitting your outputs](#splitting-your-outputs)
-- [Running your own node](#running-your-own-node)
-- [Restoring your wallet](#restoring-your-wallet)
-  * [Restoring a wallet using your mnemonic BIP-39 phrase](#restoring-a-wallet-using-your-mnemonic-bip-39-phrase)
-- [Supported address formats](#supported-address-formats)
-  * [Grinbox](#grinbox)
-    + [Address derivation](#address-derivation)
-    + [Switching address](#switching-address)
-  * [Keybase](#keybase)
-- [Command documentation](#command-documentation)
+  * [Common use cases](#common-use-cases)
+    + [Getting started](#getting-started)
+    + [Transacting](#transacting)
+      - [Transacting using grinbox](#transacting-using-grinbox)
+      - [Transacting using Keybase](#transacting-using-keybase)
+      - [Transacting using https](#transacting-using-https)
+        * [Sending via https](#sending-via-https)
+        * [Receiving via https](#receiving-via-https)
+      - [Transacting using files](#transacting-using-files)
+        * [Creating a file-based transaction](#creating-a-file-based-transaction)
+        * [Receiving a file-based transaction](#receiving-a-file-based-transaction)
+        * [Finalizing a file-based transaction](#finalizing-a-file-based-transaction)
+    + [Send configurations](#send-configurations)
+      - [Input selection strategy](#input-selection-strategy)
+      - [Minimum number of confirmations](#minimum-number-of-confirmations)
+    + [Transaction proofs (grinbox only)](#transaction-proofs--grinbox-only-)
+      - [Creating a transaction proof](#creating-a-transaction-proof)
+      - [Verifying a transaction proof](#verifying-a-transaction-proof)
+    + [Using Contacts](#using-contacts)
+    + [Using a passphrase](#using-a-passphrase)
+      - [Set a passphrase](#set-a-passphrase)
+      - [Locking & unlocking the wallet](#locking---unlocking-the-wallet)
+    + [Using invoice](#using-invoice)
+      - [Issuing invoices](#issuing-invoices)
+      - [Paying invoices](#paying-invoices)
+    + [Splitting your outputs](#splitting-your-outputs)
+  * [Running your own node](#running-your-own-node)
+  * [Restoring your wallet](#restoring-your-wallet)
+    + [Restoring a wallet using your mnemonic BIP-39 phrase](#restoring-a-wallet-using-your-mnemonic-bip-39-phrase)
+  * [Supported address formats](#supported-address-formats)
+    + [Grinbox](#grinbox)
+      - [Address derivation](#address-derivation)
+      - [Switching address](#switching-address)
+    + [Keybase](#keybase)
+  * [Command documentation](#command-documentation)
 
 ## Common use cases
 
@@ -68,7 +73,17 @@ wallet713> $ listen
 ```
 This will also display your grinbox address.
 
-Standard floonet grinbox addressses always start with `x`. 
+To exit the wallet:
+```
+wallet713> $ exit
+```
+
+### Transacting
+
+#### Transacting using grinbox 
+
+Standard mainnet grinbox addresses begin with `g`.
+Standard floonet grinbox addressses begin with `x`. 
 
 To send a 10 grin transaction to the address `xd6p24toTTDj7sxCCM4WGpBVcegVjGi9q5jquq6VWZA1BJroX514`:
 ```
@@ -77,12 +92,8 @@ wallet713> $ send 10 --to xd6p24toTTDj7sxCCM4WGpBVcegVjGi9q5jquq6VWZA1BJroX514
 
 To receive grins you simply keep wallet713 running and transactions are processed automatically. Any transactions received while being offline are fetched once you initiate `listen`. 
 
-To exit the wallet:
-```
-wallet713> $ exit
-```
 
-### Transacting using Keybase
+#### Transacting using Keybase
 
 First ensure you are logged into your account on keybase.io via the keybase command line interface or their desktop client.
 
@@ -99,9 +110,9 @@ To send 10 grins to Igno on keybase:
 wallet713> $ send 10 --to keybase://ignotus
 ```
 
-### Transacting using https
+#### Transacting using https
 
-#### Sending via https
+##### Sending via https
 
 wallet713 supports sending transactions to listening wallets via https. Only https is enabled for security reasons. 
 
@@ -110,26 +121,26 @@ To send 10 grins to https://some.wallet.713.mw:13415:
 wallet713> $ send 10 --to https://some.wallet.713.mw:13415
 ```
 
-#### Receiving via https
+##### Receiving via https
 
 Not yet supported. Request this to us (open an issue, or chat with us on Gitter) if you need it. 
 
-### Transacting using files
+#### Transacting using files
 
-#### Creating a file-based transaction
+##### Creating a file-based transaction
 ```
 wallet713> $ send 10 --file ~/path/to/transaction.tx
 ```
 Generates the file `transaction.tx` in the designated path that sends 10 grins to a recipient.
 
-#### Receiving a file-based transaction
+##### Receiving a file-based transaction
 Once `transaction.tx` is received from a sender, the command:
 ```
 wallet713> $ receive --file ~/path/to/transaction.tx
 ```
 ...will process the received `transaction.tx` and generate `transaction.tx.response` in the same directory that should then be returned to the sender wallet.
 
-#### Finalizing a file-based transaction
+##### Finalizing a file-based transaction
 Having received back `transaction.tx.response`, the sender can then issue:
 ```
 wallet713> $ finalize --file ~/path/to/transaction.tx.response
@@ -155,6 +166,77 @@ To send a transaction with 3 required confirmations:
 ```
 wallet713> $ send 10 --to xd6p24toTTDj7sxCCM4WGpBVcegVjGi9q5jquq6VWZA1BJroX514 -c 3
 ```
+
+### Transaction proofs (grinbox only)
+
+Thanks to the use of grinbox, wallet713 supports proving that a particular amount was sent in a transaction to a particular grinbox recipient address. It relies on the fact that a recipient needs to return a message to the sender in order to build a valid transaction. As part of that, the recipient need their private key to receive and process the sender's original message, as well as in order to sign and send back the response to the sender. The sender can then use this information to generate a proof that can be sent to Bob or a third party, (say Carol) that says that if a particular transaction kernel is visible on the blockchain, a certain grinbox address has received a transaction of a certain amount. **This can only be used for transactions that have been sent using grinbox and you need wallet713 to generate and validate a transaction proof.**
+
+In the below example,
+1. Alice wants to send Bob 1.337 grins and prove to Carol that this transaction has occurred.
+1. Bob has grinbox address: `xd7auPddUmmEzSte48a2aZ9tWkjjCppgn41pemUfcVSqjxHHZ6cT`;
+
+#### Creating a transaction proof
+
+1. Alice uses grinbox to send Bob grins using grinbox and broadcasts the transaction to the blockchain:
+   ```
+   wallet713> $ send 1.337 --to xd7auPddUmmEzSte48a2aZ9tWkjjCppgn41pemUfcVSqjxHHZ6cT
+   ```
+1. Alice runs `txs` command to display the transaction log and to identify which ID her transaction has:
+   ```
+   wallet713> $ txs
+   ```
+   The transaction in question should show a `yes` in the `proof` column. Example output:
+   ```
+    23  Sent Tx      4b6ede9f  grinbox://xd7auPddUmmEzSte48a2aZ9tWkjjCppgn41pemUfcVSqjxHHZ6cT                 2019-01-27 20:45:01  yes         2019-01-31 01:02:18  -1.338      yes 
+   ```
+
+1. Alice now generates a proof for this transaction:
+   ```
+   wallet713> $ export-proof -i <number> -f <filename>
+   ```
+   ...where `<number>` is the ID in question (in our example `23`), and `<filename>` is the file name that the proof should be saved as (such as `proof.txt`).
+
+1. If successful, Alice receives a confirmation message. Example output:
+   ```
+   wallet713> $ export-proof -i 23 -f proof.txt
+   proof written to proof.txt
+   this file proves that [xd7auPddUmmEzSte48a2aZ9tWkjjCppgn41pemUfcVSqjxHHZ6cT] received [1.337000000] grins
+   outputs:
+   0954b3ba69ad08e4e3e413d856997e2af1d986403d302efd4bc934959249ba4d64
+   kernel:
+   02bbbd9f7b70ad4782e301fdb5a6ecce511015d77f7f7d06c2323c001214dc2c41
+   
+   WARNING: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations
+   please use a grin block explorer to verify this is the case. for example:
+   https://floonet.grinscan.net/kernel/02bbbd9f7b70ad4782e301fdb5a6ecce511015d77f7f7d06c2323c001214dc2c41
+   ```
+1. Alice can now send `proof.txt` to Carol, who then can use it to verify the proof. As per the output note above, the proof **is only valid if the kernel in question is found on-chain**. One way to verify this is to locate the specific kernel in a block using a blockchain explorer.
+
+**IMPORTANT NOTE:** This proof only proves that Bob's grinbox address received the corresponding amount of grins,but not that it was _Alice_ who sent the funds. Anyone in posession of this proof can claim they were the sender.
+
+#### Verifying a transaction proof
+
+In the example above, Alice has now sent the proof to Carol, who can then verify that file she received from Alice is indeed an untampered proof by validating it from her own wallet713 instance:
+```
+wallet713> $ verify-proof -f <filename>
+```
+...where `<filename>` is the file path to the proof that should be verified (such as `proof.txt`). Example output:
+```
+wallet713> $ verify-proof -f proof.txt
+proof verification succesful!
+this file proves that [xd7auPddUmmEzSte48a2aZ9tWkjjCppgn41pemUfcVSqjxHHZ6cT] received [1.337000000] grins
+outputs:
+   0954b3ba69ad08e4e3e413d856997e2af1d986403d302efd4bc934959249ba4d64
+kernel:
+   02bbbd9f7b70ad4782e301fdb5a6ecce511015d77f7f7d06c2323c001214dc2c41
+
+WARNING: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations
+please use a grin block explorer to verify this is the case. for example:
+   https://floonet.grinscan.net/kernel/02bbbd9f7b70ad4782e301fdb5a6ecce511015d77f7f7d06c2323c001214dc2c41
+```
+Once again, as per the output note above, the proof **is only valid if the kernel in question is found on-chain**. One way to verify this is to locat the specific kernel in a block using a blockchain explorer.
+
+**IMPORTANT NOTE:** This proof only proves that Bob's grinbox address received the corresponding amount of grins,but not that it was _Alice_ who sent the funds. Anyone in posession of this proof can claim they were the sender.
 
 ### Using Contacts
 
