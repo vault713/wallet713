@@ -214,7 +214,7 @@ In the below example,
    ```
 1. Alice can now send `proof.txt` to Carol, who then can use it to verify the proof. As per the output note above, the proof **is only valid if the kernel in question is found on-chain**. One way to verify this is to locate the specific kernel in a block using a blockchain explorer.
 
-**IMPORTANT NOTE:** When sending to older versions of the wallet, the address of the sender might be missing. In this case the proof only proves that the address of the receiving party. Anyone in posession of this proof can claim they were the sender. If the sender field is missing, a warning will be displayed.
+**IMPORTANT NOTE:** When sending to older versions of the wallet, the address of the sender might be missing. In this case the proof only proves that the address of the receiving party was the one receiving the noted grins. Anyone in possession of this proof can claim they were the sender. If the sender field is missing, a warning will be displayed.
 
 #### Verifying a transaction proof
 

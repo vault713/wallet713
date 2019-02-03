@@ -1,7 +1,7 @@
 # Multistage docker build, requires docker 17.05
 # based on: https://github.com/mimblewimble/grin/blob/master/etc/Dockerfile
 
-# builder stage
+# Builder stage
 FROM rust:1.31 as builder
 
 RUN set -ex && \
@@ -15,15 +15,29 @@ RUN set -ex && \
     cmake \
     git
 
+WORKDIR /usr/src
+
+# Generate project placeholder
+RUN USER=root cargo new --bin wallet713
+
 WORKDIR /usr/src/wallet713
 
-# Copying
-COPY . .
+# Copy manifest
+COPY ./Cargo.lock ./Cargo.lock
+COPY ./Cargo.toml ./Cargo.toml
 
-# Building
+# Build dependencies
+RUN cargo build --release
+RUN rm ./src/*.rs
+RUN rm ./target/release/deps/wallet713*
+
+# Copy src
+COPY ./src ./src
+
+# Build
 RUN cargo build --release
 
-# runtime stage
+# Runtime stage
 FROM debian:9.4
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y locales openssl ca-certificates
@@ -36,8 +50,8 @@ ENV LANG en_US.UTF-8
 
 COPY --from=builder /usr/src/wallet713/target/release/wallet713 /usr/local/bin/wallet713
 
-WORKDIR /root/.wallet713
+VOLUME /root/.wallet713
 
-VOLUME ["/root/.wallet713"]
+EXPOSE 3415 3420 13415 13420
 
 ENTRYPOINT ["wallet713"]
