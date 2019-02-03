@@ -39,7 +39,6 @@ deploy:
   file_glob: true
   file: target/release/wallet713-*.tgz*
   skip_cleanup: true
-  draft: true
   on:
     repo: vault713/wallet713
     tags: true

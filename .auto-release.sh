@@ -40,6 +40,7 @@ LAST_RELEASE_TAG=$(git describe --abbrev=0 --tags ${LAST_REVISION})
 github_changelog_generator \
   -u $(cut -d "/" -f1 <<< $repo_slug) \
   -p $(cut -d "/" -f2 <<< $repo_slug) \
+  -t $token \
   --since-tag ${LAST_RELEASE_TAG}
 
 body="$(cat CHANGELOG.md)"
