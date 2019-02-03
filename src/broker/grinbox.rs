@@ -342,4 +342,15 @@ impl Handler for GrinboxClient {
         }
         Ok(())
     }
+
+    fn on_error(&mut self, err: WsError) {
+        // Ignore connection reset errors by default
+        if let WsErrorKind::Io(ref err) = err.kind {
+            if let Some(104) = err.raw_os_error() {
+                return;
+            }
+        }
+
+        error!("{:?}", err);
+    }
 }
