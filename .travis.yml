@@ -1,0 +1,46 @@
+language: rust
+
+rust:
+  - stable
+
+git:
+  depth: false
+  
+cache:
+  cargo: true
+  timeout: 240
+  directories:
+    - $HOME/.cargo
+    - $TRAVIS_BUILD_DIR/target
+
+env:
+  global:
+    - RUST_BACKTRACE="1"
+    - RUST_FLAGS="-C debug-assertions"
+
+matrix:
+  include:
+    - os: linux
+      dist: trusty
+    - os: osx
+
+before_deploy:
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+      cargo clean && cargo build --release && ./.auto-release.sh;
+    fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      brew update;
+      cargo clean && cargo build --release && ./.auto-release.sh;
+    fi
+    
+deploy:
+  provider: releases
+  api_key: "$GITHUB_OAUTH_TOKEN"
+  file_glob: true
+  file: target/release/wallet713-*.tgz*
+  skip_cleanup: true
+  draft: true
+  on:
+    repo: vault713/wallet713
+    tags: true
+    
