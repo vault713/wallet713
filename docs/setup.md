@@ -48,3 +48,11 @@ If you'd like to run against floonet, use:
 $ cd target/release
 $ ./wallet713 --floonet
 ```
+
+# Option 3: Build and run via docker
+
+```
+$ docker build -t my/wallet713 .
+$ docker run --rm --name wallet713 -ti -v $PWD/data:/root/.wallet713 my/wallet713
+```
+You can use `ctrl+p q` to detach and `docker attach wallet713` to reattach to the running container.
