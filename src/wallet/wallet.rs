@@ -39,6 +39,13 @@ impl Wallet {
         Ok(())
     }
 
+    pub fn show_mnemonic(&self, config: &Wallet713Config, passphrase: &str) -> Result<()> {
+        let wallet_config = config.as_wallet_config()?;
+        let seed = WalletSeed::from_file(&wallet_config, passphrase)?;
+        seed.show_recovery_phrase()?;
+        Ok(())
+    }
+
     pub fn lock(&mut self) {
         self.backend = None;
     }
@@ -47,9 +54,9 @@ impl Wallet {
         self.backend.is_none()
     }
 
-    pub fn init(&mut self, config: &Wallet713Config, account: &str, passphrase: &str) -> Result<()> {
+    pub fn init(&mut self, config: &Wallet713Config, account: &str, passphrase: &str, create_new: bool) -> Result<()> {
         let wallet_config = config.as_wallet_config()?;
-        self.init_seed(&wallet_config, passphrase)?;
+        self.init_seed(&wallet_config, passphrase, create_new)?;
         self.init_backend(&wallet_config, &config, passphrase)?;
         self.unlock(config, account, passphrase)?;
         Ok(())
@@ -373,13 +380,17 @@ impl Wallet {
         Ok((sender.map(|a| a.public_key.clone()), receiver.public_key.clone(), amount, outputs, excess_sum.to_hex()))
     }
 
-    fn init_seed(&self, wallet_config: &WalletConfig, passphrase: &str) -> Result<WalletSeed> {
+    fn init_seed(&self, wallet_config: &WalletConfig, passphrase: &str, create_new: bool) -> Result<WalletSeed> {
         let result = WalletSeed::from_file(&wallet_config, passphrase);
         let seed = match result {
             Ok(seed) => seed,
             Err(_) => {
                 // could not load from file, let's create a new one
-                WalletSeed::init_file(&wallet_config, 32, None, passphrase)?
+                if create_new {
+                    WalletSeed::init_file(&wallet_config, 32, None, passphrase)?
+                } else {
+                    return Err(ErrorKind::WalletSeedCouldNotBeOpened.into())
+                }
             }
         };
         Ok(seed)

@@ -7,6 +7,8 @@ pub enum ErrorKind {
     Secp,
     #[fail(display = "\x1b[31;1merror:\x1b[0m model not found!")]
     ModelNotFound,
+    #[fail(display = "\x1b[31;1merror:\x1b[0m could not open wallet seed!")]
+    WalletSeedCouldNotBeOpened,
     #[fail(display = "\x1b[31;1merror:\x1b[0m error opening wallet!")]
     OpenWalletError,
     #[fail(display = "\x1b[31;1merror:\x1b[0m error deriving keychain!")]

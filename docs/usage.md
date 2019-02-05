@@ -32,8 +32,10 @@ While running, wallet713 works with an internal command prompt. You type command
     + [Splitting your outputs](#splitting-your-outputs)
   * [Running your own node](#running-your-own-node)
   * [Configuring Foreign & Owner APIs](#configuring_foreign_and_owner_apis)
-  * [Restoring your wallet](#restoring-your-wallet)
-    + [Restoring a wallet using your mnemonic BIP-39 phrase](#restoring-a-wallet-using-your-mnemonic-bip-39-phrase)
+  * [Recovering your wallet](#recovering-your-wallet)
+    + [Recovering a wallet from seed file](#recovering-a-wallet-from-seed-file)
+    + [Recovering a wallet using your mnemonic BIP-39 phrase](#recovering-a-wallet-using-your-mnemonic-bip-39-phrase)
+    + [Displaying existing BIP-39 mnemonic](#displaying-existing-bip-39-mnemonic)
   * [Supported address formats](#supported-address-formats)
     + [Grinbox](#grinbox)
       - [Address derivation](#address-derivation)
@@ -354,13 +356,25 @@ grinbox_listener_auto_start = true
 keybase_listener_auto_start = true
 ```
 
-## Restoring your wallet
+## Recovering your wallet
 
-### Restoring a wallet using your mnemonic BIP-39 phrase
+### Recovering a wallet from seed file
 ```
-wallet713> $ restore -m word1 word2 ...
+wallet713> $ restore
 ```
-If you had a passphrase, remember to include the `-p yourpassphrase` as you run the command.
+Remember to include the `-p yourpassphrase` if your seed is password protected.
+
+### Recovering a wallet using your mnemonic BIP-39 phrase
+```
+wallet713> $ recover -m word1 word2 ...
+```
+If you would like to set a passphrase, remember to include the `-p yourpassphrase` as you run the command.
+
+### Displaying existing BIP-39 mnemonic
+```
+wallet713> $ recover -d
+```
+Remember to include the `-p yourpassphrase` if your seed is password protected.
 
 ## Supported address formats
 
