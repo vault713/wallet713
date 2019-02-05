@@ -3,9 +3,9 @@
 #[macro_use] extern crate log;
 #[macro_use] extern crate serde_json;
 #[macro_use] extern crate gotham_derive;
+#[macro_use] extern crate clap;
 extern crate failure;
 extern crate serde;
-extern crate clap;
 extern crate colored;
 extern crate ws;
 extern crate futures;
@@ -388,6 +388,7 @@ impl Helper for EditorHelper {}
 
 fn main() {
     let matches = App::new("wallet713")
+        .version(crate_version!())
         .arg(Arg::from_usage("[config-path] -c, --config=<config-path> 'the path to the config file'"))
         .arg(Arg::from_usage("[log-config-path] -l, --log-config-path=<log-config-path> 'the path to the log config file'"))
         .arg(Arg::from_usage("[account] -a, --account=<account> 'the account to use'"))
