@@ -218,9 +218,25 @@ impl<'a, 'b> Parser {
                         Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'")
                             .min_values(0)
                     )
+            )
+            .subcommand(
+                SubCommand::with_name("recover")
+                    .about("recover wallet from mnemonic or displays the current mnemonic")
+                    .arg(
+                        Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'")
+                            .min_values(0)
+                    )
                     .arg(
                         Arg::from_usage("[words] -m, --mnemonic=<words>... 'the seed mnemonic'")
                     )
+                    .arg(
+                        Arg::from_usage("[display] -d, --display= 'display the current mnemonic'")
+                    )
+                    .group(ArgGroup::with_name("method")
+                        .args(&["words", "display"])
+                        .required(true)
+                    )
+
             )
             .subcommand(
                 SubCommand::with_name("receive")

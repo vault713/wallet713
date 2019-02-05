@@ -641,7 +641,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
             *out_is_safe = args.value_of("passphrase").is_none();
 
             {
-                wallet.lock().init(config, "default", passphrase.as_str())?;
+                wallet.lock().init(config, "default", passphrase.as_str(), true)?;
             }
             derive_address_key(config, wallet, grinbox_broker)?;
             if passphrase.is_empty() {
@@ -990,11 +990,7 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
 
             {
                 let mut w = wallet.lock();
-                if let Some(words) = args.values_of("words") {
-                    let words: Vec<&str> = words.collect();
-                    w.restore_seed(config, &words, passphrase.as_str())?;
-                }
-                w.init(config, "default", passphrase.as_str())?;
+                w.init(config, "default", passphrase.as_str(), false)?;
                 w.restore_state()?;
             }
 
@@ -1005,6 +1001,42 @@ fn do_command(command: &str, config: &mut Wallet713Config, wallet: Arc<Mutex<Wal
 
             cli_message!("wallet restoration done!");
             return Ok(());
+        },
+        Some("recover") => {
+            *out_is_safe = false;
+            if keybase_broker.is_some() || grinbox_broker.is_some() {
+                return Err(ErrorKind::HasListener.into());
+            }
+            let args = matches.subcommand_matches("recover").unwrap();
+            let passphrase = match args.is_present("passphrase") {
+                true => password_prompt(args.value_of("passphrase")),
+                false => "".to_string(),
+            };
+            *out_is_safe = args.value_of("passphrase").is_none();
+
+            if let Some(words) = args.values_of("words") {
+                println!("recovering... please wait as this could take a few minutes to complete.");
+                let words: Vec<&str> = words.collect();
+                {
+                    let mut w = wallet.lock();
+                    w.restore_seed(config, &words, passphrase.as_str())?;
+                    w.init(config, "default", passphrase.as_str(), false)?;
+                    w.restore_state()?;
+                }
+
+                derive_address_key(config, wallet, grinbox_broker)?;
+                if passphrase.is_empty() {
+                    println!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
+                }
+
+                cli_message!("wallet restoration done!");
+                *out_is_safe = false;
+                return Ok(());
+            } else if args.is_present("display") {
+                let mut w = wallet.lock();
+                w.show_mnemonic(config, &passphrase)?;
+                return Ok(())
+            }
         },
         Some("check") => {
             if keybase_broker.is_some() || grinbox_broker.is_some() {
