@@ -393,15 +393,9 @@ Remember to include the `-p yourpassphrase` if your seed is password protected.
 
 ### Recovering a wallet using your mnemonic BIP-39 phrase
 ```
-wallet713> $ recover -m word1 word2 ...
+wallet713> $ restore -m word1 word2 ...
 ```
 If you would like to set a passphrase, remember to include the `-p yourpassphrase` as you run the command.
-
-### Displaying existing BIP-39 mnemonic
-```
-wallet713> $ recover -d
-```
-Remember to include the `-p yourpassphrase` if your seed is password protected.
 
 ## Supported address formats
 
