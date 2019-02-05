@@ -1,8 +1,9 @@
-# wallet713
-
+[![Build Status](https://travis-ci.org/vault713/wallet713.svg?branch=master)](https://travis-ci.org/vault713/wallet713)
 [![Join the chat at https://gitter.im/vault713/wallet713](https://badges.gitter.im/vault713/wallet713.svg)](https://gitter.im/vault713/wallet713?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-wallet713 is:
+# Wallet713
+
+Wallet713 is:
 
 - a wallet for Grin.
 
