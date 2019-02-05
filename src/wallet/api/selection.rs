@@ -1,9 +1,12 @@
-use std::collections::HashMap;
 use grin_core::core::amount_to_hr_string;
 use grin_core::libtx::{build, tx_fee};
+use std::collections::HashMap;
 
-use super::types::{Error, ErrorKind, Slate, Transaction, NodeClient, Identifier, Keychain, WalletBackend, OutputData, TxLogEntry, TxLogEntryType, Context, ContextType, OutputStatus};
 use super::keys;
+use super::types::{
+    Context, ContextType, Error, ErrorKind, Identifier, Keychain, NodeClient, OutputData,
+    OutputStatus, Slate, Transaction, TxLogEntry, TxLogEntryType, WalletBackend,
+};
 
 pub fn build_send_tx_slate<T: ?Sized, C, K>(
     wallet: &mut T,
@@ -25,10 +28,10 @@ pub fn build_send_tx_slate<T: ?Sized, C, K>(
     ),
     Error,
 >
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     let (elems, inputs, change_amounts_derivations, amount, fee) = select_send_tx(
         wallet,
@@ -75,7 +78,10 @@ pub fn build_send_tx_slate<T: ?Sized, C, K>(
     // Store change output(s)
     for (change_amount, id, mmr_index) in &change_amounts_derivations {
         context.add_output(&id, &mmr_index);
-        commits.insert(id.clone(), wallet.calc_commit_for_cache(*change_amount, &id)?);
+        commits.insert(
+            id.clone(),
+            wallet.calc_commit_for_cache(*change_amount, &id)?,
+        );
     }
 
     let lock_inputs = context.get_inputs().clone();
@@ -142,10 +148,10 @@ pub fn build_recipient_output_with_slate<T: ?Sized, C, K>(
     ),
     Error,
 >
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     // Create a potential output for this transaction
     let key_id = keys::next_available_key(wallet).unwrap();
@@ -217,15 +223,15 @@ fn select_send_tx<T: ?Sized, C, K>(
         Vec<Box<build::Append<K>>>,
         Vec<OutputData>,
         Vec<(u64, Identifier, Option<u64>)>, // change amounts and derivations
-        u64,                    // amount
-        u64,                    // fee
+        u64,                                 // amount
+        u64,                                 // fee
     ),
     Error,
 >
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     // select some spendable coins from the wallet
     let (max_outputs, coins) = select_coins(
@@ -322,11 +328,17 @@ pub fn inputs_and_change<T: ?Sized, C, K>(
     amount: u64,
     fee: u64,
     num_change_outputs: usize,
-) -> Result<(Vec<Box<build::Append<K>>>, Vec<(u64, Identifier, Option<u64>)>), Error>
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+) -> Result<
+    (
+        Vec<Box<build::Append<K>>>,
+        Vec<(u64, Identifier, Option<u64>)>,
+    ),
+    Error,
+>
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     let mut parts = vec![];
 
@@ -383,10 +395,10 @@ pub fn select_coins<T: ?Sized, C, K>(
     parent_key_id: &Identifier,
 ) -> (usize, Vec<OutputData>)
 //    max_outputs_available, Outputs
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     // first find all eligible outputs based on number of confirmations
     let mut eligible = wallet
@@ -479,10 +491,10 @@ pub fn build_receive_tx_slate<T: ?Sized, C, K>(
     ),
     Error,
 >
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     let mut slate = Slate::blank(num_participants);
     slate.amount = amount;
@@ -508,8 +520,7 @@ pub fn build_receive_tx_slate<T: ?Sized, C, K>(
     }
 
     let keychain = wallet.keychain().clone();
-    let blinding =
-        slate.add_transaction_elements(&keychain, elems)?;
+    let blinding = slate.add_transaction_elements(&keychain, elems)?;
 
     let mut context = Context::new(
         keychain.secp(),
@@ -573,10 +584,10 @@ pub fn build_recipient_input_with_slate<T: ?Sized, C, K>(
     ),
     Error,
 >
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     let current_height = wallet.w2n_client().get_chain_height()?;
 
@@ -618,7 +629,10 @@ pub fn build_recipient_input_with_slate<T: ?Sized, C, K>(
 
     for (change_amount, id, mmr_index) in &change_amounts_derivations {
         context.add_output(&id, &mmr_index);
-        commits.insert(id.clone(), wallet.calc_commit_for_cache(*change_amount, &id)?);
+        commits.insert(
+            id.clone(),
+            wallet.calc_commit_for_cache(*change_amount, &id)?,
+        );
     }
 
     let lock_inputs = context.get_inputs().clone();

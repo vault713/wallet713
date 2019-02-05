@@ -1,5 +1,5 @@
+use super::{Identifier, OutputStatus};
 use grin_core::ser;
-use super::{OutputStatus, Identifier};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct OutputData {
@@ -65,9 +65,9 @@ impl OutputData {
             return false;
         } else if self.status == OutputStatus::Unspent
             && self.num_confirmations(current_height) >= minimum_confirmations
-            {
-                return true;
-            } else if self.status == OutputStatus::Unconfirmed && minimum_confirmations == 0 {
+        {
+            return true;
+        } else if self.status == OutputStatus::Unconfirmed && minimum_confirmations == 0 {
             return true;
         } else {
             return false;

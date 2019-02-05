@@ -1,17 +1,15 @@
 use super::{ErrorKind, Result};
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 const ALPHABET: &'static [u8] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 const B58_DIGITS_MAP: &'static [i8] = &[
-    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-    -1, 0, 1, 2, 3, 4, 5, 6, 7, 8,-1,-1,-1,-1,-1,-1,
-    -1, 9,10,11,12,13,14,15,16,-1,17,18,19,20,21,-1,
-    22,23,24,25,26,27,28,29,30,31,32,-1,-1,-1,-1,-1,
-    -1,33,34,35,36,37,38,39,40,41,42,43,-1,44,45,46,
-    47,48,49,50,51,52,53,54,55,56,57,-1,-1,-1,-1,-1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, -1, -1, -1, -1, -1, -1, -1, 9, 10, 11, 12, 13, 14, 15, 16, -1,
+    17, 18, 19, 20, 21, -1, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, -1, -1, -1, -1, -1, -1, 33,
+    34, 35, 36, 37, 38, 39, 40, 41, 42, 43, -1, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56,
+    57, -1, -1, -1, -1, -1,
 ];
 
 /// A trait for converting a value to base58 encoded string.
@@ -47,7 +45,7 @@ impl ToBase58 for [u8] {
                 carry /= 58;
 
                 // in original trezor implementation it was underflowing
-                if j  > 0 {
+                if j > 0 {
                     j -= 1;
                 }
             }
@@ -135,7 +133,7 @@ impl FromBase58 for str {
             1 => {
                 j = 1;
                 (out[0] & 0xff) as u8
-            },
+            }
             _ => {
                 i = 0;
                 bin[0]
@@ -166,7 +164,10 @@ impl FromBase58 for str {
         if checksum != provided_checksum {
             Err(ErrorKind::InvalidBase58Checksum)?;
         }
-        Ok((payload[..version_bytes].to_vec(), payload[version_bytes..].to_vec()))
+        Ok((
+            payload[..version_bytes].to_vec(),
+            payload[version_bytes..].to_vec(),
+        ))
     }
 }
 

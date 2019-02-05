@@ -1,22 +1,23 @@
-#[macro_use] pub mod macros;
-pub mod config;
+#[macro_use]
+pub mod macros;
 pub mod base58;
+pub mod config;
 pub mod crypto;
-pub mod hasher;
 mod error_kind;
+pub mod hasher;
 pub mod message;
 
 pub use self::error_kind::ErrorKind;
 pub use self::macros::*;
 pub use failure::Error;
-pub use std::sync::Arc;
 pub use parking_lot::{Mutex, MutexGuard};
+pub use std::sync::Arc;
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, PartialEq)]
 pub enum RuntimeMode {
     Cli,
-    Daemon
+    Daemon,
 }
 
 static mut RUNTIME_MODE: RuntimeMode = RuntimeMode::Cli;

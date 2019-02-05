@@ -1,8 +1,8 @@
-use grin_core::ser;
+use super::{ContextType, Identifier, SecretKey};
 use grin_core::libtx::aggsig;
+use grin_core::ser;
 use grin_util::secp;
 use grin_util::secp::pedersen::Commitment;
-use super::{SecretKey, Identifier, ContextType};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 /// Holds the context for a single aggsig transaction

@@ -1,22 +1,22 @@
-use std::panic::RefUnwindSafe;
 use failure::Error;
-use gotham::middleware::state::StateMiddleware;
-use gotham::pipeline::single::single_pipeline;
 use gotham::helpers::http::response::create_response;
-use gotham::pipeline::new_pipeline;
+use gotham::middleware::state::StateMiddleware;
 use gotham::pipeline::chain::PipelineHandleChain;
+use gotham::pipeline::new_pipeline;
+use gotham::pipeline::single::single_pipeline;
 use gotham::router::builder::*;
 use gotham::router::Router;
-use gotham::state::{State, FromState};
+use gotham::state::{FromState, State};
+use hyper::{Body, Chunk, HeaderMap, Method, Response, StatusCode, Uri, Version};
 use mime::Mime;
-use hyper::{StatusCode, Body, Response, HeaderMap, Method, Uri, Version, Chunk};
+use std::panic::RefUnwindSafe;
 
-use common::ErrorKind;
-use crate::api::handlers::{foreign, owner};
 use crate::api::auth::BasicAuthMiddleware;
+use crate::api::handlers::{foreign, owner};
 use crate::broker::{GrinboxPublisher, GrinboxSubscriber, KeybasePublisher, KeybaseSubscriber};
-use crate::wallet::Wallet;
 use crate::wallet::types::{Arc, Mutex, MutexGuard};
+use crate::wallet::Wallet;
+use common::ErrorKind;
 
 #[derive(Clone, StateData)]
 pub struct WalletContainer {
@@ -28,7 +28,11 @@ pub struct WalletContainer {
 impl RefUnwindSafe for WalletContainer {}
 
 impl WalletContainer {
-    fn new(wallet: Arc<Mutex<Wallet>>, grinbox_publisher: Option<GrinboxPublisher>, keybase_publisher: Option<KeybasePublisher>) -> Self {
+    fn new(
+        wallet: Arc<Mutex<Wallet>>,
+        grinbox_publisher: Option<GrinboxPublisher>,
+        keybase_publisher: Option<KeybasePublisher>,
+    ) -> Self {
         Self {
             wallet,
             grinbox_publisher,
@@ -41,11 +45,15 @@ impl WalletContainer {
     }
 
     pub fn grinbox_publisher(&self) -> Result<&GrinboxPublisher, Error> {
-        self.grinbox_publisher.as_ref().ok_or_else(|| ErrorKind::GenericError(String::from("missing grinbox publisher")).into())
+        self.grinbox_publisher.as_ref().ok_or_else(|| {
+            ErrorKind::GenericError(String::from("missing grinbox publisher")).into()
+        })
     }
 
     pub fn keybase_publisher(&self) -> Result<&KeybasePublisher, Error> {
-        self.keybase_publisher.as_ref().ok_or_else(|| ErrorKind::GenericError(String::from("missing keybase publisher")).into())
+        self.keybase_publisher.as_ref().ok_or_else(|| {
+            ErrorKind::GenericError(String::from("missing keybase publisher")).into()
+        })
     }
 }
 
@@ -101,9 +109,9 @@ where
 }
 
 fn build_foreign_api<C, P>(route: &mut RouterBuilder<C, P>)
-    where
-        C: PipelineHandleChain<P> + Copy + Send + Sync + 'static,
-        P: RefUnwindSafe + Send + Sync + 'static,
+where
+    C: PipelineHandleChain<P> + Copy + Send + Sync + 'static,
+    P: RefUnwindSafe + Send + Sync + 'static,
 {
     route
         .post("/v1/wallet/foreign/receive_tx")
@@ -118,17 +126,25 @@ fn build_foreign_api<C, P>(route: &mut RouterBuilder<C, P>)
         .to(foreign::receive_invoice);
 }
 
-pub fn build_owner_api_router(wallet: Arc<Mutex<Wallet>>, grinbox_broker: Option<(GrinboxPublisher, GrinboxSubscriber)>, keybase_broker: Option<(KeybasePublisher, KeybaseSubscriber)>, owner_api_secret: Option<String>, owner_api_include_foreign: Option<bool>) -> Router {
+pub fn build_owner_api_router(
+    wallet: Arc<Mutex<Wallet>>,
+    grinbox_broker: Option<(GrinboxPublisher, GrinboxSubscriber)>,
+    keybase_broker: Option<(KeybasePublisher, KeybaseSubscriber)>,
+    owner_api_secret: Option<String>,
+    owner_api_include_foreign: Option<bool>,
+) -> Router {
     let grinbox_publisher = grinbox_broker.map(|(p, _)| p);
     let keybase_publisher = keybase_broker.map(|(p, _)| p);
 
     let (chain, pipelines) = single_pipeline(
         new_pipeline()
             .add(BasicAuthMiddleware::new(owner_api_secret))
-            .add(StateMiddleware::new(
-                WalletContainer::new(wallet, grinbox_publisher, keybase_publisher)
-            ))
-            .build()
+            .add(StateMiddleware::new(WalletContainer::new(
+                wallet,
+                grinbox_publisher,
+                keybase_publisher,
+            )))
+            .build(),
     );
 
     build_router(chain, pipelines, |route| {
@@ -136,17 +152,24 @@ pub fn build_owner_api_router(wallet: Arc<Mutex<Wallet>>, grinbox_broker: Option
     })
 }
 
-pub fn build_foreign_api_router(wallet: Arc<Mutex<Wallet>>, grinbox_broker: Option<(GrinboxPublisher, GrinboxSubscriber)>, keybase_broker: Option<(KeybasePublisher, KeybaseSubscriber)>, foreign_api_secret: Option<String>) -> Router {
+pub fn build_foreign_api_router(
+    wallet: Arc<Mutex<Wallet>>,
+    grinbox_broker: Option<(GrinboxPublisher, GrinboxSubscriber)>,
+    keybase_broker: Option<(KeybasePublisher, KeybaseSubscriber)>,
+    foreign_api_secret: Option<String>,
+) -> Router {
     let grinbox_publisher = grinbox_broker.map(|(p, _)| p);
     let keybase_publisher = keybase_broker.map(|(p, _)| p);
 
     let (chain, pipelines) = single_pipeline(
         new_pipeline()
             .add(BasicAuthMiddleware::new(foreign_api_secret))
-            .add(StateMiddleware::new(
-                WalletContainer::new(wallet, grinbox_publisher, keybase_publisher)
-            ))
-            .build()
+            .add(StateMiddleware::new(WalletContainer::new(
+                wallet,
+                grinbox_publisher,
+                keybase_publisher,
+            )))
+            .build(),
     );
 
     build_router(chain, pipelines, |route| {
@@ -159,7 +182,13 @@ pub fn trace_state(state: &State) {
     let uri = Uri::borrow_from(state);
     let http_version = Version::borrow_from(state);
     let headers = HeaderMap::borrow_from(state);
-    trace!("REQUEST Method: {} URI: {} HTTP Version: {:?} Headers: {:?}", method, uri, http_version, headers);
+    trace!(
+        "REQUEST Method: {} URI: {} HTTP Version: {:?} Headers: {:?}",
+        method,
+        uri,
+        http_version,
+        headers
+    );
 }
 
 pub fn trace_state_and_body(state: &State, body: &Chunk) {
@@ -168,11 +197,28 @@ pub fn trace_state_and_body(state: &State, body: &Chunk) {
     let http_version = Version::borrow_from(state);
     let headers = HeaderMap::borrow_from(state);
     let body = String::from_utf8(body.to_vec()).unwrap();
-    trace!("REQUEST Method: {} URI: {} HTTP Version: {:?} Headers: {:?} Body: {}", method, uri, http_version, headers, body);
+    trace!(
+        "REQUEST Method: {} URI: {} HTTP Version: {:?} Headers: {:?} Body: {}",
+        method,
+        uri,
+        http_version,
+        headers,
+        body
+    );
 }
 
-pub fn trace_create_response(state: &State, status: StatusCode, mime: Mime, body: String) -> Response<Body> {
+pub fn trace_create_response(
+    state: &State,
+    status: StatusCode,
+    mime: Mime,
+    body: String,
+) -> Response<Body> {
     let headers = HeaderMap::borrow_from(state);
-    trace!("RESPONSE ({}) Headers: {:?} Body: {}", status, headers, body);
+    trace!(
+        "RESPONSE ({}) Headers: {:?} Body: {}",
+        status,
+        headers,
+        body
+    );
     create_response(state, status, mime, body)
 }

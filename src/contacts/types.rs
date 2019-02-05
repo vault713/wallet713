@@ -1,11 +1,13 @@
-use std::fmt::{self, Display, Debug};
 use regex::Regex;
+use std::fmt::{self, Debug, Display};
 use url::Url;
 
 use grin_core::global::is_mainnet;
 
-use common::{Result, ErrorKind};
-use common::crypto::{PublicKey, Base58, GRINBOX_ADDRESS_VERSION_MAINNET, GRINBOX_ADDRESS_VERSION_TESTNET};
+use common::crypto::{
+    Base58, PublicKey, GRINBOX_ADDRESS_VERSION_MAINNET, GRINBOX_ADDRESS_VERSION_TESTNET,
+};
+use common::{ErrorKind, Result};
 
 const ADDRESS_REGEX: &str = r"^((?P<address_type>keybase|grinbox|https)://).+$";
 const GRINBOX_ADDRESS_REGEX: &str = r"^(grinbox://)?(?P<public_key>[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{52})(@(?P<domain>[a-zA-Z0-9\.]+)(:(?P<port>[0-9]*))?)?$";
@@ -21,7 +23,9 @@ pub enum AddressType {
 }
 
 pub trait Address: Debug + Display {
-    fn from_str(s: &str) -> Result<Self> where Self: Sized;
+    fn from_str(s: &str) -> Result<Self>
+    where
+        Self: Sized;
     fn address_type(&self) -> AddressType;
     fn stripped(&self) -> String;
 }
@@ -48,7 +52,7 @@ impl Address {
 
 pub trait AddressBookBackend {
     fn get_contact(&mut self, name: &[u8]) -> Result<Contact>;
-    fn contacts(&self) -> Box<Iterator<Item=Contact>>;
+    fn contacts(&self) -> Box<Iterator<Item = Contact>>;
     fn batch<'a>(&'a self) -> Result<Box<AddressBookBatch + 'a>>;
 }
 
@@ -59,14 +63,12 @@ pub trait AddressBookBatch {
 }
 
 pub struct AddressBook {
-    backend: Box<AddressBookBackend + Send>
+    backend: Box<AddressBookBackend + Send>,
 }
 
 impl AddressBook {
     pub fn new(backend: Box<AddressBookBackend + Send>) -> Result<Self> {
-        let address_book = Self {
-            backend
-        };
+        let address_book = Self { backend };
         Ok(address_book)
     }
 
@@ -102,7 +104,7 @@ impl AddressBook {
         Err(ErrorKind::ContactNotFound(address.to_string()))?
     }
 
-    pub fn contacts(&self) -> Box<Iterator<Item=Contact>> {
+    pub fn contacts(&self) -> Box<Iterator<Item = Contact>> {
         self.backend.contacts()
     }
 }
@@ -154,10 +156,7 @@ impl Address for KeybaseAddress {
         let captures = captures.unwrap();
         let username = captures.name("username").unwrap().as_str().to_string();
         let topic = captures.name("topic").map(|m| m.as_str().to_string());
-        Ok(Self {
-            username,
-            topic,
-        })
+        Ok(Self { username, topic })
     }
 
     fn address_type(&self) -> AddressType {
@@ -219,7 +218,9 @@ impl Address for GrinboxAddress {
         let captures = captures.unwrap();
         let public_key = captures.name("public_key").unwrap().as_str().to_string();
         let domain = captures.name("domain").map(|m| m.as_str().to_string());
-        let port = captures.name("port").map(|m| u16::from_str_radix(m.as_str(), 10).unwrap());
+        let port = captures
+            .name("port")
+            .map(|m| u16::from_str_radix(m.as_str(), 10).unwrap());
 
         let public_key = PublicKey::from_base58_check(&public_key, version_bytes())?;
 
@@ -238,7 +239,9 @@ impl Address for GrinboxAddress {
 impl Display for GrinboxAddress {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "grinbox://{}", self.public_key)?;
-        if self.domain != DEFAULT_GRINBOX_DOMAIN || (self.port.is_some() && self.port.unwrap() != DEFAULT_GRINBOX_PORT) {
+        if self.domain != DEFAULT_GRINBOX_DOMAIN
+            || (self.port.is_some() && self.port.unwrap() != DEFAULT_GRINBOX_PORT)
+        {
             write!(f, "@{}", self.domain)?;
             if self.port.is_some() && self.port.unwrap() != DEFAULT_GRINBOX_PORT {
                 write!(f, ":{}", self.port.unwrap())?;
@@ -255,12 +258,9 @@ pub struct HttpsAddress {
 
 impl Address for HttpsAddress {
     fn from_str(s: &str) -> Result<Self> {
-        Url::parse(s)
-            .map_err(|_| ErrorKind::HttpsAddressParsingError(s.to_string()))?;
+        Url::parse(s).map_err(|_| ErrorKind::HttpsAddressParsingError(s.to_string()))?;
 
-        Ok(Self {
-            uri: s.to_string(),
-        })
+        Ok(Self { uri: s.to_string() })
     }
 
     fn address_type(&self) -> AddressType {

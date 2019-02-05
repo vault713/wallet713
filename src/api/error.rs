@@ -4,19 +4,16 @@ use std::fmt;
 
 #[derive(Debug)]
 pub struct ApiError {
-    inner: Error
+    inner: Error,
 }
 
 impl ApiError {
     pub fn new(inner: Error) -> Self {
-        Self {
-            inner
-        }
+        Self { inner }
     }
 }
 
-impl StdError for ApiError {
-}
+impl StdError for ApiError {}
 
 impl fmt::Display for ApiError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

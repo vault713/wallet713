@@ -1,16 +1,16 @@
-use std::process::{Command, Stdio};
-use std::collections::HashSet;
-use std::time::Duration;
 use std::borrow::Borrow;
+use std::collections::HashSet;
 use std::iter::FromIterator;
+use std::process::{Command, Stdio};
+use std::time::Duration;
 
+use grin_core::libtx::slate::Slate;
 use serde::Serialize;
 use serde_json::{json, Value};
-use grin_core::libtx::slate::Slate;
 
-use common::{ErrorKind, Result, Arc, Mutex};
+use super::types::{CloseReason, Publisher, Subscriber, SubscriptionHandler};
+use common::{Arc, ErrorKind, Mutex, Result};
 use contacts::{Address, KeybaseAddress};
-use super::types::{Publisher, Subscriber, SubscriptionHandler, CloseReason};
 
 pub const TOPIC_SLATE_NEW: &str = "grin_slate_new";
 pub const TOPIC_WALLET713_SLATES: &str = "wallet713_grin_slate";
@@ -19,27 +19,25 @@ const SLEEP_DURATION: Duration = Duration::from_millis(5000);
 
 #[derive(Clone)]
 pub struct KeybasePublisher {
-    ttl: Option<String>
+    ttl: Option<String>,
 }
 
 impl KeybasePublisher {
     pub fn new(ttl: Option<String>) -> Result<Self> {
         let _broker = KeybaseBroker::new()?;
-        Ok(Self {
-            ttl
-        })
+        Ok(Self { ttl })
     }
 }
 
 #[derive(Clone)]
 pub struct KeybaseSubscriber {
-    stop_signal: Arc<Mutex<bool>>
+    stop_signal: Arc<Mutex<bool>>,
 }
 
 impl KeybaseSubscriber {
     pub fn new() -> Result<Self> {
         Ok(Self {
-            stop_signal: Arc::new(Mutex::new(true))
+            stop_signal: Arc::new(Mutex::new(true)),
         })
     }
 }
@@ -51,7 +49,7 @@ impl Publisher for KeybasePublisher {
         // make sure we don't send message with ttl to wallet713 as keybase oneshot does not support exploding lifetimes
         let ttl = match keybase_address.username.as_ref() {
             "wallet713" => &None,
-            _ => &self.ttl
+            _ => &self.ttl,
         };
 
         if let Some(topic) = keybase_address.topic {
@@ -66,7 +64,7 @@ impl Publisher for KeybasePublisher {
 impl Subscriber for KeybaseSubscriber {
     fn start(&mut self, handler: Box<SubscriptionHandler + Send>) -> Result<()> {
         {
-           let mut guard = self.stop_signal.lock();
+            let mut guard = self.stop_signal.lock();
             *guard = false;
         }
 
@@ -74,7 +72,7 @@ impl Subscriber for KeybaseSubscriber {
         let mut dropped = false;
         let result: Result<()> = loop {
             if *self.stop_signal.lock() {
-                break Ok(())
+                break Ok(());
             };
             let result = KeybaseBroker::get_unread(HashSet::from_iter(vec![
                 TOPIC_WALLET713_SLATES,
@@ -142,12 +140,10 @@ impl KeybaseBroker {
             Command::new("which")
         };
 
-        let status = proc.arg("keybase")
-            .stdout(Stdio::null())
-            .status()?;
+        let status = proc.arg("keybase").stdout(Stdio::null()).status()?;
 
         if status.success() {
-            Ok(Self{})
+            Ok(Self {})
         } else {
             Err(ErrorKind::KeybaseNotFound)?
         }
@@ -197,13 +193,13 @@ impl KeybaseBroker {
 
     pub fn get_unread(topics: HashSet<&str>) -> Result<Vec<(String, String, String)>> {
         let payload = json!({
-		    "method": "list",
-		    "params": {
-			    "options": {
-					"topic_type": "dev",
-				},
-			}
-		});
+            "method": "list",
+            "params": {
+                "options": {
+                    "topic_type": "dev",
+                },
+            }
+        });
         let payload = serde_json::to_string(&payload)?;
         let response = KeybaseBroker::api_send(&payload)?;
 
@@ -227,16 +223,21 @@ impl KeybaseBroker {
         Ok(unread)
     }
 
-    pub fn send<T: Serialize>(message: &T, channel: &str, topic: &str, ttl: &Option<String>) -> Result<()> {
+    pub fn send<T: Serialize>(
+        message: &T,
+        channel: &str,
+        topic: &str,
+        ttl: &Option<String>,
+    ) -> Result<()> {
         let mut payload = json!({
-    		"method": "send",
-	    	"params": {
-		    	"options": {
-			    	"channel": {
-						"name": channel,
-						"topic_name": topic,
-						"topic_type": "dev"
-					},
+            "method": "send",
+            "params": {
+                "options": {
+                    "channel": {
+                        "name": channel,
+                        "topic_name": topic,
+                        "topic_type": "dev"
+                    },
                     "message": {
                         "body": serde_json::to_string(&message)?
                     }

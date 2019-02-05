@@ -1,20 +1,24 @@
+use blake2_rfc::blake2b::Blake2b;
+use failure::ResultExt;
 use std::cell::RefCell;
-use std::{fs, path};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
-use failure::ResultExt;
-use blake2_rfc::blake2b::Blake2b;
+use std::{fs, path};
 
-use grin_util::{to_hex, from_hex};
-use grin_util::secp::constants::SECRET_KEY_SIZE;
-use grin_util::ZeroingString;
 use grin_core::{global, ser};
 use grin_store::{self, option_to_not_found, to_key, to_key_u64};
+use grin_util::secp::constants::SECRET_KEY_SIZE;
+use grin_util::ZeroingString;
+use grin_util::{from_hex, to_hex};
 use grin_wallet::WalletConfig;
 
-use super::types::{TxProof, Arc, ErrorKind, Result, WalletSeed, WalletBackend, WalletBackendBatch, ChildNumber, Transaction, OutputData, TxLogEntry, AcctPathMapping, Context, ExtKeychain, Identifier, Keychain, NodeClient};
 use super::api::restore;
+use super::types::{
+    AcctPathMapping, Arc, ChildNumber, Context, ErrorKind, ExtKeychain, Identifier, Keychain,
+    NodeClient, OutputData, Result, Transaction, TxLogEntry, TxProof, WalletBackend,
+    WalletBackendBatch, WalletSeed,
+};
 
 pub const DB_DIR: &'static str = "db";
 pub const TX_SAVE_DIR: &'static str = "saved_txs";
@@ -32,8 +36,8 @@ fn private_ctx_xor_keys<K>(
     keychain: &K,
     slate_id: &[u8],
 ) -> Result<([u8; SECRET_KEY_SIZE], [u8; SECRET_KEY_SIZE])>
-    where
-        K: Keychain,
+where
+    K: Keychain,
 {
     let root_key = keychain.derive_key(0, &K::root_key_id())?;
 
@@ -116,9 +120,9 @@ impl<C, K> Backend<C, K> {
 }
 
 impl<C, K> WalletBackend<C, K> for Backend<C, K>
-    where
-        C: NodeClient,
-        K: Keychain,
+where
+    C: NodeClient,
+    K: Keychain,
 {
     /// Initialise with whatever stored credentials we have
     fn open_with_credentials(&mut self) -> Result<()> {
@@ -192,12 +196,11 @@ impl<C, K> WalletBackend<C, K> for Backend<C, K>
 
     fn get_private_context(&mut self, uuid: &str) -> Result<Context> {
         let ctx_key = to_key(PRIVATE_TX_CONTEXT_PREFIX, &mut uuid.as_bytes().to_vec());
-        let (blind_xor_key, nonce_xor_key) = private_ctx_xor_keys(self.keychain(), uuid.as_bytes())?;
+        let (blind_xor_key, nonce_xor_key) =
+            private_ctx_xor_keys(self.keychain(), uuid.as_bytes())?;
 
-        let mut ctx: Context = option_to_not_found(
-            self.db.get_ser(&ctx_key),
-            &format!("Slate id: {}", uuid),
-        )?;
+        let mut ctx: Context =
+            option_to_not_found(self.db.get_ser(&ctx_key), &format!("Slate id: {}", uuid))?;
 
         for i in 0..SECRET_KEY_SIZE {
             ctx.sec_key.0[i] = ctx.sec_key.0[i] ^ blind_xor_key[i];
@@ -213,7 +216,9 @@ impl<C, K> WalletBackend<C, K> for Backend<C, K>
 
     fn get_acct_path(&self, label: &str) -> Result<AcctPathMapping> {
         let acct_key = to_key(ACCOUNT_PATH_MAPPING_PREFIX, &mut label.as_bytes().to_vec());
-        self.db.get_ser(&acct_key)?.ok_or(ErrorKind::ModelNotFound.into())
+        self.db
+            .get_ser(&acct_key)?
+            .ok_or(ErrorKind::ModelNotFound.into())
     }
 
     fn get_stored_tx(&self, uuid: &str) -> Result<Transaction> {
@@ -317,9 +322,9 @@ impl<C, K> WalletBackend<C, K> for Backend<C, K>
 /// An atomic batch in which all changes can be committed all at once or
 /// discarded on error.
 pub struct Batch<'a, C, K>
-    where
-        C: NodeClient,
-        K: Keychain,
+where
+    C: NodeClient,
+    K: Keychain,
 {
     _store: &'a Backend<C, K>,
     db: RefCell<Option<grin_store::Batch<'a>>>,
@@ -329,9 +334,9 @@ pub struct Batch<'a, C, K>
 
 #[allow(missing_docs)]
 impl<'a, C, K> WalletBackendBatch<K> for Batch<'a, C, K>
-    where
-        C: NodeClient,
-        K: Keychain,
+where
+    C: NodeClient,
+    K: Keychain,
 {
     fn keychain(&mut self) -> &mut K {
         self.keychain.as_mut().unwrap()
@@ -403,10 +408,7 @@ impl<'a, C, K> WalletBackendBatch<K> for Batch<'a, C, K>
         Ok(last_tx_log_id)
     }
 
-    fn save_last_confirmed_height(
-        &mut self,
-        height: u64,
-    ) -> Result<()> {
+    fn save_last_confirmed_height(&mut self, height: u64) -> Result<()> {
         let height_key = to_key(
             CONFIRMED_HEIGHT_PREFIX,
             &mut self._store.get_parent_key_id().to_bytes().to_vec(),
@@ -463,7 +465,8 @@ impl<'a, C, K> WalletBackendBatch<K> for Batch<'a, C, K>
 
     fn save_private_context(&mut self, uuid: &str, ctx: &Context) -> Result<()> {
         let ctx_key = to_key(PRIVATE_TX_CONTEXT_PREFIX, &mut uuid.as_bytes().to_vec());
-        let (blind_xor_key, nonce_xor_key) = private_ctx_xor_keys(self.keychain(), uuid.as_bytes())?;
+        let (blind_xor_key, nonce_xor_key) =
+            private_ctx_xor_keys(self.keychain(), uuid.as_bytes())?;
 
         let mut s_ctx = ctx.clone();
         for i in 0..SECRET_KEY_SIZE {

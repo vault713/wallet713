@@ -1,4 +1,7 @@
-mod types;
 mod backend;
+mod types;
 pub use self::backend::Backend;
-pub use self::types::{Address, AddressType, GrinboxAddress, KeybaseAddress, Contact, AddressBook, AddressBookBackend, DEFAULT_GRINBOX_PORT};
+pub use self::types::{
+    Address, AddressBook, AddressBookBackend, AddressType, Contact, GrinboxAddress, KeybaseAddress,
+    DEFAULT_GRINBOX_PORT,
+};

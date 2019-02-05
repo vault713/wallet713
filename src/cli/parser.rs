@@ -1,4 +1,4 @@
-use clap::{App, AppSettings, SubCommand, Arg, ArgMatches, ArgGroup};
+use clap::{App, AppSettings, Arg, ArgGroup, ArgMatches, SubCommand};
 use common::Result;
 
 #[derive(Clone)]
