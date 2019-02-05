@@ -11,7 +11,7 @@ While running, wallet713 works with an internal command prompt. You type command
       - [Transacting using Keybase](#transacting-using-keybase)
       - [Transacting using https](#transacting-using-https)
         * [Sending via https](#sending-via-https)
-        * [Receiving via https](#receiving-via-https)
+        * [Receiving via http](#receiving-via-http)
       - [Transacting using files](#transacting-using-files)
         * [Creating a file-based transaction](#creating-a-file-based-transaction)
         * [Receiving a file-based transaction](#receiving-a-file-based-transaction)
@@ -32,6 +32,8 @@ While running, wallet713 works with an internal command prompt. You type command
     + [Splitting your outputs](#splitting-your-outputs)
   * [Running your own node](#running-your-own-node)
   * [Configuring Foreign & Owner APIs](#configuring_foreign_and_owner_apis)
+    + [Foreign API](#foreign-api)
+    + [Owner API](#owner-api)
   * [Recovering your wallet](#recovering-your-wallet)
     + [Recovering a wallet from seed file](#recovering-a-wallet-from-seed-file)
     + [Recovering a wallet using your mnemonic BIP-39 phrase](#recovering-a-wallet-using-your-mnemonic-bip-39-phrase)
@@ -124,9 +126,13 @@ To send 10 grins to https://some.wallet.713.mw:13415:
 wallet713> $ send 10 --to https://some.wallet.713.mw:13415
 ```
 
-##### Receiving via https
+##### Receiving via http
 
-Not yet supported. Request this to us (open an issue, or chat with us on Gitter) if you need it. 
+Wallet713 supports receiving transactions via http. In order to set this up you need the foreign api listener running.
+
+For instructions on how to set this up please refer to the section: [Foreign API](#foreign-api)
+
+Note that in otder to set up https access to the foreign API, which is highly recommended, you would need to install a reverse proxy and on a registered domain with a proper SSL certificate.
 
 #### Transacting using files
 
@@ -324,22 +330,43 @@ Set corresponding `grin_node_uri` and `grin_node_secret` in your `~/.wallet713/X
 
 ## Configuring Foreign and Owner APIs
 
-Wallet713 provides a *variant* of grin's default wallet foregin and owner APIs.
+Wallet713 provides a *variant* of grin's default wallet foreign and owner APIs.
 
-In order to expose those API endpoints, you should use the following configuration parameters in `wallet713.toml`:
+The APIs are not exposed by default. You can turn each of them on by setting specific values in the `wallet713.toml` configuration file.
 
 ### Foreign API
+
+Wallet713 Foreign API supports the default grin's wallet foreign API, allowing it to receive incoming slates and to build coinbase outputs.
+
+In addition, wallet713 foreign API implementation supports a new route for receiving invoice slates: `/v1/wallet/foreign/receive_invoice`.
+
+In order to turn on foreign API support you need to set the following configuration option:
+
 ```
 foreign_api = true
-foreign_api_address = "0.0.0.0:13415"
+```
+
+With this option, whenever you run wallet713 it would automatically start the foreign API listener.
+
+By default the foreign api will bind to *0.0.0.0:3415* for mainnet and *0.0.0.0:13415* for floonet, however this can be configured with the following option:
+
+```
+foreign_api_address = "0.0.0.0:5555"
+```
+
+If you would like to secure access to the foreign api, you can set up a secret by using the following configuration option.
+
+Note, however, that setting up a such a secret on the foreign requires the sending party to know the secret in order to communicate with your wallet for sending in grins.
+
+```
 foreign_api_secret = "<some secret string>"
 ```
 
-Wallet713 Foreign API supports the default grin's wallet foreign API, allowing it to serve as a coinbase wallet, interacting directly with the default grin_miner.
-
-Additionally, the API supports a new route for receiving invoice slates: `/v1/wallet/foreign/receive_invoice`.
-
 ### Owner API
+
+Wallet713 support setting up an owner API listener. This API allows access to the wallet (for sending grins, retrieving info, etc.) via http requests.
+It is important to never expose the owner API externally as it may compromise funds in your wallet! Also important to ensure there's a secret set on the API so that calls to the API are authenticated against the secret.
+
 ```
 owner_api = true
 owner_api_address = "127.0.0.1:13420"
