@@ -7,7 +7,7 @@ use contacts::Address;
 
 pub enum CloseReason {
     Normal,
-    Abnormal(Error)
+    Abnormal(Error),
 }
 
 pub trait Publisher {

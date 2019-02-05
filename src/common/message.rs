@@ -1,12 +1,12 @@
-use grin_util::secp::Secp256k1;
 use grin_util::secp::key::{PublicKey, SecretKey};
-use rand::Rng;
+use grin_util::secp::Secp256k1;
 use rand::thread_rng;
+use rand::Rng;
 use ring::aead;
 use ring::{digest, pbkdf2};
 
-use crate::common::{ErrorKind, Result};
 use crate::common::crypto::{from_hex, to_hex};
+use crate::common::{ErrorKind, Result};
 use crate::contacts::GrinboxAddress;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -19,10 +19,17 @@ pub struct EncryptedMessage {
 }
 
 impl EncryptedMessage {
-    pub fn new(message: String, destination: &GrinboxAddress, receiver_public_key: &PublicKey, secret_key: &SecretKey) -> Result<EncryptedMessage> {
+    pub fn new(
+        message: String,
+        destination: &GrinboxAddress,
+        receiver_public_key: &PublicKey,
+        secret_key: &SecretKey,
+    ) -> Result<EncryptedMessage> {
         let secp = Secp256k1::new();
         let mut common_secret = receiver_public_key.clone();
-        common_secret.mul_assign(&secp, secret_key).map_err(|_| ErrorKind::Encryption)?;
+        common_secret
+            .mul_assign(&secp, secret_key)
+            .map_err(|_| ErrorKind::Encryption)?;
         let common_secret_ser = common_secret.serialize_vec(&secp, true);
         let common_secret_slice = &common_secret_ser[1..33];
 
@@ -53,7 +60,9 @@ impl EncryptedMessage {
 
         let secp = Secp256k1::new();
         let mut common_secret = sender_public_key.clone();
-        common_secret.mul_assign(&secp, secret_key).map_err(|_| ErrorKind::Decryption)?;
+        common_secret
+            .mul_assign(&secp, secret_key)
+            .map_err(|_| ErrorKind::Decryption)?;
         let common_secret_ser = common_secret.serialize_vec(&secp, true);
         let common_secret_slice = &common_secret_ser[1..33];
 
@@ -64,13 +73,15 @@ impl EncryptedMessage {
     }
 
     pub fn decrypt_with_key(&self, key: &[u8; 32]) -> Result<String> {
-        let mut encrypted_message = from_hex(self.encrypted_message.clone()).map_err(|_| ErrorKind::Decryption)?;
+        let mut encrypted_message =
+            from_hex(self.encrypted_message.clone()).map_err(|_| ErrorKind::Decryption)?;
         let nonce = from_hex(self.nonce.clone()).map_err(|_| ErrorKind::Decryption)?;
 
         let opening_key = aead::OpeningKey::new(&aead::CHACHA20_POLY1305, key)
             .map_err(|_| ErrorKind::Decryption)?;
-        let decrypted_data = aead::open_in_place(&opening_key, &nonce, &[], 0, &mut encrypted_message)
-            .map_err(|_| ErrorKind::Decryption)?;
+        let decrypted_data =
+            aead::open_in_place(&opening_key, &nonce, &[], 0, &mut encrypted_message)
+                .map_err(|_| ErrorKind::Decryption)?;
 
         String::from_utf8(decrypted_data.to_vec()).map_err(|_| ErrorKind::Decryption.into())
     }

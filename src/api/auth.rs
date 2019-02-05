@@ -16,7 +16,8 @@ pub struct BasicAuthMiddleware {
 impl BasicAuthMiddleware {
     pub fn new(api_basic_auth: Option<String>) -> Self {
         Self {
-            api_basic_auth: api_basic_auth.map(|x| String::from("Basic ") + &to_base64(&(String::from("grin:") + &x))),
+            api_basic_auth: api_basic_auth
+                .map(|x| String::from("Basic ") + &to_base64(&(String::from("grin:") + &x))),
         }
     }
 }
@@ -30,15 +31,19 @@ impl Middleware for BasicAuthMiddleware {
             return chain(state);
         }
 
-        let auth: Option<String> = HeaderMap::borrow_from(&state).get(AUTHORIZATION).map(|x| x.to_str().unwrap().to_string());
+        let auth: Option<String> = HeaderMap::borrow_from(&state)
+            .get(AUTHORIZATION)
+            .map(|x| x.to_str().unwrap().to_string());
 
         if auth
-            .map(|x| verify_slices_are_equal(self.api_basic_auth.unwrap().as_bytes(), x.as_bytes()).is_ok())
+            .map(|x| {
+                verify_slices_are_equal(self.api_basic_auth.unwrap().as_bytes(), x.as_bytes())
+                    .is_ok()
+            })
             .unwrap_or(false)
         {
             chain(state)
-        }
-        else {
+        } else {
             let res = create_empty_response(&state, StatusCode::UNAUTHORIZED);
             Box::new(future::ok((state, res)))
         }

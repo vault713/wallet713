@@ -1,7 +1,10 @@
 use uuid::Uuid;
 
-use super::types::{WalletBackend, Context, TxLogEntryType, Error, ErrorKind, NodeClient, Keychain, Identifier, Slate, Transaction};
 use super::selection;
+use super::types::{
+    Context, Error, ErrorKind, Identifier, Keychain, NodeClient, Slate, Transaction,
+    TxLogEntryType, WalletBackend,
+};
 use super::updater;
 
 use crate::wallet::types::TxProof;
@@ -13,14 +16,18 @@ pub fn receive_tx<T: ?Sized, C, K>(
     parent_key_id: &Identifier,
     message: Option<String>,
 ) -> Result<(), Error>
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     // create an output using the amount in the slate
-    let (_, mut context, receiver_create_fn) =
-        selection::build_recipient_output_with_slate(wallet, address, slate, parent_key_id.clone())?;
+    let (_, mut context, receiver_create_fn) = selection::build_recipient_output_with_slate(
+        wallet,
+        address,
+        slate,
+        parent_key_id.clone(),
+    )?;
 
     // fill public keys
     let _ = slate.fill_round_1(
@@ -58,10 +65,10 @@ pub fn create_send_tx<T: ?Sized, C, K>(
     ),
     Error,
 >
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     // Get lock height
     let current_height = wallet.w2n_client().get_chain_height()?;
@@ -110,10 +117,10 @@ pub fn complete_tx<T: ?Sized, C, K>(
     slate: &mut Slate,
     context: &Context,
 ) -> Result<(), Error>
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     let _ = slate.fill_round_2(wallet.keychain(), &context.sec_key, &context.sec_nonce, 0)?;
     // Final transaction can be built by anyone at this stage
@@ -130,10 +137,10 @@ pub fn cancel_tx<T: ?Sized, C, K>(
     tx_id: Option<u32>,
     tx_slate_id: Option<Uuid>,
 ) -> Result<(), Error>
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     let mut tx_id_string = String::new();
     if let Some(tx_id) = tx_id {
@@ -159,11 +166,15 @@ pub fn cancel_tx<T: ?Sized, C, K>(
     Ok(())
 }
 
-pub fn update_stored_tx<T: ?Sized, C, K>(wallet: &mut T, slate: &Slate, tx_proof: Option<&mut TxProof>) -> Result<(), Error>
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+pub fn update_stored_tx<T: ?Sized, C, K>(
+    wallet: &mut T,
+    slate: &Slate,
+    tx_proof: Option<&mut TxProof>,
+) -> Result<(), Error>
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     // finalize command
     let tx_vec = updater::retrieve_txs(wallet, None, Some(slate.id), None, false)?;
@@ -174,7 +185,7 @@ pub fn update_stored_tx<T: ?Sized, C, K>(wallet: &mut T, slate: &Slate, tx_proof
             tx = Some(t.clone());
             break;
         }
-    };
+    }
 
     if tx.is_none() {
         return Err(ErrorKind::TransactionDoesntExist(slate.id.to_string()).into());
@@ -199,13 +210,11 @@ pub fn invoice_tx<T: ?Sized, C, K>(
     selection_strategy_is_use_all: bool,
     parent_key_id: Identifier,
     message: Option<String>,
-) -> Result<(
-impl FnOnce(&mut T, &Transaction) -> Result<(), Error>
-), Error>
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+) -> Result<(impl FnOnce(&mut T, &Transaction) -> Result<(), Error>), Error>
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     updater::refresh_outputs(wallet, &parent_key_id, false)?;
 
@@ -246,10 +255,10 @@ pub fn create_receive_tx<T: ?Sized, C, K>(
     ),
     Error,
 >
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     // Get lock height
     let current_height = wallet.w2n_client().get_chain_height()?;

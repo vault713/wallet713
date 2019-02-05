@@ -1,10 +1,12 @@
 use crate::wallet::types::TxProof;
 
-use super::{Result, Transaction, AcctPathMapping, OutputData, TxLogEntry, Context, Keychain, Identifier};
+use super::{
+    AcctPathMapping, Context, Identifier, Keychain, OutputData, Result, Transaction, TxLogEntry,
+};
 
 pub trait WalletBackendBatch<K>
-    where
-        K: Keychain,
+where
+    K: Keychain,
 {
     fn keychain(&mut self) -> &mut K;
     fn save_output(&mut self, out: &OutputData) -> Result<()>;

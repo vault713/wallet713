@@ -4,9 +4,12 @@ use grin_core::global;
 use grin_core::libtx::proof;
 use grin_util::secp::pedersen;
 
-use super::types::{Result, SecretKey, ErrorKind, WalletBackend, NodeClient, ExtKeychain, Identifier, Keychain, OutputData, OutputStatus, TxLogEntryType, TxLogEntry};
-use super::updater;
 use super::keys;
+use super::types::{
+    ErrorKind, ExtKeychain, Identifier, Keychain, NodeClient, OutputData, OutputStatus, Result,
+    SecretKey, TxLogEntry, TxLogEntryType, WalletBackend,
+};
+use super::updater;
 
 #[derive(Clone)]
 struct OutputResult {
@@ -32,10 +35,10 @@ fn identify_utxo_outputs<T, C, K>(
     wallet: &mut T,
     outputs: Vec<(pedersen::Commitment, pedersen::RangeProof, bool, u64, u64)>,
 ) -> Result<Vec<OutputResult>>
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     let mut wallet_outputs: Vec<OutputResult> = Vec::new();
 
@@ -85,10 +88,10 @@ fn identify_utxo_outputs<T, C, K>(
 }
 
 fn collect_chain_outputs<T, C, K>(wallet: &mut T) -> Result<Vec<OutputResult>>
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     let batch_size = 1000;
     let mut start_index = 1;
@@ -121,10 +124,10 @@ fn restore_missing_output<T, C, K>(
     found_parents: &mut HashMap<Identifier, u32>,
     tx_stats: &mut Option<&mut HashMap<Identifier, RestoredTxStats>>,
 ) -> Result<()>
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     let commit = wallet.calc_commit_for_cache(output.value, &output.key_id)?;
     let mut batch = wallet.batch()?;
@@ -199,10 +202,10 @@ fn restore_missing_output<T, C, K>(
 
 ///
 fn cancel_tx_log_entry<T, C, K>(wallet: &mut T, output: &OutputData) -> Result<()>
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     let parent_key_id = output.key_id.parent_path();
     let updated_tx_entry = if output.tx_log_entry.is_some() {
@@ -239,10 +242,10 @@ fn cancel_tx_log_entry<T, C, K>(wallet: &mut T, output: &OutputData) -> Result<(
 /// assume wallet contents have been freshly updated with contents
 /// of latest block
 pub fn check_repair<T, C, K>(wallet: &mut T) -> Result<()>
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     // First, get a definitive list of outputs we own from the chain
     warn!("Starting wallet check.");
@@ -283,7 +286,7 @@ pub fn check_repair<T, C, K>(wallet: &mut T) -> Result<()>
         let mut o = m.0;
         warn!(
             "Output for {} with ID {} ({:?}) marked as spent but exists in UTXO set. \
-			 Marking unspent and cancelling any associated transaction log entries.",
+             Marking unspent and cancelling any associated transaction log entries.",
             o.value, o.key_id, m.1.commit,
         );
         o.status = OutputStatus::Unspent;
@@ -300,7 +303,7 @@ pub fn check_repair<T, C, K>(wallet: &mut T) -> Result<()>
     for m in missing_outs.into_iter() {
         warn!(
             "Confirmed output for {} with ID {} ({:?}) exists in UTXO set but not in wallet. \
-			 Restoring.",
+             Restoring.",
             m.value, m.key_id, m.commit,
         );
         restore_missing_output(wallet, m, &mut found_parents, &mut None)?;
@@ -311,7 +314,7 @@ pub fn check_repair<T, C, K>(wallet: &mut T) -> Result<()>
         let mut o = m.0;
         warn!(
             "Confirmed output for {} with ID {} ({:?}) exists in UTXO set and is locked. \
-			 Unlocking and cancelling associated transaction log entries.",
+             Unlocking and cancelling associated transaction log entries.",
             o.value, o.key_id, m.1.commit,
         );
         o.status = OutputStatus::Unspent;
@@ -330,7 +333,7 @@ pub fn check_repair<T, C, K>(wallet: &mut T) -> Result<()>
         let o = m.0.clone();
         warn!(
             "Unconfirmed output for {} with ID {} ({:?}) not in UTXO set. \
-			 Deleting and cancelling associated transaction log entries.",
+             Deleting and cancelling associated transaction log entries.",
             o.value, o.key_id, m.1,
         );
         cancel_tx_log_entry(wallet, &o)?;
@@ -359,15 +362,15 @@ pub fn check_repair<T, C, K>(wallet: &mut T) -> Result<()>
 
 /// Restore a wallet
 pub fn restore<T, C, K>(wallet: &mut T) -> Result<()>
-    where
-        T: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
+where
+    T: WalletBackend<C, K>,
+    C: NodeClient,
+    K: Keychain,
 {
     // Don't proceed if wallet_data has anything in it
     let is_empty = wallet.outputs().next().is_none();
     if !is_empty {
-        return Err(ErrorKind::WalletShouldBeEmpty.into())
+        return Err(ErrorKind::WalletShouldBeEmpty.into());
     }
 
     warn!("Starting restore.");
@@ -420,4 +423,3 @@ pub fn restore<T, C, K>(wallet: &mut T) -> Result<()>
     }
     Ok(())
 }
-

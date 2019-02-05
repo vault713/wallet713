@@ -2,11 +2,13 @@ use prettytable;
 use std::io::prelude::Write;
 use term;
 
-use grin_util::secp::pedersen;
-use grin_core::global;
 use grin_core::core::{self, amount_to_hr_string};
+use grin_core::global;
+use grin_util::secp::pedersen;
 
-use super::types::{Arc, Mutex, AcctPathMapping, OutputData, OutputStatus, TxLogEntry, WalletInfo, Error};
+use super::types::{
+    AcctPathMapping, Arc, Error, Mutex, OutputData, OutputStatus, TxLogEntry, WalletInfo,
+};
 use crate::contacts::AddressBook;
 
 /// Display outputs in a pretty way
@@ -30,16 +32,16 @@ pub fn outputs(
     let mut table = table!();
 
     table.set_titles(row![
-		bMG->"Output Commitment",
+        bMG->"Output Commitment",
         bMG->"MMR Index",
-		bMG->"Block Height",
-		bMG->"Locked Until",
-		bMG->"Status",
-		bMG->"Coinbase?",
-		bMG->"# Confirms",
-		bMG->"Value",
-		bMG->"Tx"
-	]);
+        bMG->"Block Height",
+        bMG->"Locked Until",
+        bMG->"Status",
+        bMG->"Coinbase?",
+        bMG->"# Confirms",
+        bMG->"Value",
+        bMG->"Tx"
+    ]);
 
     for (out, commit) in outputs {
         let commit = format!("{}", grin_util::to_hex(commit.as_ref().to_vec()));
@@ -66,28 +68,28 @@ pub fn outputs(
 
         if dark_background_color_scheme {
             table.add_row(row![
-				bFC->commit,
-				bFB->index,
-				bFB->height,
-				bFB->lock_height,
-				bFR->status,
-				bFY->is_coinbase,
-				bFB->num_confirmations,
-				bFG->value,
-				bFC->tx,
-			]);
+                bFC->commit,
+                bFB->index,
+                bFB->height,
+                bFB->lock_height,
+                bFR->status,
+                bFY->is_coinbase,
+                bFB->num_confirmations,
+                bFG->value,
+                bFC->tx,
+            ]);
         } else {
             table.add_row(row![
-				bFD->commit,
-				bFB->index,
-				bFB->height,
-				bFB->lock_height,
-				bFR->status,
-				bFD->is_coinbase,
-				bFB->num_confirmations,
-				bFG->value,
-				bFD->tx,
-			]);
+                bFD->commit,
+                bFB->index,
+                bFB->height,
+                bFB->lock_height,
+                bFR->status,
+                bFD->is_coinbase,
+                bFB->num_confirmations,
+                bFG->value,
+                bFD->tx,
+            ]);
         }
     }
 
@@ -98,8 +100,8 @@ pub fn outputs(
     if !validated {
         println!(
             "\nWARNING: Wallet failed to verify data. \
-			 The above is from local cache and possibly invalid! \
-			 (is your `grin server` offline or broken?)"
+             The above is from local cache and possibly invalid! \
+             (is your `grin server` offline or broken?)"
         );
     }
     Ok(())
@@ -128,16 +130,16 @@ pub fn txs(
     let mut table = table!();
 
     table.set_titles(row![
-		bMG->"Id",
-		bMG->"Type",
-		bMG->"TXID",
-		bMG->"Address",
-		bMG->"Creation Time",
-		bMG->"Confirmed?",
-		bMG->"Confirmation Time",
-		bMG->"Net \nDifference",
-		bMG->"Proof?",
-	]);
+        bMG->"Id",
+        bMG->"Type",
+        bMG->"TXID",
+        bMG->"Address",
+        bMG->"Creation Time",
+        bMG->"Confirmed?",
+        bMG->"Confirmation Time",
+        bMG->"Net \nDifference",
+        bMG->"Proof?",
+    ]);
 
     for (t, has_proof) in txs {
         let id = format!("{}", t.id);
@@ -158,7 +160,7 @@ pub fn txs(
                 } else {
                     a.clone()
                 }
-            },
+            }
             None => String::from(""),
         };
         let entry_type = format!("{}", t.tx_type);
@@ -185,41 +187,41 @@ pub fn txs(
         };
         if dark_background_color_scheme {
             table.add_row(row![
-				bFC->id,
-				bFC->entry_type,
-				bFB->slate_id,
-				bFC->address,
-				bFB->creation_ts,
-				bFG->confirmed,
-				bFB->confirmation_ts,
-				bFY->net_diff,
-				bFG->proof,
-			]);
+                bFC->id,
+                bFC->entry_type,
+                bFB->slate_id,
+                bFC->address,
+                bFB->creation_ts,
+                bFG->confirmed,
+                bFB->confirmation_ts,
+                bFY->net_diff,
+                bFG->proof,
+            ]);
         } else {
             if t.confirmed {
                 table.add_row(row![
-					bFD->id,
-					bFb->entry_type,
-					bFD->slate_id,
-					bFD->address,
-					bFB->creation_ts,
-					bFg->confirmed,
-					bFB->confirmation_ts,
-					bFG->net_diff,
-					bFg->proof,
-				]);
+                    bFD->id,
+                    bFb->entry_type,
+                    bFD->slate_id,
+                    bFD->address,
+                    bFB->creation_ts,
+                    bFg->confirmed,
+                    bFB->confirmation_ts,
+                    bFG->net_diff,
+                    bFg->proof,
+                ]);
             } else {
                 table.add_row(row![
-					bFD->id,
-					bFb->entry_type,
-					bFD->slate_id,
-					bFD->address,
-					bFB->creation_ts,
-					bFR->confirmed,
-					bFB->confirmation_ts,
-					bFG->net_diff,
-					bFR->proof,
-				]);
+                    bFD->id,
+                    bFb->entry_type,
+                    bFD->slate_id,
+                    bFD->address,
+                    bFB->creation_ts,
+                    bFR->confirmed,
+                    bFB->confirmation_ts,
+                    bFG->net_diff,
+                    bFR->proof,
+                ]);
             }
         }
     }
@@ -231,8 +233,8 @@ pub fn txs(
     if !validated && include_status {
         println!(
             "\nWARNING: Wallet failed to verify data. \
-			 The above is from local cache and possibly invalid! \
-			 (is your `grin server` offline or broken?)"
+             The above is from local cache and possibly invalid! \
+             (is your `grin server` offline or broken?)"
         );
     }
     Ok(())
@@ -254,62 +256,62 @@ pub fn info(
 
     if dark_background_color_scheme {
         table.add_row(row![
-			bFG->"Total",
-			FG->amount_to_hr_string(wallet_info.total, false)
-		]);
+            bFG->"Total",
+            FG->amount_to_hr_string(wallet_info.total, false)
+        ]);
         // Only dispay "Immature Coinbase" if we have related outputs in the wallet.
         // This row just introduces confusion if the wallet does not receive coinbase rewards.
         if wallet_info.amount_immature > 0 {
             table.add_row(row![
-				bFY->format!("Immature Coinbase (< {})", global::coinbase_maturity()),
-				FY->amount_to_hr_string(wallet_info.amount_immature, false)
-			]);
+                bFY->format!("Immature Coinbase (< {})", global::coinbase_maturity()),
+                FY->amount_to_hr_string(wallet_info.amount_immature, false)
+            ]);
         }
         table.add_row(row![
-			bFY->format!("Awaiting Confirmation (< {})", wallet_info.minimum_confirmations),
-			FY->amount_to_hr_string(wallet_info.amount_awaiting_confirmation, false)
-		]);
+            bFY->format!("Awaiting Confirmation (< {})", wallet_info.minimum_confirmations),
+            FY->amount_to_hr_string(wallet_info.amount_awaiting_confirmation, false)
+        ]);
         table.add_row(row![
-			Fr->"Locked by previous transaction",
-			Fr->amount_to_hr_string(wallet_info.amount_locked, false)
-		]);
+            Fr->"Locked by previous transaction",
+            Fr->amount_to_hr_string(wallet_info.amount_locked, false)
+        ]);
         table.add_row(row![
-			Fw->"--------------------------------",
-			Fw->"-------------"
-		]);
+            Fw->"--------------------------------",
+            Fw->"-------------"
+        ]);
         table.add_row(row![
-			bFG->"Currently Spendable",
-			FG->amount_to_hr_string(wallet_info.amount_currently_spendable, false)
-		]);
+            bFG->"Currently Spendable",
+            FG->amount_to_hr_string(wallet_info.amount_currently_spendable, false)
+        ]);
     } else {
         table.add_row(row![
-			bFG->"Total",
-			FG->amount_to_hr_string(wallet_info.total, false)
-		]);
+            bFG->"Total",
+            FG->amount_to_hr_string(wallet_info.total, false)
+        ]);
         // Only dispay "Immature Coinbase" if we have related outputs in the wallet.
         // This row just introduces confusion if the wallet does not receive coinbase rewards.
         if wallet_info.amount_immature > 0 {
             table.add_row(row![
-				bFB->format!("Immature Coinbase (< {})", global::coinbase_maturity()),
-				FB->amount_to_hr_string(wallet_info.amount_immature, false)
-			]);
+                bFB->format!("Immature Coinbase (< {})", global::coinbase_maturity()),
+                FB->amount_to_hr_string(wallet_info.amount_immature, false)
+            ]);
         }
         table.add_row(row![
-			bFB->format!("Awaiting Confirmation (< {})", wallet_info.minimum_confirmations),
-			FB->amount_to_hr_string(wallet_info.amount_awaiting_confirmation, false)
-		]);
+            bFB->format!("Awaiting Confirmation (< {})", wallet_info.minimum_confirmations),
+            FB->amount_to_hr_string(wallet_info.amount_awaiting_confirmation, false)
+        ]);
         table.add_row(row![
-			Fr->"Locked by previous transaction",
-			Fr->amount_to_hr_string(wallet_info.amount_locked, false)
-		]);
+            Fr->"Locked by previous transaction",
+            Fr->amount_to_hr_string(wallet_info.amount_locked, false)
+        ]);
         table.add_row(row![
-			Fw->"--------------------------------",
-			Fw->"-------------"
-		]);
+            Fw->"--------------------------------",
+            Fw->"-------------"
+        ]);
         table.add_row(row![
-			bFG->"Currently Spendable",
-			FG->amount_to_hr_string(wallet_info.amount_currently_spendable, false)
-		]);
+            bFG->"Currently Spendable",
+            FG->amount_to_hr_string(wallet_info.amount_currently_spendable, false)
+        ]);
     };
     table.set_format(*prettytable::format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR);
     table.printstd();
@@ -317,26 +319,26 @@ pub fn info(
     if !validated {
         println!(
             "\nWARNING: Wallet failed to verify data against a live chain. \
-			 The above is from local cache and only valid up to the given height! \
-			 (is your `grin server` offline or broken?)"
+             The above is from local cache and only valid up to the given height! \
+             (is your `grin server` offline or broken?)"
         );
     }
 }
 
 /// Display list of wallet accounts in a pretty way
 pub fn accounts(acct_mappings: Vec<AcctPathMapping>) {
-    println!("\n____ Wallet Accounts ____\n", );
+    println!("\n____ Wallet Accounts ____\n",);
     let mut table = table!();
 
     table.set_titles(row![
-		mMG->"Name",
-		bMG->"Parent BIP-32 Derivation Path",
-	]);
+        mMG->"Name",
+        bMG->"Parent BIP-32 Derivation Path",
+    ]);
     for m in acct_mappings {
         table.add_row(row![
-			bFC->m.label,
-			bGC->m.path.to_bip_32_string(),
-		]);
+            bFC->m.label,
+            bGC->m.path.to_bip_32_string(),
+        ]);
     }
     table.set_format(*prettytable::format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR);
     table.printstd();

@@ -1,13 +1,13 @@
+use std::fmt;
+use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::fs::File;
-use std::fmt;
 
-use grin_wallet::WalletConfig;
 use grin_core::global::ChainTypes;
+use grin_wallet::WalletConfig;
 
-use common::{Result, ErrorKind};
-use common::crypto::{SecretKey, PublicKey, public_key_from_secret_key};
+use common::crypto::{public_key_from_secret_key, PublicKey, SecretKey};
+use common::{ErrorKind, Result};
 use contacts::{GrinboxAddress, DEFAULT_GRINBOX_PORT};
 
 const WALLET713_HOME: &str = ".wallet713";
@@ -54,7 +54,10 @@ impl Wallet713Config {
         Ok(Path::new(config_path).exists())
     }
 
-    pub fn from_file(config_path: Option<&str>, chain: &Option<ChainTypes>) -> Result<Wallet713Config> {
+    pub fn from_file(
+        config_path: Option<&str>,
+        chain: &Option<ChainTypes>,
+    ) -> Result<Wallet713Config> {
         let default_path_buf = Wallet713Config::default_config_path(chain)?;
         let default_path = default_path_buf.to_str().unwrap();
         let config_path = config_path.unwrap_or(default_path);
@@ -124,7 +127,11 @@ impl Wallet713Config {
 
     pub fn get_grinbox_address(&self) -> Result<GrinboxAddress> {
         let public_key = self.get_grinbox_public_key()?;
-        Ok(GrinboxAddress::new(public_key, Some(self.grinbox_domain.clone()), self.grinbox_port))
+        Ok(GrinboxAddress::new(
+            public_key,
+            Some(self.grinbox_domain.clone()),
+            self.grinbox_port,
+        ))
     }
 
     pub fn get_grinbox_public_key(&self) -> Result<PublicKey> {
@@ -132,7 +139,8 @@ impl Wallet713Config {
     }
 
     pub fn get_grinbox_secret_key(&self) -> Result<SecretKey> {
-        self.grinbox_address_key.ok_or_else(|| ErrorKind::NoWallet.into())
+        self.grinbox_address_key
+            .ok_or_else(|| ErrorKind::NoWallet.into())
     }
 
     pub fn get_data_path(&self) -> Result<PathBuf> {
@@ -143,7 +151,11 @@ impl Wallet713Config {
         }
 
         let mut data_path = PathBuf::new();
-        data_path.push(self.config_home.clone().unwrap_or(WALLET713_DEFAULT_CONFIG_FILENAME.to_string()));
+        data_path.push(
+            self.config_home
+                .clone()
+                .unwrap_or(WALLET713_DEFAULT_CONFIG_FILENAME.to_string()),
+        );
         data_path.pop();
         data_path.push(self.wallet713_data_path.clone());
         Ok(data_path)
@@ -164,28 +176,30 @@ impl Wallet713Config {
             None => match chain_type {
                 ChainTypes::Mainnet => Some(String::from("thanksvault713kizQ4ZVv")),
                 _ => Some(String::from("thanksvault713EcRXKbYS")),
-            }
+            },
         }
     }
 
     pub fn owner_api_address(&self) -> String {
         let chain_type = self.chain.as_ref().unwrap_or(&ChainTypes::Mainnet);
-        self.owner_api_address.as_ref().map(|a| a.clone()).unwrap_or_else(|| {
-            match chain_type {
+        self.owner_api_address
+            .as_ref()
+            .map(|a| a.clone())
+            .unwrap_or_else(|| match chain_type {
                 ChainTypes::Mainnet => String::from("127.0.0.1:3420"),
                 _ => String::from("127.0.0.1:13420"),
-            }
-        })
+            })
     }
 
     pub fn foreign_api_address(&self) -> String {
         let chain_type = self.chain.as_ref().unwrap_or(&ChainTypes::Mainnet);
-        self.foreign_api_address.as_ref().map(|a| a.clone()).unwrap_or_else(|| {
-            match chain_type {
+        self.foreign_api_address
+            .as_ref()
+            .map(|a| a.clone())
+            .unwrap_or_else(|| match chain_type {
                 ChainTypes::Mainnet => String::from("127.0.0.1:3415"),
                 _ => String::from("127.0.0.1:13415"),
-            }
-        })
+            })
     }
 
     pub fn owner_api(&self) -> bool {

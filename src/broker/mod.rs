@@ -1,8 +1,8 @@
-mod types;
-mod keybase;
 mod grinbox;
+mod keybase;
 mod protocol;
+mod types;
 
-pub use self::types::{Publisher, Subscriber, SubscriptionHandler, CloseReason};
-pub use self::keybase::{KeybasePublisher, KeybaseSubscriber, TOPIC_SLATE_NEW};
 pub use self::grinbox::{GrinboxPublisher, GrinboxSubscriber};
+pub use self::keybase::{KeybasePublisher, KeybaseSubscriber, TOPIC_SLATE_NEW};
+pub use self::types::{CloseReason, Publisher, Subscriber, SubscriptionHandler};

@@ -1,6 +1,6 @@
+use chrono::prelude::*;
 use grin_core::ser;
 use uuid::Uuid;
-use chrono::prelude::*;
 
 use super::{Identifier, TxLogEntryType};
 

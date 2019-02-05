@@ -1,9 +1,12 @@
-use super::{Result, AcctPathMapping, OutputData, TxLogEntry, Context, Transaction, Keychain, Identifier, NodeClient, WalletBackendBatch, TxProof};
+use super::{
+    AcctPathMapping, Context, Identifier, Keychain, NodeClient, OutputData, Result, Transaction,
+    TxLogEntry, TxProof, WalletBackendBatch,
+};
 
 pub trait WalletBackend<C, K>
-    where
-        C: NodeClient,
-        K: Keychain,
+where
+    C: NodeClient,
+    K: Keychain,
 {
     fn open_with_credentials(&mut self) -> Result<()>;
     fn close(&mut self) -> Result<()>;

@@ -1,11 +1,11 @@
-pub use grin_util::secp::{Message, Secp256k1, Signature};
 pub use grin_util::secp::key::{PublicKey, SecretKey};
 use grin_util::secp::pedersen::Commitment;
+pub use grin_util::secp::{Message, Secp256k1, Signature};
 
-use std::fmt::Write;
-use super::base58::{ToBase58, FromBase58};
+use super::base58::{FromBase58, ToBase58};
 use common::{ErrorKind, Result};
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
+use std::fmt::Write;
 
 pub const GRINBOX_ADDRESS_VERSION_MAINNET: [u8; 2] = [1, 11];
 pub const GRINBOX_ADDRESS_VERSION_TESTNET: [u8; 2] = [1, 120];
@@ -114,15 +114,21 @@ pub fn sign_challenge(challenge: &str, secret_key: &SecretKey) -> Result<Signatu
     hasher.input(challenge.as_bytes());
     let message = Message::from_slice(hasher.result().as_slice())?;
     let secp = Secp256k1::new();
-    secp.sign(&message, secret_key).map_err(|_| ErrorKind::Secp.into())
+    secp.sign(&message, secret_key)
+        .map_err(|_| ErrorKind::Secp.into())
 }
 
-pub fn verify_signature(challenge: &str, signature: &Signature, public_key: &PublicKey) -> Result<()> {
+pub fn verify_signature(
+    challenge: &str,
+    signature: &Signature,
+    public_key: &PublicKey,
+) -> Result<()> {
     let mut hasher = Sha256::new();
     hasher.input(challenge.as_bytes());
     let message = Message::from_slice(hasher.result().as_slice())?;
     let secp = Secp256k1::new();
-    secp.verify(&message, signature, public_key).map_err(|_| ErrorKind::Secp.into())
+    secp.verify(&message, signature, public_key)
+        .map_err(|_| ErrorKind::Secp.into())
 }
 
 /// Encode the provided bytes into a hex string
@@ -146,11 +152,7 @@ pub fn from_hex(hex_str: String) -> Result<Vec<u8>> {
     };
     let vec = split_n(&hex_trim.trim()[..], 2)
         .iter()
-        .map(|b| {
-            u8::from_str_radix(b, 16).map_err(|_| {
-                ErrorKind::NumberParsingError.into()
-            })
-        })
+        .map(|b| u8::from_str_radix(b, 16).map_err(|_| ErrorKind::NumberParsingError.into()))
         .collect::<Result<Vec<u8>>>()?;
     Ok(vec)
 }

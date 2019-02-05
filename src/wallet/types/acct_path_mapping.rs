@@ -1,5 +1,5 @@
-use grin_core::ser;
 use super::Identifier;
+use grin_core::ser;
 
 /// Map of named accounts to BIP32 paths
 #[derive(Clone, Debug, Serialize, Deserialize)]
