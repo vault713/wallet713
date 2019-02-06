@@ -35,6 +35,7 @@ wallet713 has the [same requirements](https://github.com/mimblewimble/grin/blob/
 ```
 $ git clone https://github.com/vault713/wallet713
 $ cd wallet713
+$ source $HOME/.cargo/env
 $ cargo build --release
 ```
 And then to run:
