@@ -102,7 +102,7 @@ impl Display for ProtocolResponse {
             ProtocolResponse::Error {
                 ref kind,
                 description: _,
-            } => write!(f, "{}: {}", "ERROR".bright_red(), kind),
+            } => write!(f, "{}: {}", "error".bright_red(), kind),
             ProtocolResponse::Challenge { ref str } => {
                 write!(f, "{} {}", "Challenge".cyan(), str.bright_green())
             }

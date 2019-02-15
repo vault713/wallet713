@@ -56,9 +56,10 @@ impl TxProof {
 
         // TODO: at some point, make this check required
         let destination = encrypted_message.destination.clone();
+
         if destination.is_some()
             && expected_destination.is_some()
-            && destination.as_ref() != expected_destination
+            && destination.as_ref().unwrap().public_key != expected_destination.unwrap().public_key
         {
             return Err(ErrorKind::VerifyDestination);
         }
