@@ -22,29 +22,28 @@ const KEEPALIVE_INTERVAL_MS: u64 = 30_000;
 #[derive(Clone)]
 pub struct GrinboxPublisher {
     address: GrinboxAddress,
+    broker: GrinboxBroker,
     secret_key: SecretKey,
-    protocol_unsecure: bool,
 }
 
 impl GrinboxPublisher {
     pub fn new(
         address: &GrinboxAddress,
-        secert_key: &SecretKey,
+        secret_key: &SecretKey,
         protocol_unsecure: bool,
     ) -> Result<Self> {
         Ok(Self {
             address: address.clone(),
-            secret_key: secert_key.clone(),
-            protocol_unsecure,
+            broker: GrinboxBroker::new(protocol_unsecure)?,
+            secret_key: secret_key.clone(),
         })
     }
 }
 
 impl Publisher for GrinboxPublisher {
     fn post_slate(&self, slate: &Slate, to: &Address) -> Result<()> {
-        let broker = GrinboxBroker::new(self.protocol_unsecure)?;
         let to = GrinboxAddress::from_str(&to.to_string())?;
-        broker.post_slate(slate, &to, &self.address, &self.secret_key)?;
+        self.broker.post_slate(slate, &to, &self.address, &self.secret_key)?;
         Ok(())
     }
 }
@@ -57,15 +56,11 @@ pub struct GrinboxSubscriber {
 }
 
 impl GrinboxSubscriber {
-    pub fn new(
-        address: &GrinboxAddress,
-        secret_key: &SecretKey,
-        protocol_unsecure: bool,
-    ) -> Result<Self> {
+    pub fn new(publisher: &GrinboxPublisher) -> Result<Self> {
         Ok(Self {
-            address: address.clone(),
-            broker: GrinboxBroker::new(protocol_unsecure)?,
-            secret_key: secret_key.clone(),
+            address: publisher.address.clone(),
+            broker: publisher.broker.clone(),
+            secret_key: publisher.secret_key.clone(),
         })
     }
 }
@@ -121,61 +116,40 @@ impl GrinboxBroker {
         from: &GrinboxAddress,
         secret_key: &SecretKey,
     ) -> Result<()> {
-        let url = {
-            let to = to.clone();
-            match self.protocol_unsecure {
-                true => format!(
-                    "ws://{}:{}",
-                    to.domain,
-                    to.port.unwrap_or(DEFAULT_GRINBOX_PORT)
-                ),
-                false => format!(
-                    "wss://{}:{}",
-                    to.domain,
-                    to.port.unwrap_or(DEFAULT_GRINBOX_PORT)
-                ),
-            }
-        };
+        if !self.is_running() {
+            return Err(ErrorKind::ClosedListener("grinbox".to_string()).into());
+        }
+
         let pkey = to.public_key()?;
         let skey = secret_key.clone();
-        connect(url, move |sender| {
-            move |msg: Message| {
-                let response = serde_json::from_str::<ProtocolResponse>(&msg.to_string())
-                    .expect("could not parse response!");
-                match response {
-                    ProtocolResponse::Challenge { str } => {
-                        let message = EncryptedMessage::new(
-                            serde_json::to_string(&slate).unwrap(),
-                            &to,
-                            &pkey,
-                            &skey,
-                        )
-                        .map_err(|_| {
-                            WsError::new(WsErrorKind::Protocol, "could not encrypt slate!")
-                        })?;
-                        let slate_str = serde_json::to_string(&message).unwrap();
+        let message = EncryptedMessage::new(
+            serde_json::to_string(&slate).unwrap(),
+            &to,
+            &pkey,
+            &skey,
+        )
+            .map_err(|_| {
+                WsError::new(WsErrorKind::Protocol, "could not encrypt slate!")
+            })?;
+        let slate_str = serde_json::to_string(&message).unwrap();
 
-                        let mut challenge = String::new();
-                        challenge.push_str(&slate_str);
-                        challenge.push_str(&str);
-                        let signature = GrinboxClient::generate_signature(&challenge, secret_key);
-                        let request = ProtocolRequest::PostSlate {
-                            from: from.stripped(),
-                            to: to.public_key.clone(),
-                            str: slate_str,
-                            signature,
-                        };
-                        sender
-                            .send(serde_json::to_string(&request).unwrap())
-                            .unwrap();
-                        sender.close(CloseCode::Normal).is_ok();
-                    }
-                    _ => {}
-                }
-                Ok(())
-            }
-        })?;
-        Ok(())
+        let mut challenge = String::new();
+        challenge.push_str(&slate_str);
+
+        let signature = GrinboxClient::generate_signature(&challenge, secret_key);
+        let request = ProtocolRequest::PostSlate {
+            from: from.stripped(),
+            to: to.stripped(),
+            str: slate_str,
+            signature,
+        };
+
+        if let Some(ref sender) = *self.inner.lock() {
+            sender.send(serde_json::to_string(&request).unwrap())
+                .map_err(|_| ErrorKind::GenericError("failed posting slate!".to_string()).into())
+        } else {
+            Err(ErrorKind::GenericError("failed posting slate!".to_string()).into())
+        }
     }
 
     fn subscribe(

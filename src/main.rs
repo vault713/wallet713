@@ -314,7 +314,7 @@ impl SubscriptionHandler for Controller {
 
         match result {
             Ok(()) => {}
-            Err(e) => cli_message!("failed processing incoming slate: {}", e),
+            Err(e) => cli_message!("{}", e),
         }
     }
 
@@ -358,17 +358,17 @@ fn start_grinbox_listener(
     cli_message!("starting grinbox listener...");
     let grinbox_address = config.get_grinbox_address()?;
     let grinbox_secret_key = config.get_grinbox_secret_key()?;
+
     let grinbox_publisher = GrinboxPublisher::new(
         &grinbox_address,
         &grinbox_secret_key,
         config.grinbox_protocol_unsecure(),
     )?;
+
     let grinbox_subscriber = GrinboxSubscriber::new(
-        &grinbox_address,
-        &grinbox_secret_key,
-        config.grinbox_protocol_unsecure(),
-    )
-    .expect("could not start grinbox subscriber!");
+        &grinbox_publisher
+    )?;
+
     let cloned_publisher = grinbox_publisher.clone();
     let mut cloned_subscriber = grinbox_subscriber.clone();
     std::thread::spawn(move || {
