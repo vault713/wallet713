@@ -2,7 +2,7 @@
 # based on: https://github.com/mimblewimble/grin/blob/master/etc/Dockerfile
 
 # Builder stage
-FROM rust:1.31 as builder
+FROM rust:1.32 as builder
 
 RUN set -ex && \
     apt-get update && \
