@@ -5,7 +5,7 @@ use ws::{
     Result as WsResult, Sender,
 };
 
-use grin_core::libtx::slate::Slate;
+use grin_wallet::Slate;
 
 use crate::wallet::types::{TxProof, TxProofErrorKind};
 use common::crypto::{sign_challenge, Hex, SecretKey};

@@ -4,7 +4,7 @@ use std::iter::FromIterator;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use grin_core::libtx::slate::Slate;
+use grin_wallet::Slate;
 use serde::Serialize;
 use serde_json::{json, Value};
 

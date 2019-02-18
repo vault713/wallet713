@@ -16,11 +16,10 @@ mod wallet_inst;
 
 pub use grin_core::core::hash::Hash;
 pub use grin_core::core::{Output, Transaction, TxKernel};
-pub use grin_core::libtx::slate::Slate;
 pub use grin_keychain::{ChildNumber, ExtKeychain, Identifier, Keychain};
 pub use grin_util::secp::key::{PublicKey, SecretKey};
+pub use grin_wallet::{EncryptedWalletSeed, Slate, WalletSeed};
 pub use grin_wallet::libwallet::types::{NodeClient, TxWrapper};
-pub use grin_wallet::{EncryptedWalletSeed, WalletSeed};
 
 pub use common::{Arc, Error, ErrorKind, Mutex, MutexGuard, Result};
 

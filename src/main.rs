@@ -204,7 +204,7 @@ use broker::{
     CloseReason, GrinboxPublisher, GrinboxSubscriber, KeybasePublisher, KeybaseSubscriber,
     Publisher, Subscriber, SubscriptionHandler,
 };
-use grin_core::libtx::slate::Slate;
+use grin_wallet::Slate;
 use std::borrow::Borrow;
 
 struct Controller {

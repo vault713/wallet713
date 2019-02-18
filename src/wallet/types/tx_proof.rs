@@ -1,7 +1,7 @@
-use grin_core::libtx::slate::Slate;
 use grin_util::secp::key::SecretKey;
 use grin_util::secp::pedersen::Commitment;
 use grin_util::secp::Signature;
+use grin_wallet::Slate;
 
 use crate::common::crypto::verify_signature;
 use crate::common::crypto::Hex;
