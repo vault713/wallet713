@@ -1,11 +1,12 @@
 use grin_core::core::amount_to_hr_string;
 use grin_core::libtx::{build, tx_fee};
+use grin_wallet::Slate;
 use std::collections::HashMap;
 
 use super::keys;
 use super::types::{
     Context, ContextType, Error, ErrorKind, Identifier, Keychain, NodeClient, OutputData,
-    OutputStatus, Slate, Transaction, TxLogEntry, TxLogEntryType, WalletBackend,
+    OutputStatus, Transaction, TxLogEntry, TxLogEntryType, WalletBackend,
 };
 
 pub fn build_send_tx_slate<T: ?Sized, C, K>(

@@ -1,4 +1,4 @@
-use grin_core::libtx::slate::Slate;
+use grin_wallet::Slate;
 
 use crate::wallet::types::TxProof;
 

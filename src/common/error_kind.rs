@@ -1,5 +1,5 @@
 use failure::Fail;
-use grin_core::libtx;
+use grin_wallet::libwallet;
 
 #[derive(Clone, Eq, PartialEq, Debug, Fail)]
 pub enum ErrorKind {
@@ -38,7 +38,7 @@ pub enum ErrorKind {
     #[fail(display = "\x1b[31;1merror:\x1b[0m transaction doesn't have a proof!")]
     TransactionHasNoProof,
     #[fail(display = "\x1b[31;1merror:\x1b[0m internal transaction error!")]
-    LibTX(libtx::ErrorKind),
+    LibTX(libwallet::ErrorKind),
     #[fail(
         display = "\x1b[31;1merror:\x1b[0m Not enough funds. Required: {}, Available: {}",
         needed_disp, available_disp
