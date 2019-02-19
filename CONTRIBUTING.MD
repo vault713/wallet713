@@ -4,7 +4,7 @@ We're really glad that you would like to contribute to wallet713!
 
 When making contributions to this repository, please first discuss the change you wish to make via [issue](https://github.com/vault713/wallet713/issues/new), [gitter](https://gitter.im/vault713/wallet713), [email](mailto:hello@713.mw), or any other method with the owners of this repository before making a change.
 
-Please note we have a [code of conduct](CONTRIBUTING.md), please follow it in all your interactions with the project.
+Please note we have a [code of conduct](CODE_OF_CONDUCT.md), please follow it in all your interactions with the project.
 
 ## Work in progress
 
