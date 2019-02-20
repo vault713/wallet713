@@ -7,7 +7,7 @@
 * [OpenSSL](https://www.openssl.org).
    * macOS with Homebrew:
       ```
-      $ brew install openssl
+      $ brew install openssl # you need to install version 1.1 of openssl for version 1.0.1 or newer of wallet713
       ``` 
    * Linux:
       ```
