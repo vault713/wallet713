@@ -31,7 +31,7 @@ While running, wallet713 works with an internal command prompt. You type command
       - [Paying invoices](#paying-invoices)
     + [Splitting your outputs](#splitting-your-outputs)
   * [Running your own node](#running-your-own-node)
-  * [Configuring Foreign & Owner APIs](#configuring_foreign_and_owner_apis)
+  * [Configuring Foreign & Owner APIs](#configuring-foreign-and-owner-apis)
     + [Foreign API](#foreign-api)
     + [Owner API](#owner-api)
   * [Recovering your wallet](#recovering-your-wallet)
