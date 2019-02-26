@@ -1,4 +1,3 @@
-use std::thread;
 use ws::util::Token;
 use ws::{
     connect, CloseCode, Error as WsError, ErrorKind as WsErrorKind, Handler, Handshake, Message,
@@ -178,54 +177,52 @@ impl GrinboxBroker {
         let cloned_address = address.clone();
         let cloned_inner = self.inner.clone();
         let cloned_handler = handler.clone();
-        thread::spawn(move || {
-            let connection_meta_data = Arc::new(Mutex::new(ConnectionMetadata::new()));
-            loop {
-                let cloned_address = cloned_address.clone();
-                let cloned_handler = cloned_handler.clone();
-                let cloned_cloned_inner = cloned_inner.clone();
-                let cloned_connection_meta_data = connection_meta_data.clone();
-                let result = connect(url.clone(), move |sender| {
-                    {
-                        let mut guard = cloned_cloned_inner.lock();
-                        *guard = Some(sender.clone());
-                    }
-
-                    let client = GrinboxClient {
-                        sender,
-                        handler: cloned_handler.clone(),
-                        challenge: None,
-                        address: cloned_address.clone(),
-                        secret_key,
-                        connection_meta_data: cloned_connection_meta_data.clone(),
-                    };
-                    client
-                });
-
-                let is_stopped = cloned_inner.lock().is_none();
-
-                if is_stopped {
-                    match result {
-                        Err(_) => handler.lock().on_close(CloseReason::Abnormal(
-                            ErrorKind::GrinboxWebsocketAbnormalTermination.into(),
-                        )),
-                        _ => handler.lock().on_close(CloseReason::Normal),
-                    }
-                    break;
-                } else {
-                    let mut guard = connection_meta_data.lock();
-                    if guard.retries == 0 && guard.connected_at_least_once {
-                        handler.lock().on_dropped();
-                    }
-                    let secs = std::cmp::min(32, 2u64.pow(guard.retries));
-                    let duration = std::time::Duration::from_secs(secs);
-                    std::thread::sleep(duration);
-                    guard.retries += 1;
+        let connection_meta_data = Arc::new(Mutex::new(ConnectionMetadata::new()));
+        loop {
+            let cloned_address = cloned_address.clone();
+            let cloned_handler = cloned_handler.clone();
+            let cloned_cloned_inner = cloned_inner.clone();
+            let cloned_connection_meta_data = connection_meta_data.clone();
+            let result = connect(url.clone(), move |sender| {
+                {
+                    let mut guard = cloned_cloned_inner.lock();
+                    *guard = Some(sender.clone());
                 }
+
+                let client = GrinboxClient {
+                    sender,
+                    handler: cloned_handler.clone(),
+                    challenge: None,
+                    address: cloned_address.clone(),
+                    secret_key,
+                    connection_meta_data: cloned_connection_meta_data.clone(),
+                };
+                client
+            });
+
+            let is_stopped = cloned_inner.lock().is_none();
+
+            if is_stopped {
+                match result {
+                    Err(_) => handler.lock().on_close(CloseReason::Abnormal(
+                        ErrorKind::GrinboxWebsocketAbnormalTermination.into(),
+                    )),
+                    _ => handler.lock().on_close(CloseReason::Normal),
+                }
+                break;
+            } else {
+                let mut guard = connection_meta_data.lock();
+                if guard.retries == 0 && guard.connected_at_least_once {
+                    handler.lock().on_dropped();
+                }
+                let secs = std::cmp::min(32, 2u64.pow(guard.retries));
+                let duration = std::time::Duration::from_secs(secs);
+                std::thread::sleep(duration);
+                guard.retries += 1;
             }
-            let mut guard = cloned_inner.lock();
-            *guard = None;
-        });
+        }
+        let mut guard = cloned_inner.lock();
+        *guard = None;
         Ok(())
     }
 
