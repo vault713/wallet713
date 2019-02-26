@@ -10,6 +10,7 @@ extern crate serde_json;
 extern crate gotham_derive;
 #[macro_use]
 extern crate clap;
+extern crate env_logger;
 extern crate blake2_rfc;
 extern crate chrono;
 extern crate colored;
@@ -346,7 +347,7 @@ fn start_grinbox_listener(
     config: &Wallet713Config,
     wallet: Arc<Mutex<Wallet>>,
     address_book: Arc<Mutex<AddressBook>>,
-) -> Result<(GrinboxPublisher, GrinboxSubscriber)> {
+) -> Result<(GrinboxPublisher, GrinboxSubscriber, std::thread::JoinHandle<()>)> {
     // make sure wallet is not locked, if it is try to unlock with no passphrase
     {
         let mut wallet = wallet.lock();
@@ -371,7 +372,7 @@ fn start_grinbox_listener(
 
     let cloned_publisher = grinbox_publisher.clone();
     let mut cloned_subscriber = grinbox_subscriber.clone();
-    std::thread::spawn(move || {
+    let grinbox_listener_handle = std::thread::spawn(move || {
         let controller = Controller::new(
             &grinbox_address.stripped(),
             wallet.clone(),
@@ -383,14 +384,14 @@ fn start_grinbox_listener(
             .start(Box::new(controller))
             .expect("something went wrong!");
     });
-    Ok((grinbox_publisher, grinbox_subscriber))
+    Ok((grinbox_publisher, grinbox_subscriber, grinbox_listener_handle))
 }
 
 fn start_keybase_listener(
     config: &Wallet713Config,
     wallet: Arc<Mutex<Wallet>>,
     address_book: Arc<Mutex<AddressBook>>,
-) -> Result<(KeybasePublisher, KeybaseSubscriber)> {
+) -> Result<(KeybasePublisher, KeybaseSubscriber, std::thread::JoinHandle<()>)> {
     // make sure wallet is not locked, if it is try to unlock with no passphrase
     {
         let mut wallet = wallet.lock();
@@ -405,7 +406,7 @@ fn start_keybase_listener(
 
     let mut cloned_subscriber = keybase_subscriber.clone();
     let cloned_publisher = keybase_publisher.clone();
-    std::thread::spawn(move || {
+    let keybase_listener_handle = std::thread::spawn(move || {
         let controller = Controller::new(
             "keybase",
             wallet.clone(),
@@ -417,7 +418,7 @@ fn start_keybase_listener(
             .start(Box::new(controller))
             .expect("something went wrong!");
     });
-    Ok((keybase_publisher, keybase_subscriber))
+    Ok((keybase_publisher, keybase_subscriber, keybase_listener_handle))
 }
 
 struct EditorHelper(FilenameCompleter, MatchingBracketHighlighter);
@@ -488,6 +489,10 @@ fn main() {
         );
     });
 
+    if runtime_mode == RuntimeMode::Daemon {
+        env_logger::init();
+    }
+
     let data_path_buf = config.get_data_path().unwrap();
     let data_path = data_path_buf.to_str().unwrap();
 
@@ -532,44 +537,39 @@ fn main() {
     }
     cli_message!("{}", WELCOME_FOOTER.bright_blue());
 
+    let mut grinbox_listener_handle: Option<std::thread::JoinHandle<()>> = None;
+    let mut keybase_listener_handle: Option<std::thread::JoinHandle<()>> = None;
+    let mut owner_api_handle: Option<std::thread::JoinHandle<()>> = None;
+    let mut foreign_api_handle: Option<std::thread::JoinHandle<()>> = None;
+
     if let Some(auto_start) = config.grinbox_listener_auto_start {
         if auto_start {
-            let mut is_safe = false;
-            let result = do_command(
-                "listen -g",
-                &mut config,
-                wallet.clone(),
-                address_book.clone(),
-                &mut keybase_broker,
-                &mut grinbox_broker,
-                &mut is_safe,
-            );
-            if let Err(err) = result {
-                cli_message!("{}: {}", "ERROR".bright_red(), err);
+            let result = start_grinbox_listener(&config, wallet.clone(), address_book.clone());
+            match result {
+                Err(e) => cli_message!("{}: {}", "ERROR".bright_red(), e),
+                Ok((publisher, subscriber, handle)) => {
+                    grinbox_broker = Some((publisher, subscriber));
+                    grinbox_listener_handle = Some(handle);
+                },
             }
         }
     }
 
     if let Some(auto_start) = config.keybase_listener_auto_start {
         if auto_start {
-            let mut is_safe = false;
-            let result = do_command(
-                "listen -k",
-                &mut config,
-                wallet.clone(),
-                address_book.clone(),
-                &mut keybase_broker,
-                &mut grinbox_broker,
-                &mut is_safe,
-            );
-            if let Err(err) = result {
-                cli_message!("{}: {}", "ERROR".bright_red(), err);
+            let result = start_keybase_listener(&config, wallet.clone(), address_book.clone());
+            match result {
+                Err(e) => cli_message!("{}: {}", "ERROR".bright_red(), e),
+                Ok((publisher, subscriber, handle)) => {
+                    keybase_broker = Some((publisher, subscriber));
+                    keybase_listener_handle = Some(handle);
+                },
             }
         }
     }
 
     if config.owner_api() || config.foreign_api() {
-        let _owner_handle = match config.owner_api {
+        owner_api_handle = match config.owner_api {
             Some(true) => {
                 cli_message!(
                     "starting listener for owner api on [{}]",
@@ -596,7 +596,7 @@ fn main() {
             _ => None,
         };
 
-        let _foreign_handle = match config.foreign_api {
+        foreign_api_handle = match config.foreign_api {
             Some(true) => {
                 cli_message!(
                     "starting listener for foreign api on [{}]",
@@ -621,6 +621,35 @@ fn main() {
             }
             _ => None,
         };
+    };
+
+    if runtime_mode == RuntimeMode::Daemon {
+        let mut listening = false;
+        if let Some(handle) = grinbox_listener_handle {
+            handle.join().unwrap();
+            listening = true;
+        }
+
+        if let Some(handle) = keybase_listener_handle {
+            handle.join().unwrap();
+            listening = true;
+        }
+
+        if let Some(handle) = owner_api_handle {
+            handle.join().unwrap();
+            listening = true;
+        }
+
+        if let Some(handle) = foreign_api_handle {
+            handle.join().unwrap();
+            listening = true;
+        }
+
+        if !listening {
+            warn!("no listener configured, exiting");
+        }
+
+        return;
     }
 
     let editor_config = Config::builder()
@@ -906,7 +935,7 @@ fn do_command(
                 if is_running {
                     Err(ErrorKind::AlreadyListening("grinbox".to_string()))?
                 } else {
-                    let (publisher, subscriber) =
+                    let (publisher, subscriber, _) =
                         start_grinbox_listener(config, wallet.clone(), address_book.clone())?;
                     *grinbox_broker = Some((publisher, subscriber));
                 }
@@ -919,7 +948,7 @@ fn do_command(
                 if is_running {
                     Err(ErrorKind::AlreadyListening("keybase".to_string()))?
                 } else {
-                    let (publisher, subscriber) =
+                    let (publisher, subscriber, _) =
                         start_keybase_listener(config, wallet.clone(), address_book.clone())?;
                     *keybase_broker = Some((publisher, subscriber));
                 }
