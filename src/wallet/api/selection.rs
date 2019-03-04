@@ -2,6 +2,7 @@ use grin_core::core::amount_to_hr_string;
 use grin_core::libtx::{build, tx_fee};
 use grin_wallet::Slate;
 use std::collections::HashMap;
+use std::cmp::min;
 
 use super::keys;
 use super::types::{
@@ -45,6 +46,7 @@ where
         change_outputs,
         selection_strategy_is_use_all,
         &parent_key_id,
+        None,
     )?;
 
     // Create public slate
@@ -219,6 +221,7 @@ fn select_send_tx<T: ?Sized, C, K>(
     change_outputs: usize,
     selection_strategy_is_use_all: bool,
     parent_key_id: &Identifier,
+    initial_fee: Option<u64>,
 ) -> Result<
     (
         Vec<Box<build::Append<K>>>,
@@ -249,11 +252,16 @@ where
     // recipient should double check the fee calculation and not blindly trust the
     // sender
 
-    // TODO - Is it safe to spend without a change output? (1 input -> 1 output)
-    // TODO - Does this not potentially reveal the senders private key?
-    //
+    let mut max_fee = tx_fee(coins.len(), num_outputs, 1, None);
+
     // First attempt to spend without change
-    let mut fee = tx_fee(coins.len(), num_outputs, 1, None);
+    let mut fee = match initial_fee {
+        Some(i) => {
+            let fee = i + tx_fee(coins.len(), 0, 1, None);
+            min(fee, max_fee)
+        },
+        None => max_fee,
+    };
     let mut total: u64 = coins.iter().map(|c| c.value).sum();
     let mut amount_with_fee = amount + fee;
 
@@ -280,7 +288,14 @@ where
 
     // We need to add a change address or amount with fee is more than total
     if total != amount_with_fee {
-        fee = tx_fee(coins.len(), num_outputs, 1, None);
+        max_fee = tx_fee(coins.len(), num_outputs, 1, None);
+        fee = match initial_fee {
+            Some(i) => {
+                let fee = i + tx_fee(coins.len(), change_outputs, 1, None);
+                min(fee, max_fee)
+            },
+            None => max_fee,
+        };
         amount_with_fee = amount + fee;
 
         // Here check if we have enough outputs for the amount including fee otherwise
@@ -306,7 +321,14 @@ where
                 selection_strategy_is_use_all,
                 parent_key_id,
             );
-            fee = tx_fee(coins.len(), num_outputs, 1, None);
+            max_fee = tx_fee(coins.len(), num_outputs, 1, None);
+            fee = match initial_fee {
+                Some(i) => {
+                    let fee = i + tx_fee(coins.len(), change_outputs, 1, None);
+                    min(fee, max_fee)
+                },
+                None => max_fee,
+            };
             total = coins.iter().map(|c| c.value).sum();
             amount_with_fee = amount + fee;
         }
@@ -607,6 +629,10 @@ where
         num_change_outputs,
         selection_strategy_is_use_all,
         &parent_key_id,
+        match slate.fee {
+            0 => None,
+            f => Some(f),
+        },
     )?;
 
     slate.fee = fee;
