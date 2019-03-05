@@ -22,14 +22,16 @@ pub struct Wallet {
     active_account: String,
     backend: Option<Arc<Mutex<Backend<HTTPNodeClient, ExtKeychain>>>>,
     max_auto_accept_invoice: Option<u64>,
+    check_invoice_fee: bool,
 }
 
 impl Wallet {
-    pub fn new(max_auto_accept_invoice: Option<u64>) -> Self {
+    pub fn new(max_auto_accept_invoice: Option<u64>, check_invoice_fee: bool) -> Self {
         Self {
             active_account: "default".to_string(),
             backend: None,
             max_auto_accept_invoice,
+            check_invoice_fee,
         }
     }
 
@@ -263,6 +265,9 @@ impl Wallet {
         if slate.amount > max_auto_accept_invoice {
             Err(ErrorKind::InvoiceAmountTooBig(slate.amount))?;
         }
+
+        // Skip fee check for invoices
+        slate.check_fees = self.check_invoice_fee;
 
         let wallet = self.get_wallet_instance()?;
 

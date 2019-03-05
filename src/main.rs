@@ -502,7 +502,7 @@ fn main() {
         .expect("could not create an address book!");
     let address_book = Arc::new(Mutex::new(address_book));
 
-    let wallet = Wallet::new(config.max_auto_accept_invoice);
+    let wallet = Wallet::new(config.max_auto_accept_invoice, config.check_invoice_fee());
     let wallet = Arc::new(Mutex::new(wallet));
 
     let mut grinbox_broker: Option<(GrinboxPublisher, GrinboxSubscriber)> = None;
