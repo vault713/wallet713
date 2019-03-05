@@ -182,7 +182,7 @@ where
     }
 
     fn outputs<'a>(&'a self) -> Box<dyn Iterator<Item = OutputData> + 'a> {
-        Box::new(self.db.iter(&[OUTPUT_PREFIX]).unwrap())
+        Box::new(self.db.iter(&[OUTPUT_PREFIX]).unwrap().map(|(_, v)| v))
     }
 
     fn get_tx_log_by_slate_id(&self, slate_id: &str) -> Result<Option<TxLogEntry>> {
@@ -191,7 +191,7 @@ where
     }
 
     fn tx_logs<'a>(&'a self) -> Box<dyn Iterator<Item = TxLogEntry> + 'a> {
-        Box::new(self.db.iter(&[TX_LOG_ENTRY_PREFIX]).unwrap())
+        Box::new(self.db.iter(&[TX_LOG_ENTRY_PREFIX]).unwrap().map(|(_, v)| v))
     }
 
     fn get_private_context(&mut self, uuid: &str) -> Result<Context> {
@@ -211,7 +211,7 @@ where
     }
 
     fn accounts<'a>(&'a self) -> Box<dyn Iterator<Item = AcctPathMapping> + 'a> {
-        Box::new(self.db.iter(&[ACCOUNT_PATH_MAPPING_PREFIX]).unwrap())
+        Box::new(self.db.iter(&[ACCOUNT_PATH_MAPPING_PREFIX]).unwrap().map(|(_, v)| v))
     }
 
     fn get_acct_path(&self, label: &str) -> Result<AcctPathMapping> {

@@ -40,7 +40,7 @@ impl AddressBookBackend for Backend {
     }
 
     fn contacts(&self) -> Box<Iterator<Item = Contact>> {
-        Box::new(self.db.iter(&[CONTACT_PREFIX]).unwrap())
+        Box::new(self.db.iter(&[CONTACT_PREFIX]).unwrap().map(|(_, v)| v))
     }
 
     fn batch<'a>(&'a self) -> Result<Box<AddressBookBatch + 'a>, Error> {
