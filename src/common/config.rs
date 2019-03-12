@@ -180,6 +180,14 @@ impl Wallet713Config {
         }
     }
 
+    pub fn grinbox_listener_auto_start(&self) -> bool {
+        self.grinbox_listener_auto_start.unwrap_or(true)
+    }
+
+    pub fn keybase_listener_auto_start(&self) -> bool {
+        self.keybase_listener_auto_start.unwrap_or(false)
+    }
+
     pub fn owner_api_address(&self) -> String {
         let chain_type = self.chain.as_ref().unwrap_or(&ChainTypes::Mainnet);
         self.owner_api_address

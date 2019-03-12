@@ -542,29 +542,25 @@ fn main() {
     let mut owner_api_handle: Option<std::thread::JoinHandle<()>> = None;
     let mut foreign_api_handle: Option<std::thread::JoinHandle<()>> = None;
 
-    if let Some(auto_start) = config.grinbox_listener_auto_start {
-        if auto_start {
-            let result = start_grinbox_listener(&config, wallet.clone(), address_book.clone());
-            match result {
-                Err(e) => cli_message!("{}: {}", "ERROR".bright_red(), e),
-                Ok((publisher, subscriber, handle)) => {
-                    grinbox_broker = Some((publisher, subscriber));
-                    grinbox_listener_handle = Some(handle);
-                },
-            }
+    if config.grinbox_listener_auto_start() {
+        let result = start_grinbox_listener(&config, wallet.clone(), address_book.clone());
+        match result {
+            Err(e) => cli_message!("{}: {}", "ERROR".bright_red(), e),
+            Ok((publisher, subscriber, handle)) => {
+                grinbox_broker = Some((publisher, subscriber));
+                grinbox_listener_handle = Some(handle);
+            },
         }
     }
 
-    if let Some(auto_start) = config.keybase_listener_auto_start {
-        if auto_start {
-            let result = start_keybase_listener(&config, wallet.clone(), address_book.clone());
-            match result {
-                Err(e) => cli_message!("{}: {}", "ERROR".bright_red(), e),
-                Ok((publisher, subscriber, handle)) => {
-                    keybase_broker = Some((publisher, subscriber));
-                    keybase_listener_handle = Some(handle);
-                },
-            }
+    if config.keybase_listener_auto_start() {
+        let result = start_keybase_listener(&config, wallet.clone(), address_book.clone());
+        match result {
+            Err(e) => cli_message!("{}: {}", "ERROR".bright_red(), e),
+            Ok((publisher, subscriber, handle)) => {
+                keybase_broker = Some((publisher, subscriber));
+                keybase_listener_handle = Some(handle);
+            },
         }
     }
 
