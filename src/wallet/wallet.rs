@@ -33,6 +33,11 @@ impl Wallet {
         }
     }
 
+    pub fn seed_exists(config: &Wallet713Config) -> bool {
+        let wallet_config = config.as_wallet_config().unwrap();
+        WalletSeed::seed_file_exists(&wallet_config).is_err()
+    }
+
     pub fn unlock(
         &mut self,
         config: &Wallet713Config,
