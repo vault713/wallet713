@@ -516,9 +516,9 @@ fn main() {
         let mut line = String::new();
 
         println!("{}", "Please choose an option".bright_green().bold());
-        println!(" 1) Generate a new seed (default)");
-        println!(" 2) Restore from mnemonic");
-        println!(" 3) Cancel");
+        println!(" 1) {} a new wallet", "init".bold());
+        println!(" 2) {} from mnemonic", "recover".bold());
+        println!(" 3) {}", "exit".bold());
         println!();
         print!("{}", "> ".cyan());
         io::stdout().flush().unwrap();
@@ -533,15 +533,15 @@ fn main() {
         let line = line.trim();
         let mut out_is_safe = false;
         match line {
-            "1" | "" => {
-                println!("{}", "Generating a new wallet".bold());
-                if let Err(err) = do_command("init", &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker, &mut out_is_safe) {
+            "1" | "init" | "" => {
+                println!("{}", "Initialising a new wallet".bold());
+                if let Err(err) = do_command("init -p", &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker, &mut out_is_safe) {
                     println!("{}: {}", "ERROR".bright_red(), err);
                     std::process::exit(1);
                 }
             },
-            "2" => {
-                println!("{}", "Restoring from mnemonic".bold());
+            "2" | "recover" | "restore" => {
+                println!("{}", "Recovering from mnemonic".bold());
                 print!("Mnemonic: ");
                 io::stdout().flush().unwrap();
                 let mut line = String::new();
@@ -558,7 +558,7 @@ fn main() {
                     std::process::exit(1);
                 }
             },
-            "3" => {
+            "3" | "exit" => {
                 return;
             },
             _ => {
