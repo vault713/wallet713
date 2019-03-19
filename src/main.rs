@@ -535,6 +535,9 @@ fn main() {
         match line {
             "1" | "init" | "" => {
                 println!("{}", "Initialising a new wallet".bold());
+                println!();
+                println!("Set an optional password to secure your wallet with. Leave blank for no password.");
+                println!();
                 if let Err(err) = do_command("init -p", &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker, &mut out_is_safe) {
                     println!("{}: {}", "ERROR".bright_red(), err);
                     std::process::exit(1);
@@ -550,7 +553,9 @@ fn main() {
                     return;
                 }
                 let line = line.trim();
-
+                println!();
+                println!("Set an optional password to secure your wallet with. Leave blank for no password.");
+                println!();
                 // TODO: refactor this
                 let cmd = format!("recover -m {} -p", line);
                 if let Err(err) = do_command(&cmd, &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker, &mut out_is_safe) {
@@ -591,7 +596,7 @@ fn main() {
             }
         }
     } else {
-        cli_message!(
+        println!(
             "{}",
             "Unlock your existing wallet or type `init` to initiate a new one"
                 .bright_blue()
@@ -1368,7 +1373,7 @@ fn do_command(
                     println!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
                 }
 
-                cli_message!("wallet restoration done!");
+                println!("wallet restoration done!");
                 *out_is_safe = false;
                 return Ok(());
             } else if args.is_present("display") {
