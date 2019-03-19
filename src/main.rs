@@ -45,6 +45,7 @@ extern crate grin_wallet;
 
 use std::borrow::Cow::{self, Borrowed, Owned};
 use std::fs::File;
+use std::io;
 use std::io::{Read, Write};
 use std::path::Path;
 
@@ -181,8 +182,8 @@ const WELCOME_HEADER: &str = r#"
 Welcome to wallet713
 "#;
 
-const WELCOME_FOOTER: &str =
-    r#"Use `listen` to connect to grinbox or `help` to see available commands
+const WELCOME_FOOTER: &str = r#"
+Use `listen` to connect to grinbox or `help` to see available commands
 "#;
 
 fn welcome(args: &ArgMatches, runtime_mode: &RuntimeMode) -> Result<Wallet713Config> {
@@ -502,11 +503,77 @@ fn main() {
         .expect("could not create an address book!");
     let address_book = Arc::new(Mutex::new(address_book));
 
+    println!("{}", WELCOME_HEADER.bright_yellow().bold());
+
     let wallet = Wallet::new(config.max_auto_accept_invoice);
     let wallet = Arc::new(Mutex::new(wallet));
 
     let mut grinbox_broker: Option<(GrinboxPublisher, GrinboxSubscriber)> = None;
     let mut keybase_broker: Option<(KeybasePublisher, KeybaseSubscriber)> = None;
+
+    let has_seed = Wallet::seed_exists(&config);
+    if !has_seed {
+        let mut line = String::new();
+
+        println!("{}", "Please choose an option".bright_green().bold());
+        println!(" 1) {} a new wallet", "init".bold());
+        println!(" 2) {} from mnemonic", "recover".bold());
+        println!(" 3) {}", "exit".bold());
+        println!();
+        print!("{}", "> ".cyan());
+        io::stdout().flush().unwrap();
+
+        if io::stdin().read_line(&mut line).unwrap() == 0 {
+            println!("{}: invalid option", "ERROR".bright_red());
+            std::process::exit(1);
+        }
+
+        println!();
+
+        let line = line.trim();
+        let mut out_is_safe = false;
+        match line {
+            "1" | "init" | "" => {
+                println!("{}", "Initialising a new wallet".bold());
+                println!();
+                println!("Set an optional password to secure your wallet with. Leave blank for no password.");
+                println!();
+                if let Err(err) = do_command("init -p", &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker, &mut out_is_safe) {
+                    println!("{}: {}", "ERROR".bright_red(), err);
+                    std::process::exit(1);
+                }
+            },
+            "2" | "recover" | "restore" => {
+                println!("{}", "Recovering from mnemonic".bold());
+                print!("Mnemonic: ");
+                io::stdout().flush().unwrap();
+                let mut line = String::new();
+                if io::stdin().read_line(&mut line).unwrap() == 0 {
+                    println!("{}: invalid mnemonic", "ERROR".bright_red());
+                    std::process::exit(1);
+                }
+                let line = line.trim();
+                println!();
+                println!("Set an optional password to secure your wallet with. Leave blank for no password.");
+                println!();
+                // TODO: refactor this
+                let cmd = format!("recover -m {} -p", line);
+                if let Err(err) = do_command(&cmd, &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker, &mut out_is_safe) {
+                    println!("{}: {}", "ERROR".bright_red(), err);
+                    std::process::exit(1);
+                }
+            },
+            "3" | "exit" => {
+                return;
+            },
+            _ => {
+                println!("{}: invalid option", "ERROR".bright_red());
+                std::process::exit(1);
+            },
+        }
+
+        println!();
+    }
 
     let account = matches.value_of("account").unwrap_or("default").to_string();
     let has_wallet = if matches.is_present("passphrase") {
@@ -521,14 +588,15 @@ fn main() {
         wallet.lock().unlock(&config, &account, "").is_ok()
     };
 
-    cli_message!("{}", WELCOME_HEADER.bright_yellow().bold());
     if has_wallet {
-        let der = derive_address_key(&mut config, wallet.clone(), &mut grinbox_broker);
-        if der.is_err() {
-            cli_message!("{}: {}", "ERROR".bright_red(), der.unwrap_err());
+        if has_seed {
+            let der = derive_address_key(&mut config, wallet.clone(), &mut grinbox_broker);
+            if der.is_err() {
+                cli_message!("{}: {}", "ERROR".bright_red(), der.unwrap_err());
+            }
         }
     } else {
-        cli_message!(
+        println!(
             "{}",
             "Unlock your existing wallet or type `init` to initiate a new one"
                 .bright_blue()
@@ -729,13 +797,13 @@ fn derive_address_key(
 }
 
 fn show_address(config: &Wallet713Config, include_index: bool) -> Result<()> {
-    cli_message!(
+    println!(
         "{}: {}",
         "Your grinbox address".bright_yellow(),
         config.get_grinbox_address()?.stripped().bright_green()
     );
     if include_index {
-        cli_message!(
+        println!(
             "Derived with index [{}]",
             config.grinbox_address_index().to_string().bright_blue()
         );
@@ -745,7 +813,7 @@ fn show_address(config: &Wallet713Config, include_index: bool) -> Result<()> {
 
 fn password_prompt(opt: Option<&str>) -> String {
     opt.map(String::from).unwrap_or_else(|| {
-        rpassword::prompt_password_stdout("passphrase: ").unwrap_or(String::from(""))
+        rpassword::prompt_password_stdout("Password: ").unwrap_or(String::from(""))
     })
 }
 
@@ -853,15 +921,21 @@ fn do_command(
             };
             *out_is_safe = args.value_of("passphrase").is_none();
 
-            {
-                wallet
-                    .lock()
-                    .init(config, "default", passphrase.as_str(), true)?;
-            }
-            derive_address_key(config, wallet, grinbox_broker)?;
             if passphrase.is_empty() {
-                cli_message!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
+                println!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
             }
+
+            wallet
+                .lock()
+                .init(config, "default", passphrase.as_str(), true)?;
+
+            println!("{}", "Press ENTER when you have done so".bright_green().bold());
+
+            let mut line = String::new();
+            io::stdout().flush().unwrap();
+            io::stdin().read_line(&mut line).unwrap();
+
+            derive_address_key(config, wallet, grinbox_broker)?;
             return Ok(());
         }
         Some("lock") => {
@@ -1265,7 +1339,7 @@ fn do_command(
                 println!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
             }
 
-            cli_message!("wallet restoration done!");
+            println!("wallet restoration done!");
             return Ok(());
         }
         Some("recover") => {
@@ -1295,7 +1369,7 @@ fn do_command(
                     println!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
                 }
 
-                cli_message!("wallet restoration done!");
+                println!("wallet restoration done!");
                 *out_is_safe = false;
                 return Ok(());
             } else if args.is_present("display") {
