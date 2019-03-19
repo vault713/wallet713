@@ -1,4 +1,6 @@
 {
   "message": "Test message",
-  "version": "1.1.0"
+  "update_message": "Test update message",
+  "urgent": true,
+  "version": "1.1.1"
 }

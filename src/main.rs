@@ -180,10 +180,6 @@ fn do_contacts(args: &ArgMatches, address_book: Arc<Mutex<AddressBook>>) -> Resu
     Ok(())
 }
 
-const WELCOME_HEADER: &str = r#"
-Welcome to wallet713
-"#;
-
 const WELCOME_FOOTER: &str = r#"
 Use `listen` to connect to grinbox or `help` to see available commands
 "#;
@@ -505,7 +501,7 @@ fn main() {
         .expect("could not create an address book!");
     let address_book = Arc::new(Mutex::new(address_book));
 
-    println!("{}", WELCOME_HEADER.bright_yellow().bold());
+    println!("{}", format!("\nWelcome to wallet713 v{}\n", crate_version!()).bright_yellow().bold());
 
     get_motd().unwrap_or(());
 
