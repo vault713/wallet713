@@ -14,7 +14,7 @@ pub struct MOTD {
     #[serde(default)]
     pub urgent: Option<bool>,
     #[serde(default)]
-    pub version: Option<String>,
+    pub version: Option<Version>,
 }
 
 pub fn get_motd() -> Result<(), Error> {
@@ -25,32 +25,31 @@ pub fn get_motd() -> Result<(), Error> {
         None,
     )?;
 
-    if let Some(v) = motd.version {
-        let version = Version::parse(&v)?;
+    if let Some(version) = motd.version {
         if version > crate_version {
             let update_message = match motd.update_message {
                 None => String::new(),
                 Some(um) => um,
             };
 
-            println!("{}{}", "A new version of wallet713 is available!".bold(), update_message);
+            println!("{} {}", "A new version of wallet713 is available!".bold(), update_message);
             println!();
             println!("Upgrade by running:");
             println!(" curl https://install.wallet.713.mw -sSf | sh");
             println!();
-
-            if motd.urgent.unwrap_or(false) {
-                println!("{}", "Press ENTER to continue".bright_red().bold());
-                let mut line = String::new();
-                io::stdout().flush().unwrap();
-                io::stdin().read_line(&mut line).unwrap();
-            }
         }
     }
 
     if let Some(m) = motd.message {
         println!("{}", m.bold());
         println!();
+    }
+
+    if motd.urgent.unwrap_or(false) {
+        println!("{}", "Press ENTER to continue".bright_red().bold());
+        let mut line = String::new();
+        io::stdout().flush().unwrap();
+        io::stdin().read_line(&mut line).unwrap();
     }
 
     Ok(())
