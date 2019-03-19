@@ -524,8 +524,8 @@ fn main() {
         io::stdout().flush().unwrap();
 
         if io::stdin().read_line(&mut line).unwrap() == 0 {
-            println!("Invalid option");
-            return;
+            println!("{}: invalid option", "ERROR".bright_red());
+            std::process::exit(1);
         }
 
         println!();
@@ -549,8 +549,8 @@ fn main() {
                 io::stdout().flush().unwrap();
                 let mut line = String::new();
                 if io::stdin().read_line(&mut line).unwrap() == 0 {
-                    println!("Invalid mnemonic");
-                    return;
+                    println!("{}: invalid mnemonic", "ERROR".bright_red());
+                    std::process::exit(1);
                 }
                 let line = line.trim();
                 println!();
@@ -567,8 +567,8 @@ fn main() {
                 return;
             },
             _ => {
-                println!("Invalid option");
-                return;
+                println!("{}: invalid option", "ERROR".bright_red());
+                std::process::exit(1);
             },
         }
 
