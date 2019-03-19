@@ -6,6 +6,7 @@ pub mod crypto;
 mod error_kind;
 pub mod hasher;
 pub mod message;
+pub mod motd;
 
 pub use self::error_kind::ErrorKind;
 pub use self::macros::*;

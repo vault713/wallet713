@@ -35,6 +35,7 @@ extern crate tokio;
 extern crate url;
 extern crate uuid;
 extern crate ws;
+extern crate semver;
 
 extern crate grin_api;
 extern crate grin_core;
@@ -77,6 +78,7 @@ use common::{ErrorKind, Result, RuntimeMode, COLORED_PROMPT, PROMPT};
 use wallet::Wallet;
 
 use crate::wallet::types::{Arc, Mutex, TxProof};
+use crate::common::motd::get_motd;
 
 use contacts::{Address, AddressBook, AddressType, Backend, Contact, GrinboxAddress};
 
@@ -504,6 +506,8 @@ fn main() {
     let address_book = Arc::new(Mutex::new(address_book));
 
     println!("{}", WELCOME_HEADER.bright_yellow().bold());
+
+    get_motd().unwrap_or(());
 
     let wallet = Wallet::new(config.max_auto_accept_invoice);
     let wallet = Arc::new(Mutex::new(wallet));
