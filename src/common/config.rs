@@ -41,6 +41,7 @@ pub struct Wallet713Config {
     pub foreign_api: Option<bool>,
     pub foreign_api_address: Option<String>,
     pub foreign_api_secret: Option<String>,
+    pub check_updates: Option<bool>,
     #[serde(skip)]
     pub config_home: Option<String>,
     #[serde(skip)]
@@ -217,6 +218,10 @@ impl Wallet713Config {
 
     pub fn foreign_api(&self) -> bool {
         self.foreign_api.unwrap_or(false)
+    }
+
+    pub fn check_updates(&self) -> bool {
+        self.check_updates.unwrap_or(is_cli())
     }
 }
 
