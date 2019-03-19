@@ -182,8 +182,7 @@ const WELCOME_HEADER: &str = r#"
 Welcome to wallet713
 "#;
 
-const WELCOME_FOOTER: &str = r#"
-Use `listen` to connect to grinbox or `help` to see available commands
+const WELCOME_FOOTER: &str = r#"Use `help` to see available commands
 "#;
 
 fn welcome(args: &ArgMatches, runtime_mode: &RuntimeMode) -> Result<Wallet713Config> {
@@ -575,34 +574,37 @@ fn main() {
         println!();
     }
 
-    let account = matches.value_of("account").unwrap_or("default").to_string();
-    let has_wallet = if matches.is_present("passphrase") {
-        let passphrase = password_prompt(matches.value_of("passphrase"));
-        let result = wallet.lock().unlock(&config, &account, &passphrase);
-        if let Err(ref err) = result {
-            println!("{}: {}", "ERROR".bright_red(), err);
-            std::process::exit(1);
+    if wallet.lock().is_locked() {
+        let account = matches.value_of("account").unwrap_or("default").to_string();
+        let has_wallet = if matches.is_present("passphrase") {
+            let passphrase = password_prompt(matches.value_of("passphrase"));
+            let result = wallet.lock().unlock(&config, &account, &passphrase);
+            if let Err(ref err) = result {
+                println!("{}: {}", "ERROR".bright_red(), err);
+                std::process::exit(1);
+            }
+            result.is_ok()
         }
-        result.is_ok()
-    } else {
-        wallet.lock().unlock(&config, &account, "").is_ok()
-    };
+        else {
+            wallet.lock().unlock(&config, &account, "").is_ok()
+        };
 
-    if has_wallet {
-        if has_seed {
+        if has_wallet {
             let der = derive_address_key(&mut config, wallet.clone(), &mut grinbox_broker);
             if der.is_err() {
                 cli_message!("{}: {}", "ERROR".bright_red(), der.unwrap_err());
             }
         }
-    } else {
-        println!(
-            "{}",
-            "Unlock your existing wallet or type `init` to initiate a new one"
-                .bright_blue()
-                .bold()
-        );
+        else {
+            println!(
+                "{}",
+                "Unlock your existing wallet or type `init` to initiate a new one"
+                    .bright_blue()
+                    .bold()
+            );
+        }
     }
+
     cli_message!("{}", WELCOME_FOOTER.bright_blue());
 
     let mut grinbox_listener_handle: Option<std::thread::JoinHandle<()>> = None;
@@ -610,29 +612,25 @@ fn main() {
     let mut owner_api_handle: Option<std::thread::JoinHandle<()>> = None;
     let mut foreign_api_handle: Option<std::thread::JoinHandle<()>> = None;
 
-    if let Some(auto_start) = config.grinbox_listener_auto_start {
-        if auto_start {
-            let result = start_grinbox_listener(&config, wallet.clone(), address_book.clone());
-            match result {
-                Err(e) => cli_message!("{}: {}", "ERROR".bright_red(), e),
-                Ok((publisher, subscriber, handle)) => {
-                    grinbox_broker = Some((publisher, subscriber));
-                    grinbox_listener_handle = Some(handle);
-                },
-            }
+    if config.grinbox_listener_auto_start() {
+        let result = start_grinbox_listener(&config, wallet.clone(), address_book.clone());
+        match result {
+            Err(e) => cli_message!("{}: {}", "ERROR".bright_red(), e),
+            Ok((publisher, subscriber, handle)) => {
+                grinbox_broker = Some((publisher, subscriber));
+                grinbox_listener_handle = Some(handle);
+            },
         }
     }
 
-    if let Some(auto_start) = config.keybase_listener_auto_start {
-        if auto_start {
-            let result = start_keybase_listener(&config, wallet.clone(), address_book.clone());
-            match result {
-                Err(e) => cli_message!("{}: {}", "ERROR".bright_red(), e),
-                Ok((publisher, subscriber, handle)) => {
-                    keybase_broker = Some((publisher, subscriber));
-                    keybase_listener_handle = Some(handle);
-                },
-            }
+    if config.keybase_listener_auto_start() {
+        let result = start_keybase_listener(&config, wallet.clone(), address_book.clone());
+        match result {
+            Err(e) => cli_message!("{}: {}", "ERROR".bright_red(), e),
+            Ok((publisher, subscriber, handle)) => {
+                keybase_broker = Some((publisher, subscriber));
+                keybase_listener_handle = Some(handle);
+            },
         }
     }
 
