@@ -605,8 +605,6 @@ fn main() {
     }
     cli_message!("{}", WELCOME_FOOTER.bright_blue());
 
-    let mut grinbox_listener_handle: Option<std::thread::JoinHandle<()>> = None;
-    let mut keybase_listener_handle: Option<std::thread::JoinHandle<()>> = None;
     let mut owner_api_handle: Option<std::thread::JoinHandle<()>> = None;
     let mut foreign_api_handle: Option<std::thread::JoinHandle<()>> = None;
 
