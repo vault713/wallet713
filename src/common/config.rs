@@ -8,6 +8,7 @@ use grin_wallet::WalletConfig;
 
 use common::crypto::{public_key_from_secret_key, PublicKey, SecretKey};
 use common::{ErrorKind, Result};
+use common::is_cli;
 use contacts::{GrinboxAddress, DEFAULT_GRINBOX_PORT};
 
 const WALLET713_HOME: &str = ".wallet713";
@@ -178,6 +179,14 @@ impl Wallet713Config {
                 _ => Some(String::from("thanksvault713EcRXKbYS")),
             },
         }
+    }
+
+    pub fn grinbox_listener_auto_start(&self) -> bool {
+        self.grinbox_listener_auto_start.unwrap_or(is_cli())
+    }
+
+    pub fn keybase_listener_auto_start(&self) -> bool {
+        self.keybase_listener_auto_start.unwrap_or(false)
     }
 
     pub fn owner_api_address(&self) -> String {

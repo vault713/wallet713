@@ -27,8 +27,10 @@ pub unsafe fn set_runtime_mode(runtime_mode: &RuntimeMode) {
     RUNTIME_MODE = runtime_mode.clone();
 }
 
-pub unsafe fn is_cli() -> bool {
-    RUNTIME_MODE == RuntimeMode::Cli
+pub fn is_cli() -> bool {
+    unsafe {
+        RUNTIME_MODE == RuntimeMode::Cli
+    }
 }
 
 pub const COLORED_PROMPT: &'static str = "\x1b[36mwallet713>\x1b[0m ";

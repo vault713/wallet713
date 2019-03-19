@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! cli_message {
         () => {
-            unsafe {
+            {
                 use std::io::Write;
                 use crate::common::{is_cli, COLORED_PROMPT};
                 if is_cli() {
@@ -12,7 +12,7 @@ macro_rules! cli_message {
         };
 
         ($fmt_string:expr, $( $arg:expr ),+) => {
-            unsafe {
+            {
                 use std::io::Write;
                 use crate::common::{is_cli, COLORED_PROMPT};
                 if is_cli() {
@@ -27,7 +27,7 @@ macro_rules! cli_message {
         };
 
         ($fmt_string:expr) => {
-            unsafe {
+            {
                 use std::io::Write;
                 use crate::common::{is_cli, COLORED_PROMPT};
                 if is_cli() {
