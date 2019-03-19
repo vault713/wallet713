@@ -502,7 +502,9 @@ fn main() {
 
     println!("{}", format!("\nWelcome to wallet713 v{}\n", crate_version!()).bright_yellow().bold());
 
-    get_motd().unwrap_or(());
+    if config.check_updates() {
+        get_motd().unwrap_or(());
+    }
 
     let wallet = Wallet::new(config.max_auto_accept_invoice);
     let wallet = Arc::new(Mutex::new(wallet));
