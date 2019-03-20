@@ -1,10 +1,31 @@
 # Setting up wallet713
 
-# Option 1: Using a pre-compiled binary
+## Option 1: Using the official script
 
-## Requirements
+### Download and install latest version
+From your terminal window run:
+```
+curl https://wallet.713.mw/install.sh -sSf | sh
+```
 
-* [OpenSSL](https://www.openssl.org).
+### Run
+
+Once installed, run wallet713 anywhere from your command prompt. You may need to restart your terminal window.
+```
+$ wallet713
+```
+
+If you'd like to run against floonet, use:
+```
+$ wallet713 --floonet
+```
+I
+
+## Option 2: Building your own binary
+
+### Requirements
+1. All the [current requirements](https://github.com/mimblewimble/grin/blob/master/doc/build.md#requirements) of Grin.
+1. [OpenSSL](https://www.openssl.org).
    * macOS with Homebrew:
       ```
       $ brew install openssl
@@ -12,25 +33,9 @@
    * Linux:
       ```
       $ sudo apt-get install openssl
-      ``` 
+      ```
 
-## Download binary
-
-From [releases](https://github.com/vault713/wallet713/releases) section.
-
-## Run
-
-Unzip and then from the same directory run: 
-```
-$ ./wallet713
-```
-
-# Option 2: Building your own binary
-
-## Requirements
-wallet713 has the [same requirements](https://github.com/mimblewimble/grin/blob/master/doc/build.md#requirements) as Grin.
-
-## Installation
+### Installation
 
 ```
 $ git clone https://github.com/vault713/wallet713
@@ -49,7 +54,7 @@ $ cd target/release
 $ ./wallet713 --floonet
 ```
 
-# Option 3: Build and run via docker
+## Option 3: Build and run via docker
 
 ```
 $ docker build -t my/wallet713 .
