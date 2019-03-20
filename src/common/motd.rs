@@ -21,7 +21,7 @@ pub fn get_motd() -> Result<(), Error> {
     let crate_version = Version::parse(crate_version!())?;
 
     let motd: MOTD = client::get(
-        "https://raw.githubusercontent.com/jaspervdm/wallet713/qol_update/motd.json",
+        "https://raw.githubusercontent.com/vault713/wallet713/master/motd.json",
         None,
     )?;
 
@@ -35,7 +35,7 @@ pub fn get_motd() -> Result<(), Error> {
             println!("{} {}", "A new version of wallet713 is available!".bold(), update_message);
             println!();
             println!("Upgrade by running:");
-            println!(" curl https://install.wallet.713.mw -sSf | sh");
+            println!(" curl https://wallet.713.mw/install.sh -sSf | sh");
             println!();
         }
     }
