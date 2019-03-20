@@ -35,6 +35,7 @@ extern crate tokio;
 extern crate url;
 extern crate uuid;
 extern crate ws;
+extern crate semver;
 
 extern crate grin_api;
 extern crate grin_core;
@@ -77,6 +78,7 @@ use common::{ErrorKind, Result, RuntimeMode, COLORED_PROMPT, PROMPT};
 use wallet::Wallet;
 
 use crate::wallet::types::{Arc, Mutex, TxProof};
+use crate::common::motd::get_motd;
 
 use contacts::{Address, AddressBook, AddressType, Backend, Contact, GrinboxAddress};
 
@@ -177,10 +179,6 @@ fn do_contacts(args: &ArgMatches, address_book: Arc<Mutex<AddressBook>>) -> Resu
     }
     Ok(())
 }
-
-const WELCOME_HEADER: &str = r#"
-Welcome to wallet713
-"#;
 
 const WELCOME_FOOTER: &str = r#"Use `help` to see available commands
 "#;
@@ -502,7 +500,11 @@ fn main() {
         .expect("could not create an address book!");
     let address_book = Arc::new(Mutex::new(address_book));
 
-    println!("{}", WELCOME_HEADER.bright_yellow().bold());
+    println!("{}", format!("\nWelcome to wallet713 v{}\n", crate_version!()).bright_yellow().bold());
+
+    if config.check_updates() {
+        get_motd().unwrap_or(());
+    }
 
     let wallet = Wallet::new(config.max_auto_accept_invoice);
     let wallet = Arc::new(Mutex::new(wallet));
