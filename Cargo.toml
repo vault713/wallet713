@@ -43,9 +43,9 @@ rpassword = "2.1.0"
 url = "1.7"
 parking_lot = {version = "0.6"}
 
-grin_api = { git = "https://github.com/jaspervdm/grin", branch = "patch" }
-grin_core = { git = "https://github.com/jaspervdm/grin", branch = "patch" }
-grin_wallet = { git = "https://github.com/jaspervdm/grin", branch = "patch" }
-grin_keychain = { git = "https://github.com/jaspervdm/grin", branch = "patch" }
-grin_util = { git = "https://github.com/jaspervdm/grin", branch = "patch" }
-grin_store = { git = "https://github.com/jaspervdm/grin", branch = "patch" }
+grin_api = { git = "https://github.com/jaspervdm/grin", branch = "patch2" }
+grin_core = { git = "https://github.com/jaspervdm/grin", branch = "patch2" }
+grin_wallet = { git = "https://github.com/jaspervdm/grin", branch = "patch2" }
+grin_keychain = { git = "https://github.com/jaspervdm/grin", branch = "patch2" }
+grin_util = { git = "https://github.com/jaspervdm/grin", branch = "patch2" }
+grin_store = { git = "https://github.com/jaspervdm/grin", branch = "patch2" }
