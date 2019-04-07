@@ -15,11 +15,10 @@ Once installed, run wallet713 anywhere from your command prompt. You may need to
 $ wallet713
 ```
 
-If you'd like to run against floonet, use:
+If you'd like to run against Floonet (i.e. test network), use:
 ```
 $ wallet713 --floonet
 ```
-I
 
 ## Option 2: Building your own binary
 
