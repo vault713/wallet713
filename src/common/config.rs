@@ -120,7 +120,7 @@ impl Wallet713Config {
     }
 
     pub fn grinbox_protocol_unsecure(&self) -> bool {
-        self.grinbox_protocol_unsecure.unwrap_or(false)
+        self.grinbox_protocol_unsecure.unwrap_or(cfg!(windows))
     }
 
     pub fn grinbox_address_index(&self) -> u32 {
