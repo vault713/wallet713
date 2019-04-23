@@ -25,14 +25,8 @@ matrix:
     - os: osx
 
 before_deploy:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-      cargo clean && OPENSSL_STATIC=1 OPENSSL_LIB_DIR=/usr/local/opt/openssl/lib OPENSSL_INCLUDE_DIR=/usr/local/opt/openssl/include cargo build --release && ./.auto-release.sh;
-    fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-      brew update;
-      cargo clean && OPENSSL_STATIC=1 OPENSSL_LIB_DIR=/usr/local/opt/openssl/lib OPENSSL_INCLUDE_DIR=/usr/local/opt/openssl/include cargo build --release && ./.auto-release.sh;
-    fi
-    
+  - ./.before-deploy.sh
+
 deploy:
   provider: releases
   api_key: "$GITHUB_OAUTH_TOKEN"
