@@ -13,6 +13,7 @@ extern crate clap;
 extern crate env_logger;
 extern crate blake2_rfc;
 extern crate chrono;
+extern crate ansi_term;
 extern crate colored;
 extern crate digest;
 extern crate failure;
@@ -464,6 +465,8 @@ impl Highlighter for EditorHelper {
 impl Helper for EditorHelper {}
 
 fn main() {
+    enable_ansi_support();
+
     let matches = App::new("wallet713")
         .version(crate_version!())
         .arg(Arg::from_usage("[config-path] -c, --config=<config-path> 'the path to the config file'"))
@@ -1445,4 +1448,15 @@ fn do_command(
     };
 
     Ok(())
+}
+
+#[cfg(windows)]
+pub fn enable_ansi_support() {
+    if !ansi_term::enable_ansi_support().is_ok() {
+        colored::control::set_override(false);
+    }
+}
+
+#[cfg(not(windows))]
+pub fn enable_ansi_support() {
 }
