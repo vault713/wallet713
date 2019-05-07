@@ -15,7 +15,8 @@ toml = "0.4"
 clap = "2"
 ansi_term = "0.11"
 colored = "1.6"
-ws = { git = "https://github.com/vault713/ws-rs", branch = "vendored", features = ["nativetls", "vendored"]}
+ws = { version = "0.8", features = ["nativetls"] }
+native-tls = { version = "0.2", features = ["vendored"] }
 dirs = "1"
 futures = "0.1"
 tokio = "= 0.1.11"
