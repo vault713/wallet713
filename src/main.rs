@@ -43,7 +43,6 @@ extern crate grin_core;
 extern crate grin_keychain;
 extern crate grin_store;
 extern crate grin_util;
-extern crate grin_wallet;
 
 use std::borrow::Cow::{self, Borrowed, Owned};
 use std::fs::File;
@@ -78,7 +77,7 @@ use common::config::Wallet713Config;
 use common::{ErrorKind, Result, RuntimeMode, COLORED_PROMPT, PROMPT};
 use wallet::Wallet;
 
-use crate::wallet::types::{Arc, Mutex, TxProof};
+use crate::wallet::types::{Arc, Mutex, Slate, TxProof};
 use crate::common::motd::get_motd;
 
 use contacts::{Address, AddressBook, AddressType, Backend, Contact, GrinboxAddress};
@@ -204,7 +203,6 @@ use broker::{
     CloseReason, GrinboxPublisher, GrinboxSubscriber, KeybasePublisher, KeybaseSubscriber,
     Publisher, Subscriber, SubscriptionHandler,
 };
-use grin_wallet::Slate;
 use std::borrow::Borrow;
 
 struct Controller {

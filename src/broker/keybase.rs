@@ -4,10 +4,10 @@ use std::iter::FromIterator;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use grin_wallet::Slate;
 use serde::Serialize;
 use serde_json::{json, Value};
 
+use crate::wallet::types::Slate;
 use super::types::{CloseReason, Publisher, Subscriber, SubscriptionHandler};
 use common::{Arc, ErrorKind, Mutex, Result};
 use contacts::{Address, KeybaseAddress};

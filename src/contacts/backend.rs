@@ -5,9 +5,10 @@ use std::path::Path;
 use grin_core::ser::Error as CoreError;
 use grin_core::ser::{Readable, Reader, Writeable, Writer};
 use grin_store::{self, option_to_not_found, to_key};
+use grin_store::Store;
 
 use super::types::{Address, AddressBookBackend, AddressBookBatch, Contact};
-use common::{Arc, Error};
+use common::Error;
 
 const DB_DIR: &'static str = "contacts";
 const CONTACT_PREFIX: u8 = 'X' as u8;
@@ -21,8 +22,7 @@ impl Backend {
         let db_path = Path::new(data_path).join(DB_DIR);
         create_dir_all(&db_path)?;
 
-        let lmdb_env = Arc::new(grin_store::new_env(db_path.to_str().unwrap().to_string()));
-        let store = grin_store::Store::open(lmdb_env, DB_DIR);
+        let store = Store::new(db_path.to_str().unwrap(), None, Some(DB_DIR), None)?;
 
         let res = Backend { db: store };
         Ok(res)
@@ -40,7 +40,7 @@ impl AddressBookBackend for Backend {
     }
 
     fn contacts(&self) -> Box<Iterator<Item = Contact>> {
-        Box::new(self.db.iter(&[CONTACT_PREFIX]).unwrap())
+        Box::new(self.db.iter(&[CONTACT_PREFIX]).unwrap().map(|x| x.1))
     }
 
     fn batch<'a>(&'a self) -> Result<Box<AddressBookBatch + 'a>, Error> {

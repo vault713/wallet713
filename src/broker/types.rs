@@ -1,6 +1,4 @@
-use grin_wallet::Slate;
-
-use crate::wallet::types::TxProof;
+use crate::wallet::types::{Slate, TxProof};
 
 use common::Error;
 use contacts::Address;

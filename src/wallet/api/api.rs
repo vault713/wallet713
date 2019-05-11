@@ -341,8 +341,7 @@ where
     }
 
     pub fn verify_slate_messages(&mut self, slate: &Slate) -> Result<(), Error> {
-        let secp = Secp256k1::with_caps(ContextFlag::VerifyOnly);
-        slate.verify_messages(&secp)?;
+        slate.verify_messages()?;
         Ok(())
     }
 

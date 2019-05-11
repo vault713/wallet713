@@ -4,9 +4,7 @@ use ws::{
     Result as WsResult, Sender,
 };
 
-use grin_wallet::Slate;
-
-use crate::wallet::types::{TxProof, TxProofErrorKind};
+use crate::wallet::types::{Slate, TxProof, TxProofErrorKind};
 use common::crypto::{sign_challenge, Hex, SecretKey};
 use common::message::EncryptedMessage;
 use common::{Arc, ErrorKind, Mutex, Result};

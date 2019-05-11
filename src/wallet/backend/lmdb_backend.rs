@@ -8,14 +8,16 @@ use std::{fs, path};
 
 use grin_core::{global, ser};
 use grin_store::{self, option_to_not_found, to_key, to_key_u64};
+use grin_store::Store;
 use grin_util::secp::constants::SECRET_KEY_SIZE;
 use grin_util::ZeroingString;
 use grin_util::{from_hex, to_hex};
-use grin_wallet::WalletConfig;
+
+use crate::common::config::WalletConfig;
 
 use super::api::restore;
 use super::types::{
-    AcctPathMapping, Arc, ChildNumber, Context, ErrorKind, ExtKeychain, Identifier, Keychain,
+    AcctPathMapping, ChildNumber, Context, ErrorKind, ExtKeychain, Identifier, Keychain,
     NodeClient, OutputData, Result, Transaction, TxLogEntry, TxProof, WalletBackend,
     WalletBackendBatch, WalletSeed,
 };
@@ -64,7 +66,7 @@ where
 }
 
 pub struct Backend<C, K> {
-    db: grin_store::Store,
+    db: Store,
     passphrase: ZeroingString,
     pub keychain: Option<K>,
     parent_key_id: Identifier,
@@ -85,8 +87,7 @@ impl<C, K> Backend<C, K> {
         fs::create_dir_all(&stored_tx_proof_path)
             .expect("Couldn't create wallet backend tx proof storage directory!");
 
-        let lmdb_env = Arc::new(grin_store::new_env(db_path.to_str().unwrap().to_string()));
-        let store = grin_store::Store::open(lmdb_env, DB_DIR);
+        let store = Store::new(db_path.to_str().unwrap(), None, Some(DB_DIR), None)?;
 
         let default_account = AcctPathMapping {
             label: "default".to_string(),
@@ -182,7 +183,7 @@ where
     }
 
     fn outputs<'a>(&'a self) -> Box<dyn Iterator<Item = OutputData> + 'a> {
-        Box::new(self.db.iter(&[OUTPUT_PREFIX]).unwrap())
+        Box::new(self.db.iter(&[OUTPUT_PREFIX]).unwrap().map(|x| x.1))
     }
 
     fn get_tx_log_by_slate_id(&self, slate_id: &str) -> Result<Option<TxLogEntry>> {
@@ -191,7 +192,7 @@ where
     }
 
     fn tx_logs<'a>(&'a self) -> Box<dyn Iterator<Item = TxLogEntry> + 'a> {
-        Box::new(self.db.iter(&[TX_LOG_ENTRY_PREFIX]).unwrap())
+        Box::new(self.db.iter(&[TX_LOG_ENTRY_PREFIX]).unwrap().map(|x| x.1))
     }
 
     fn get_private_context(&mut self, uuid: &str) -> Result<Context> {
@@ -211,7 +212,7 @@ where
     }
 
     fn accounts<'a>(&'a self) -> Box<dyn Iterator<Item = AcctPathMapping> + 'a> {
-        Box::new(self.db.iter(&[ACCOUNT_PATH_MAPPING_PREFIX]).unwrap())
+        Box::new(self.db.iter(&[ACCOUNT_PATH_MAPPING_PREFIX]).unwrap().map(|x| x.1))
     }
 
     fn get_acct_path(&self, label: &str) -> Result<AcctPathMapping> {

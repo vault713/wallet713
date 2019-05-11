@@ -36,6 +36,7 @@ where
         &context.sec_nonce,
         1,
         message,
+        false,
     )?;
 
     // perform partial sig
@@ -107,6 +108,7 @@ where
         &context.sec_nonce,
         0,
         message,
+        false,
     )?;
 
     Ok((slate, context, sender_lock_fn))
@@ -234,6 +236,7 @@ where
         &context.sec_nonce,
         1,
         message,
+        false,
     )?;
 
     slate.fill_round_2(wallet.keychain(), &context.sec_key, &context.sec_nonce, 1)?;
@@ -280,6 +283,7 @@ where
         &context.sec_nonce,
         0,
         message,
+        false,
     )?;
 
     Ok((slate, context, add_fn))

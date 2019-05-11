@@ -1,15 +1,14 @@
 use grin_util::secp::pedersen;
-use grin_wallet::{HTTPNodeClient, NodeClient, WalletConfig};
 use uuid::Uuid;
 
-use common::config::Wallet713Config;
+use common::config::{Wallet713Config, WalletConfig};
 use common::{ErrorKind, Result};
 
 use super::api::{controller, display};
 use super::backend::Backend;
 use super::types::{
-    Arc, BlockFees, CbData, ExtKeychain, Mutex, OutputData, SecretKey, Slate, Transaction,
-    TxLogEntry, WalletBackend, WalletInfo, WalletInst, WalletSeed,
+    Arc, BlockFees, CbData, ExtKeychain, HTTPNodeClient, Mutex, OutputData, NodeClient, SecretKey,
+    Slate, Transaction, TxLogEntry, WalletBackend, WalletInfo, WalletInst, WalletSeed,
 };
 
 use crate::common::crypto::Hex;
@@ -197,7 +196,7 @@ impl Wallet {
         controller::owner_single_use(wallet.clone(), |api| {
             let (_, txs) = api.retrieve_txs(true, Some(id), None)?;
             if txs.len() == 0 {
-                return Err(grin_wallet::libwallet::ErrorKind::GenericError(format!(
+                return Err(ErrorKind::GenericError(format!(
                     "could not find transaction with id {}!",
                     id
                 )))?;
@@ -208,7 +207,7 @@ impl Wallet {
                 api.post_tx(&stored_tx, fluff)?;
                 Ok(())
             } else {
-                Err(grin_wallet::libwallet::ErrorKind::GenericError(format!(
+                Err(ErrorKind::GenericError(format!(
                     "no transaction data stored for id {}, can not repost!",
                     id
                 )))?
