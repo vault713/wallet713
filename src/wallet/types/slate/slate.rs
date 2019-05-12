@@ -16,11 +16,12 @@
 //! around during an interactive wallet exchange
 
 use blake2_rfc::blake2b::blake2b;
-use crate::wallet::error::{Error, ErrorKind};
+use failure::ResultExt;
 use grin_core::core::amount_to_hr_string;
 use grin_core::core::committed::Committed;
 use grin_core::core::transaction::{
-	kernel_features, kernel_sig_msg, Transaction, Weighting,
+	kernel_features, kernel_sig_msg, Input, Output, Transaction,
+	TransactionBody, TxKernel, Weighting,
 };
 use grin_core::core::verifier_cache::LruVerifierCache;
 use grin_core::libtx::{aggsig, build, secp_ser, tx_fee};
@@ -34,15 +35,9 @@ use rand::thread_rng;
 use std::sync::Arc;
 use uuid::Uuid;
 
-/*use crate::slate_versions::v0::SlateV0;
-use crate::slate_versions::v1::SlateV1;
-use crate::slate_versions::v2::{
-	InputV2, OutputV2, ParticipantDataV2, SlateV2, TransactionBodyV2, TransactionV2, TxKernelV2,
-	VersionCompatInfoV2,
-};
-use crate::slate_versions::CURRENT_SLATE_VERSION;*/
-
-const CURRENT_SLATE_VERSION: u16 = 2;
+use crate::wallet::error::{Error, ErrorKind};
+use super::versions::{v0::SlateV0, v1::SlateV1, v2::*};
+use super::versions::CURRENT_SLATE_VERSION;
 
 /// Public data for each participant in the slate
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -163,29 +158,37 @@ pub struct ParticipantMessages {
 	pub messages: Vec<ParticipantMessageData>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SlateVersionProbe {
+	#[serde(default)]
+	version: Option<u64>,
+	#[serde(default)]
+	version_info: Option<VersionCompatInfo>,
+}
+
+impl SlateVersionProbe {
+	pub fn version(&self) -> u16 {
+		match &self.version_info {
+			Some(v) => v.version,
+			None => match self.version {
+				Some(_) => 1,
+				None => 0,
+			},
+		}
+	}
+}
+
 impl Slate {
 	/// TODO: Reduce the number of changes that need to occur below for each new
 	/// slate version
-	/*pub fn parse_slate_version(slate_json: &str) -> Result<u16, Error> {
-		// keep attempting to deser, working through known versions until we have
-		// enough to get the version out
-		let res: Result<SlateV2, serde_json::Error> = serde_json::from_str(slate_json);
-		if let Ok(s) = res {
-			return Ok(s.version_info.version);
-		}
-		let res: Result<SlateV1, serde_json::Error> = serde_json::from_str(slate_json);
-		if let Ok(s) = res {
-			return Ok(s.version as u16);
-		}
-		let res: Result<SlateV0, serde_json::Error> = serde_json::from_str(slate_json);
-		if let Ok(_) = res {
-			return Ok(0);
-		}
-		Err(ErrorKind::SlateVersionParse)?
-	}*/
+	pub fn parse_slate_version(slate_json: &str) -> Result<u16, Error> {
+		let probe: SlateVersionProbe = serde_json::from_str(slate_json)
+			.map_err(|_| ErrorKind::SlateVersionParse)?;
+		Ok(probe.version())
+	}
 
 	/// Recieve a slate, upgrade it to the latest version internally
-	/*pub fn deserialize_upgrade(slate_json: &str) -> Result<Slate, Error> {
+	pub fn deserialize_upgrade(slate_json: &str) -> Result<Slate, Error> {
 		let version = Slate::parse_slate_version(slate_json)?;
 		let v2 = match version {
 			2 => serde_json::from_str(slate_json).context(ErrorKind::SlateDeser)?,
@@ -203,34 +206,30 @@ impl Slate {
 			}
 			_ => return Err(ErrorKind::SlateVersion(version))?,
 		};
-		let f = serde_json::to_string(&v2).context(ErrorKind::SlateDeser)?;
-		Ok(serde_json::from_str(&f).context(ErrorKind::SlateDeser)?)
-	}*/
+		Ok(v2.into())
+	}
 
 	/// Downgrate slate to desired version
-	/*pub fn serialize_to_version(&self, version: Option<u16>) -> Result<String, Error> {
+	pub fn serialize_to_version(&self, version: Option<u16>) -> Result<String, Error> {
 		let version = match version {
 			Some(v) => v,
 			None => CURRENT_SLATE_VERSION,
 		};
-		let ser_self = serde_json::to_string(&self).context(ErrorKind::SlateDeser)?;
+		let v2: SlateV2 = self.into();
 		match version {
-			2 => Ok(ser_self.clone()),
+			2 => serde_json::to_string(&v2).map_err(|_| ErrorKind::SlateDeser.into()),
 			1 => {
-				let v2: SlateV2 = serde_json::from_str(&ser_self).context(ErrorKind::SlateDeser)?;
 				let v1 = SlateV1::from(v2);
-				let slate = serde_json::to_string(&v1).context(ErrorKind::SlateDeser)?;
-				Ok(slate)
+				serde_json::to_string(&v1).map_err(|_| ErrorKind::SlateDeser.into())
 			}
 			0 => {
-				let v2: SlateV2 = serde_json::from_str(&ser_self).context(ErrorKind::SlateDeser)?;
 				let v1 = SlateV1::from(v2);
 				let v0 = SlateV0::from(v1);
-				Ok(serde_json::to_string(&v0).context(ErrorKind::SlateDeser)?)
+				serde_json::to_string(&v0).map_err(|_| ErrorKind::SlateDeser.into())
 			}
-			_ => Err(ErrorKind::SlateVersion(version))?,
+			_ => Err(ErrorKind::SlateVersion(version).into()),
 		}
-	}*/
+	}
 
 	/// Create a new slate
 	pub fn blank(num_participants: usize) -> Slate {
@@ -666,7 +665,7 @@ impl Slate {
 // Current slate version to versioned conversions
 
 // Slate to versioned
-/*impl From<Slate> for SlateV2 {
+impl From<Slate> for SlateV2 {
 	fn from(slate: Slate) -> SlateV2 {
 		let Slate {
 			num_participants,
@@ -682,6 +681,42 @@ impl Slate {
 		let participant_data = map_vec!(participant_data, |data| ParticipantDataV2::from(data));
 		let version_info = VersionCompatInfoV2::from(&version_info);
 		let tx = TransactionV2::from(tx);
+		SlateV2 {
+			num_participants,
+			id,
+			tx,
+			amount,
+			fee,
+			height,
+			lock_height,
+			participant_data,
+			version_info,
+		}
+	}
+}
+
+impl From<&Slate> for SlateV2 {
+	fn from(slate: &Slate) -> SlateV2 {
+		let Slate {
+			num_participants,
+			id,
+			tx,
+			amount,
+			fee,
+			height,
+			lock_height,
+			participant_data,
+			version_info,
+		} = slate;
+		let num_participants = *num_participants;
+		let id = *id;
+		let tx = TransactionV2::from(tx);
+		let amount = *amount;
+		let fee = *fee;
+		let height = *height;
+		let lock_height = *lock_height;
+		let participant_data = map_vec!(participant_data, |data| ParticipantDataV2::from(data));
+		let version_info = VersionCompatInfoV2::from(version_info);
 		SlateV2 {
 			num_participants,
 			id,
@@ -745,6 +780,15 @@ impl From<Transaction> for TransactionV2 {
 	fn from(tx: Transaction) -> TransactionV2 {
 		let Transaction { offset, body } = tx;
 		let body = TransactionBodyV2::from(&body);
+		TransactionV2 { offset, body }
+	}
+}
+
+impl From<&Transaction> for TransactionV2 {
+	fn from(tx: &Transaction) -> TransactionV2 {
+		let Transaction { offset, body } = tx;
+		let offset = *offset;
+		let body = TransactionBodyV2::from(body);
 		TransactionV2 { offset, body }
 	}
 }
@@ -951,4 +995,4 @@ impl From<&TxKernelV2> for TxKernel {
 			excess_sig,
 		}
 	}
-}*/
+}

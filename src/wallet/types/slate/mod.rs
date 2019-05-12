@@ -1,4 +1,4 @@
 pub mod slate;
-pub mod v0;
+pub mod versions;
 
 pub use self::slate::Slate;

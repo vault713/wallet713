@@ -39,6 +39,7 @@ extern crate ws;
 extern crate semver;
 
 extern crate grin_api;
+#[macro_use]
 extern crate grin_core;
 extern crate grin_keychain;
 extern crate grin_store;
