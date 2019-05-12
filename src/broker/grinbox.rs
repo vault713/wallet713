@@ -120,7 +120,7 @@ impl GrinboxBroker {
         let pkey = to.public_key()?;
         let skey = secret_key.clone();
         let message = EncryptedMessage::new(
-            serde_json::to_string(&slate).unwrap(),
+            slate.serialize_to_original_version()?,
             &to,
             &pkey,
             &skey,

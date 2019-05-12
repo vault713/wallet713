@@ -1107,13 +1107,13 @@ fn do_command(
             let mut file = File::open(input.replace("~", &home_dir))?;
             let mut slate = String::new();
             file.read_to_string(&mut slate)?;
-            let mut slate: Slate = serde_json::from_str(&slate)?;
+            let mut slate = Slate::deserialize_upgrade(&slate)?;
             let mut file = File::create(&format!("{}.response", input.replace("~", &home_dir)))?;
             wallet
                 .lock()
                 .process_sender_initiated_slate(Some(String::from("file")), &mut slate)?;
             cli_message!("{} received.", input);
-            file.write_all(serde_json::to_string(&slate).unwrap().as_bytes())?;
+            file.write_all(slate.serialize_to_original_version()?.as_bytes())?;
             cli_message!("{}.response created successfully.", input);
         }
         Some("finalize") => {
@@ -1122,7 +1122,7 @@ fn do_command(
             let mut file = File::open(input.replace("~", &home_dir))?;
             let mut slate = String::new();
             file.read_to_string(&mut slate)?;
-            let mut slate: Slate = serde_json::from_str(&slate)?;
+            let mut slate = Slate::deserialize_upgrade(&slate)?;
             wallet.lock().finalize_slate(&mut slate, None)?;
             cli_message!("{} finalized.", input);
         }
@@ -1145,6 +1145,12 @@ fn do_command(
             let change_outputs = usize::from_str_radix(change_outputs, 10)
                 .map_err(|_| ErrorKind::InvalidNumOutputs(change_outputs.to_string()))?;
 
+            let version = match args.value_of("version") {
+                Some(v) => Some(u16::from_str_radix(v, 10)
+                    .map_err(|_| ErrorKind::InvalidSlateVersion(v.to_string()))?),
+                None => None,
+            };
+
             let amount = args.value_of("amount").unwrap();
             let amount = core::amount_from_hr_string(amount)
                 .map_err(|_| ErrorKind::InvalidAmount(amount.to_string()))?;
@@ -1160,6 +1166,7 @@ fn do_command(
                     change_outputs,
                     500,
                     message,
+                    version,
                 )?;
                 file.write_all(serde_json::to_string(&slate).unwrap().as_bytes())?;
                 cli_message!("{} created successfully.", input);
@@ -1187,7 +1194,7 @@ fn do_command(
                 display_to = Some(to.stripped());
             }
 
-            let slate: Result<Slate> = match to.address_type() {
+            let mut slate: Slate = match to.address_type() {
                 AddressType::Keybase => {
                     if let Some((publisher, _)) = keybase_broker {
                         let slate = wallet.lock().initiate_send_tx(
@@ -1198,14 +1205,15 @@ fn do_command(
                             change_outputs,
                             500,
                             message,
+                            version,
                         )?;
                         let mut keybase_address =
                             contacts::KeybaseAddress::from_str(&to.to_string())?;
                         keybase_address.topic = Some(broker::TOPIC_SLATE_NEW.to_string());
                         publisher.post_slate(&slate, keybase_address.borrow())?;
-                        Ok(slate)
+                        slate
                     } else {
-                        Err(ErrorKind::ClosedListener("keybase".to_string()))?
+                        return Err(ErrorKind::ClosedListener("keybase".to_string()).into());
                     }
                 }
                 AddressType::Grinbox => {
@@ -1218,11 +1226,12 @@ fn do_command(
                             change_outputs,
                             500,
                             message,
+                            version,
                         )?;
                         publisher.post_slate(&slate, to.borrow())?;
-                        Ok(slate)
+                        slate
                     } else {
-                        Err(ErrorKind::ClosedListener("grinbox".to_string()))?
+                        return Err(ErrorKind::ClosedListener("grinbox".to_string()).into());
                     }
                 }
                 AddressType::Https => {
@@ -1236,13 +1245,15 @@ fn do_command(
                         change_outputs,
                         500,
                         message,
+                        version,
                     )?;
-                    client::post(url.as_str(), None, &slate)
-                        .map_err(|_| ErrorKind::HttpRequest.into())
+                    let slate_ser = slate.serialize_to_original_version()?;
+                    let slate_res: String = client::post(url.as_str(), None, &slate_ser)
+                        .map_err(|_| ErrorKind::HttpRequest)?;
+                    Slate::deserialize_upgrade(&slate_res)
+                        .map_err(|_| ErrorKind::HttpRequest)?
                 }
             };
-
-            let mut slate = slate?;
 
             cli_message!(
                 "slate [{}] for [{}] grins sent successfully to [{}]",

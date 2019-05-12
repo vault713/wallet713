@@ -273,13 +273,14 @@ struct IssueSendBody {
     num_change_outputs: usize,
     selection_strategy_is_use_all: bool,
     message: Option<String>,
+    version: Option<u16>,
 }
 
 pub fn issue_send_tx(mut state: State) -> Box<HandlerFuture> {
     let future = Body::take_from(&mut state)
         .concat2()
         .then(|body| match body {
-            Ok(body) => match handle_issue_iou_tx(&state, &body) {
+            Ok(body) => match handle_issue_send_tx(&state, &body) {
                 Ok(res) => future::ok((state, res)),
                 Err(e) => future::err((state, ApiError::new(e).into_handler_error())),
             },
@@ -289,7 +290,7 @@ pub fn issue_send_tx(mut state: State) -> Box<HandlerFuture> {
     Box::new(future)
 }
 
-pub fn handle_issue_iou_tx(state: &State, body: &Chunk) -> Result<Response<Body>, Error> {
+pub fn handle_issue_send_tx(state: &State, body: &Chunk) -> Result<Response<Body>, Error> {
     trace_state_and_body(state, body);
     let body: IssueSendBody = serde_json::from_slice(&body)?;
     let container = WalletContainer::borrow_from(&state);
@@ -309,8 +310,9 @@ pub fn handle_issue_iou_tx(state: &State, body: &Chunk) -> Result<Response<Body>
                 body.num_change_outputs,
                 body.max_outputs,
                 body.message,
+                body.version,
             )?;
-            serde_json::to_string(&slate)?
+            slate.serialize_to_original_version()?
         }
         IssueSendMethod::Grinbox => {
             let address = GrinboxAddress::from_str(
@@ -327,9 +329,10 @@ pub fn handle_issue_iou_tx(state: &State, body: &Chunk) -> Result<Response<Body>
                 body.num_change_outputs,
                 body.max_outputs,
                 body.message,
+                body.version,
             )?;
             publisher.post_slate(&slate, &address)?;
-            serde_json::to_string(&slate)?
+            slate.serialize_to_original_version()?
         }
         IssueSendMethod::Keybase => {
             let address = KeybaseAddress::from_str(
@@ -346,9 +349,10 @@ pub fn handle_issue_iou_tx(state: &State, body: &Chunk) -> Result<Response<Body>
                 body.num_change_outputs,
                 body.max_outputs,
                 body.message,
+                body.version,
             )?;
             publisher.post_slate(&slate, &address)?;
-            serde_json::to_string(&slate)?
+            slate.serialize_to_original_version()?
         }
         IssueSendMethod::Http => {
             let destination = body
@@ -363,10 +367,13 @@ pub fn handle_issue_iou_tx(state: &State, body: &Chunk) -> Result<Response<Body>
                 body.num_change_outputs,
                 body.max_outputs,
                 body.message,
+                body.version,
             )?;
-            let mut slate: Slate = grin_api::client::post(url.as_str(), None, &slate)?;
+            let slate_ser = slate.serialize_to_original_version()?;
+            let slate: String = grin_api::client::post(url.as_str(), None, &slate_ser)?;
+            let mut slate = Slate::deserialize_upgrade(&slate)?;
             wallet.finalize_slate(&mut slate, None)?;
-            serde_json::to_string(&slate)?
+            slate.serialize_to_original_version()?
         }
         IssueSendMethod::File => {
             let mut file = File::create(
@@ -384,8 +391,9 @@ pub fn handle_issue_iou_tx(state: &State, body: &Chunk) -> Result<Response<Body>
                 body.num_change_outputs,
                 body.max_outputs,
                 body.message,
+                body.version,
             )?;
-            let json = serde_json::to_string(&slate).unwrap();
+            let json = slate.serialize_to_original_version()?;
             file.write_all(json.as_bytes())?;
             json
         }

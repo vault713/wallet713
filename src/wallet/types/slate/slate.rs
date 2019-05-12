@@ -231,6 +231,10 @@ impl Slate {
 		}
 	}
 
+	pub fn serialize_to_original_version(&self) -> Result<String, Error> {
+		self.serialize_to_version(Some(self.version_info.orig_version))
+	}
+
 	/// Create a new slate
 	pub fn blank(num_participants: usize) -> Slate {
 		Slate {

@@ -159,6 +159,7 @@ impl Wallet {
         change_outputs: usize,
         max_outputs: usize,
         message: Option<String>,
+        version: Option<u16>,
     ) -> Result<Slate> {
         let wallet = self.get_wallet_instance()?;
         let mut s: Slate = Slate::blank(0);
@@ -171,6 +172,7 @@ impl Wallet {
                 change_outputs,
                 selection_strategy == "all",
                 message,
+                version,
             )?;
             api.tx_lock_outputs(&slate.tx, lock_fn)?;
             s = slate;

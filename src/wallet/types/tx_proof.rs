@@ -68,9 +68,10 @@ impl TxProof {
             .decrypt_with_key(&self.key)
             .map_err(|_| ErrorKind::DecryptMessage)?;
 
-        serde_json::from_str(&decrypted_message)
-            .map(|message| (destination, message))
-            .map_err(|_| ErrorKind::ParseSlate)
+        let slate = Slate::deserialize_upgrade(&decrypted_message)
+            .map_err(|_| ErrorKind::ParseSlate)?;
+
+        Ok((destination, slate))
     }
 
     pub fn from_response(

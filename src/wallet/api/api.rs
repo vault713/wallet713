@@ -211,6 +211,7 @@ where
         num_change_outputs: usize,
         selection_strategy_is_use_all: bool,
         message: Option<String>,
+        version: Option<u16>,
     ) -> Result<
         (
             Slate,
@@ -231,6 +232,7 @@ where
             selection_strategy_is_use_all,
             &parent_key_id,
             message,
+            version,
         )?;
 
         for input in slate.tx.inputs() {

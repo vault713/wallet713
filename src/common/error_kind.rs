@@ -77,6 +77,11 @@ pub enum ErrorKind {
     )]
     InvalidNumOutputs(String),
     #[fail(
+        display = "\x1b[31;1merror:\x1b[0m invalid slate version given: `{}`",
+        0
+    )]
+    InvalidSlateVersion(String),
+    #[fail(
         display = "\x1b[31;1merror:\x1b[0m could not unlock wallet! are you using the correct passphrase?"
     )]
     WalletUnlockFailed,

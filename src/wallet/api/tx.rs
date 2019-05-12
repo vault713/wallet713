@@ -58,6 +58,7 @@ pub fn create_send_tx<T: ?Sized, C, K>(
     selection_strategy_is_use_all: bool,
     parent_key_id: &Identifier,
     message: Option<String>,
+    version: Option<u16>,
 ) -> Result<
     (
         Slate,
@@ -97,6 +98,7 @@ where
         num_change_outputs,
         selection_strategy_is_use_all,
         parent_key_id.clone(),
+        version,
     )?;
 
     // Generate a kernel offset and subtract from our context's secret key. Store

@@ -26,14 +26,14 @@ pub fn receive_tx(mut state: State) -> Box<HandlerFuture> {
 
 fn handle_receive_tx(state: &State, body: &Chunk) -> Result<Response<Body>> {
     trace_state_and_body(state, body);
-    let mut slate: Slate = serde_json::from_slice(&body)?;
+    let mut slate = Slate::deserialize_upgrade(&String::from_utf8(body.to_vec())?)?;
     let wallet = WalletContainer::borrow_from(&state).lock()?;
     wallet.process_sender_initiated_slate(None, &mut slate)?;
     Ok(trace_create_response(
         &state,
         StatusCode::OK,
         mime::APPLICATION_JSON,
-        serde_json::to_string(&slate)?,
+        slate.serialize_to_original_version()?,
     ))
 }
 
