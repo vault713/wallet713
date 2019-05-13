@@ -57,8 +57,7 @@ impl Publisher for KeybasePublisher {
             None => TOPIC_WALLET713_SLATES,
         };
 
-        let slate_ser = slate.serialize_to_original_version()?;
-        KeybaseBroker::send(&slate_ser, &to.stripped(), topic, ttl)?;
+        KeybaseBroker::send(&slate, &to.stripped(), topic, ttl)?;
 
         Ok(())
     }

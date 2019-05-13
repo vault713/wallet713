@@ -38,6 +38,8 @@ use uuid::Uuid;
 use crate::wallet::error::{Error, ErrorKind};
 use super::versions::{v0::SlateV0, v1::SlateV1, v2::*};
 use super::versions::CURRENT_SLATE_VERSION;
+use serde::{Serialize, Serializer};
+
 
 /// Public data for each participant in the slate
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -111,7 +113,7 @@ impl ParticipantMessageData {
 /// the slate around by whatever means they choose, (but we can provide some
 /// binary or JSON serialization helpers here).
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Slate {
 	/// Versioning info
 	pub version_info: VersionCompatInfo,
@@ -179,8 +181,6 @@ impl SlateVersionProbe {
 }
 
 impl Slate {
-	/// TODO: Reduce the number of changes that need to occur below for each new
-	/// slate version
 	pub fn parse_slate_version(slate_json: &str) -> Result<u16, Error> {
 		let probe: SlateVersionProbe = serde_json::from_str(slate_json)
 			.map_err(|_| ErrorKind::SlateVersionParse)?;
@@ -207,32 +207,6 @@ impl Slate {
 			_ => return Err(ErrorKind::SlateVersion(version))?,
 		};
 		Ok(v2.into())
-	}
-
-	/// Downgrate slate to desired version
-	pub fn serialize_to_version(&self, version: Option<u16>) -> Result<String, Error> {
-		let version = match version {
-			Some(v) => v,
-			None => CURRENT_SLATE_VERSION,
-		};
-		let v2: SlateV2 = self.into();
-		match version {
-			2 => serde_json::to_string(&v2).map_err(|_| ErrorKind::SlateDeser.into()),
-			1 => {
-				let v1 = SlateV1::from(v2);
-				serde_json::to_string(&v1).map_err(|_| ErrorKind::SlateDeser.into())
-			}
-			0 => {
-				let v1 = SlateV1::from(v2);
-				let v0 = SlateV0::from(v1);
-				serde_json::to_string(&v0).map_err(|_| ErrorKind::SlateDeser.into())
-			}
-			_ => Err(ErrorKind::SlateVersion(version).into()),
-		}
-	}
-
-	pub fn serialize_to_original_version(&self) -> Result<String, Error> {
-		self.serialize_to_version(Some(self.version_info.orig_version))
 	}
 
 	/// Create a new slate
@@ -664,6 +638,30 @@ impl Slate {
 		self.tx = final_tx;
 		Ok(())
 	}
+}
+
+impl Serialize for Slate {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer {
+		use serde::ser::Error;
+
+		let v2 = SlateV2::from(self);
+		match self.version_info.orig_version {
+			2 => {
+				v2.serialize(serializer)
+			},
+			1 => {
+				let v1 = SlateV1::from(v2);
+				v1.serialize(serializer)
+			},
+			0 => {
+				let v1 = SlateV1::from(v2);
+				let v0 = SlateV0::from(v1);
+				v0.serialize(serializer)
+			},
+			v => Err(S::Error::custom(format!("Unknown slate version {}", v))),
+		}
+    }
 }
 
 // Current slate version to versioned conversions

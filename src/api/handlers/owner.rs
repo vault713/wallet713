@@ -312,7 +312,7 @@ pub fn handle_issue_send_tx(state: &State, body: &Chunk) -> Result<Response<Body
                 body.message,
                 body.version,
             )?;
-            slate.serialize_to_original_version()?
+            serde_json::to_string(&slate)?
         }
         IssueSendMethod::Grinbox => {
             let address = GrinboxAddress::from_str(
@@ -332,7 +332,7 @@ pub fn handle_issue_send_tx(state: &State, body: &Chunk) -> Result<Response<Body
                 body.version,
             )?;
             publisher.post_slate(&slate, &address)?;
-            slate.serialize_to_original_version()?
+            serde_json::to_string(&slate)?
         }
         IssueSendMethod::Keybase => {
             let address = KeybaseAddress::from_str(
@@ -352,7 +352,7 @@ pub fn handle_issue_send_tx(state: &State, body: &Chunk) -> Result<Response<Body
                 body.version,
             )?;
             publisher.post_slate(&slate, &address)?;
-            slate.serialize_to_original_version()?
+            serde_json::to_string(&slate)?
         }
         IssueSendMethod::Http => {
             let destination = body
@@ -369,11 +369,10 @@ pub fn handle_issue_send_tx(state: &State, body: &Chunk) -> Result<Response<Body
                 body.message,
                 body.version,
             )?;
-            let slate_ser = slate.serialize_to_original_version()?;
-            let slate: String = grin_api::client::post(url.as_str(), None, &slate_ser)?;
+            let slate: String = grin_api::client::post(url.as_str(), None, &slate)?;
             let mut slate = Slate::deserialize_upgrade(&slate)?;
             wallet.finalize_slate(&mut slate, None)?;
-            slate.serialize_to_original_version()?
+            serde_json::to_string(&slate)?
         }
         IssueSendMethod::File => {
             let mut file = File::create(
@@ -393,7 +392,7 @@ pub fn handle_issue_send_tx(state: &State, body: &Chunk) -> Result<Response<Body
                 body.message,
                 body.version,
             )?;
-            let json = slate.serialize_to_original_version()?;
+            let json = serde_json::to_string(&slate)?;
             file.write_all(json.as_bytes())?;
             json
         }

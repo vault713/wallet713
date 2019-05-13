@@ -33,7 +33,7 @@ fn handle_receive_tx(state: &State, body: &Chunk) -> Result<Response<Body>> {
         &state,
         StatusCode::OK,
         mime::APPLICATION_JSON,
-        slate.serialize_to_original_version()?,
+        serde_json::to_string(&slate)?,
     ))
 }
 

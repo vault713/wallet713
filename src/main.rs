@@ -1113,7 +1113,7 @@ fn do_command(
                 .lock()
                 .process_sender_initiated_slate(Some(String::from("file")), &mut slate)?;
             cli_message!("{} received.", input);
-            file.write_all(slate.serialize_to_original_version()?.as_bytes())?;
+            file.write_all(serde_json::to_string(&slate)?.as_bytes())?;
             cli_message!("{}.response created successfully.", input);
         }
         Some("finalize") => {
@@ -1247,8 +1247,7 @@ fn do_command(
                         message,
                         version,
                     )?;
-                    let slate_ser = slate.serialize_to_original_version()?;
-                    let slate_res: String = client::post(url.as_str(), None, &slate_ser)
+                    let slate_res: String = client::post(url.as_str(), None, &slate)
                         .map_err(|_| ErrorKind::HttpRequest)?;
                     Slate::deserialize_upgrade(&slate_res)
                         .map_err(|_| ErrorKind::HttpRequest)?
