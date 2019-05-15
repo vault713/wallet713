@@ -18,6 +18,7 @@ use crate::api::router::{
 };
 use crate::broker::Publisher;
 use crate::common::ErrorKind;
+use crate::common::post;
 use crate::contacts::{Address, GrinboxAddress, KeybaseAddress};
 use crate::wallet::types::Slate;
 
@@ -369,7 +370,7 @@ pub fn handle_issue_send_tx(state: &State, body: &Chunk) -> Result<Response<Body
                 body.message,
                 body.version,
             )?;
-            let slate: String = grin_api::client::post(url.as_str(), None, &slate)?;
+            let slate = post(url.as_str(), None, &slate)?;
             let mut slate = Slate::deserialize_upgrade(&slate)?;
             wallet.finalize_slate(&mut slate, None)?;
             serde_json::to_string(&slate)?

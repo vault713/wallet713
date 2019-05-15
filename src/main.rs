@@ -53,7 +53,6 @@ use std::path::Path;
 
 use clap::{App, Arg, ArgMatches};
 use colored::*;
-use grin_api::client;
 use grin_core::core;
 use grin_core::global::{is_mainnet, set_mining_mode, ChainTypes};
 use rustyline::completion::{Completer, FilenameCompleter, Pair};
@@ -75,7 +74,7 @@ mod wallet;
 use api::router::{build_foreign_api_router, build_owner_api_router};
 use cli::Parser;
 use common::config::Wallet713Config;
-use common::{ErrorKind, Result, RuntimeMode, COLORED_PROMPT, PROMPT};
+use common::{ErrorKind, Result, RuntimeMode, COLORED_PROMPT, PROMPT, post};
 use wallet::Wallet;
 
 use crate::wallet::types::{Arc, Mutex, Slate, TxProof};
@@ -1168,7 +1167,7 @@ fn do_command(
                     message,
                     version,
                 )?;
-                file.write_all(serde_json::to_string(&slate).unwrap().as_bytes())?;
+                file.write_all(serde_json::to_string(&slate)?.as_bytes())?;
                 cli_message!("{} created successfully.", input);
                 return Ok(());
             }
@@ -1247,7 +1246,7 @@ fn do_command(
                         message,
                         version,
                     )?;
-                    let slate_res: String = client::post(url.as_str(), None, &slate)
+                    let slate_res = post(url.as_str(), None, &slate)
                         .map_err(|_| ErrorKind::HttpRequest)?;
                     Slate::deserialize_upgrade(&slate_res)
                         .map_err(|_| ErrorKind::HttpRequest)?

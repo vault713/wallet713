@@ -46,8 +46,8 @@ url = "1.7"
 parking_lot = {version = "0.6"}
 semver = "0.9.0"
 
-grin_api = { git = "https://github.com/mimblewimble/grin", rev = "e72409d804e86e9fe9fbb166846436d339dc0251" }
-grin_core = { git = "https://github.com/mimblewimble/grin", rev = "e72409d804e86e9fe9fbb166846436d339dc0251" }
-grin_keychain = { git = "https://github.com/mimblewimble/grin", rev = "e72409d804e86e9fe9fbb166846436d339dc0251" }
-grin_util = { git = "https://github.com/mimblewimble/grin", rev = "e72409d804e86e9fe9fbb166846436d339dc0251" }
-grin_store = { git = "https://github.com/mimblewimble/grin", rev = "e72409d804e86e9fe9fbb166846436d339dc0251" }
+grin_api = { git = "https://github.com/mimblewimble/grin", rev = "9ab23f6eef1d03aa2facc32d439852bda0127daf" }
+grin_core = { git = "https://github.com/mimblewimble/grin", rev = "9ab23f6eef1d03aa2facc32d439852bda0127daf" }
+grin_keychain = { git = "https://github.com/mimblewimble/grin", rev = "9ab23f6eef1d03aa2facc32d439852bda0127daf" }
+grin_util = { git = "https://github.com/mimblewimble/grin", rev = "9ab23f6eef1d03aa2facc32d439852bda0127daf" }
+grin_store = { git = "https://github.com/mimblewimble/grin", rev = "9ab23f6eef1d03aa2facc32d439852bda0127daf" }

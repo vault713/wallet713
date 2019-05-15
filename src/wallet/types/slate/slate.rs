@@ -204,7 +204,7 @@ impl Slate {
 				let v1 = SlateV1::from(v0);
 				SlateV2::from(v1)
 			}
-			_ => return Err(ErrorKind::SlateVersion(version))?,
+			_ => return Err(ErrorKind::SlateVersion(version).into()),
 		};
 		Ok(v2.into())
 	}
