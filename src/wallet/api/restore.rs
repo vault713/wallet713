@@ -2,12 +2,15 @@ use std::collections::HashMap;
 
 use grin_core::global;
 use grin_core::libtx::proof;
+use grin_core::consensus::valid_header_version;
+use grin_core::core::HeaderVersion;
+use grin_keychain::SwitchCommitmentType;
 use grin_util::secp::pedersen;
 
 use super::keys;
 use super::types::{
-    ErrorKind, ExtKeychain, Identifier, Keychain, NodeClient, OutputData, OutputStatus, Result,
-    SecretKey, TxLogEntry, TxLogEntryType, WalletBackend,
+    ExtKeychain, Identifier, Keychain, NodeClient, OutputData, OutputStatus,
+    Result, TxLogEntry, TxLogEntryType, WalletBackend,
 };
 use super::updater;
 
@@ -16,12 +19,11 @@ struct OutputResult {
     pub commit: pedersen::Commitment,
     pub key_id: Identifier,
     pub n_child: u32,
-    pub mmr_index: u64,
     pub value: u64,
     pub height: u64,
     pub lock_height: u64,
     pub is_coinbase: bool,
-    pub blinding: SecretKey,
+    pub mmr_index: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -42,20 +44,30 @@ where
 {
     let mut wallet_outputs: Vec<OutputResult> = Vec::new();
 
-    warn!(
+    debug!(
         "Scanning {} outputs in the current Grin utxo set",
         outputs.len(),
     );
+
+    let keychain = wallet.keychain();
+    let legacy_builder = proof::LegacyProofBuilder::new(keychain);
+    let builder = proof::ProofBuilder::new(keychain);
+    let legacy_version = HeaderVersion(1);
 
     for output in outputs.iter() {
         let (commit, proof, is_coinbase, height, mmr_index) = output;
         // attempt to unwind message from the RP and get a value
         // will fail if it's not ours
-        let info = proof::rewind(wallet.keychain(), *commit, None, *proof)?;
+        let info = if valid_header_version(*height, legacy_version) {
+            proof::rewind(keychain.secp(), &legacy_builder, *commit, None, *proof)
+        } else {
+            proof::rewind(keychain.secp(), &builder, *commit, None, *proof)
+        }?;
 
-        if !info.success {
+        if info.is_none() {
             continue;
         }
+        let (amount, key_id, switch) = info.unwrap();
 
         let lock_height = if *is_coinbase {
             *height + global::coinbase_maturity()
@@ -63,24 +75,23 @@ where
             *height
         };
 
-        // TODO: Output paths are always going to be length 3 for now, but easy enough to grind
-        // through to find the right path if required later
-        let key_id = Identifier::from_serialized_path(3u8, &info.message.as_bytes());
-
         info!(
             "Output found: {:?}, amount: {:?}, key_id: {:?}, mmr_index: {},",
-            commit, info.value, key_id, mmr_index,
+            commit, amount, key_id, mmr_index,
         );
+
+        if switch != SwitchCommitmentType::Regular {
+            warn!("Unexpected switch commitment type {:?}", switch);
+        }
 
         wallet_outputs.push(OutputResult {
             commit: *commit,
             key_id: key_id.clone(),
             n_child: key_id.to_path().last_path_index(),
-            value: info.value,
+            value: amount,
             height: *height,
             lock_height: lock_height,
             is_coinbase: *is_coinbase,
-            blinding: info.blinding,
             mmr_index: *mmr_index,
         });
     }
@@ -241,7 +252,7 @@ where
 /// Check / repair wallet contents
 /// assume wallet contents have been freshly updated with contents
 /// of latest block
-pub fn check_repair<T, C, K>(wallet: &mut T) -> Result<()>
+pub fn check_repair<T, C, K>(wallet: &mut T, delete_unconfirmed: bool) -> Result<()>
 where
     T: WalletBackend<C, K>,
     C: NodeClient,
@@ -303,43 +314,45 @@ where
     for m in missing_outs.into_iter() {
         warn!(
             "Confirmed output for {} with ID {} ({:?}) exists in UTXO set but not in wallet. \
-             Restoring.",
+			 Restoring.",
             m.value, m.key_id, m.commit,
         );
         restore_missing_output(wallet, m, &mut found_parents, &mut None)?;
     }
 
-    // Unlock locked outputs
-    for m in locked_outs.into_iter() {
-        let mut o = m.0;
-        warn!(
-            "Confirmed output for {} with ID {} ({:?}) exists in UTXO set and is locked. \
-             Unlocking and cancelling associated transaction log entries.",
-            o.value, o.key_id, m.1.commit,
-        );
-        o.status = OutputStatus::Unspent;
-        cancel_tx_log_entry(wallet, &o)?;
-        let mut batch = wallet.batch()?;
-        batch.save_output(&o)?;
-        batch.commit()?;
-    }
+    if delete_unconfirmed {
+        // Unlock locked outputs
+        for m in locked_outs.into_iter() {
+            let mut o = m.0;
+            warn!(
+                "Confirmed output for {} with ID {} ({:?}) exists in UTXO set and is locked. \
+				 Unlocking and cancelling associated transaction log entries.",
+                o.value, o.key_id, m.1.commit,
+            );
+            o.status = OutputStatus::Unspent;
+            cancel_tx_log_entry(wallet, &o)?;
+            let mut batch = wallet.batch()?;
+            batch.save_output(&o)?;
+            batch.commit()?;
+        }
 
-    let unconfirmed_outs: Vec<&(OutputData, pedersen::Commitment)> = wallet_outputs
-        .iter()
-        .filter(|o| o.0.status == OutputStatus::Unconfirmed)
-        .collect();
-    // Delete unconfirmed outputs
-    for m in unconfirmed_outs.into_iter() {
-        let o = m.0.clone();
-        warn!(
-            "Unconfirmed output for {} with ID {} ({:?}) not in UTXO set. \
-             Deleting and cancelling associated transaction log entries.",
-            o.value, o.key_id, m.1,
-        );
-        cancel_tx_log_entry(wallet, &o)?;
-        let mut batch = wallet.batch()?;
-        batch.delete_output(&o.key_id, &o.mmr_index)?;
-        batch.commit()?;
+        let unconfirmed_outs: Vec<&(OutputData, pedersen::Commitment)> = wallet_outputs
+            .iter()
+            .filter(|o| o.0.status == OutputStatus::Unconfirmed)
+            .collect();
+        // Delete unconfirmed outputs
+        for m in unconfirmed_outs.into_iter() {
+            let o = m.0.clone();
+            warn!(
+                "Unconfirmed output for {} with ID {} ({:?}) not in UTXO set. \
+				 Deleting and cancelling associated transaction log entries.",
+                o.value, o.key_id, m.1,
+            );
+            cancel_tx_log_entry(wallet, &o)?;
+            let mut batch = wallet.batch()?;
+            batch.delete_output(&o.key_id, &o.mmr_index)?;
+            batch.commit()?;
+        }
     }
 
     // restore labels, account paths and child derivation indices
@@ -368,9 +381,9 @@ where
     K: Keychain,
 {
     // Don't proceed if wallet_data has anything in it
-    let is_empty = wallet.outputs().next().is_none();
-    if !is_empty {
-        return Err(ErrorKind::WalletShouldBeEmpty.into());
+    if !wallet.outputs().next().is_none() {
+        error!("Not restoring. Please back up and remove existing db directory first.");
+        return Ok(());
     }
 
     warn!("Starting restore.");

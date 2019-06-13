@@ -4,11 +4,11 @@ use ws::{
     Result as WsResult, Sender,
 };
 
+use crate::common::crypto::{sign_challenge, Hex, SecretKey};
+use crate::common::message::EncryptedMessage;
+use crate::common::{Arc, ErrorKind, Mutex, Result};
+use crate::contacts::{Address, GrinboxAddress, DEFAULT_GRINBOX_PORT};
 use crate::wallet::types::{Slate, TxProof, TxProofErrorKind};
-use common::crypto::{sign_challenge, Hex, SecretKey};
-use common::message::EncryptedMessage;
-use common::{Arc, ErrorKind, Mutex, Result};
-use contacts::{Address, GrinboxAddress, DEFAULT_GRINBOX_PORT};
 
 use super::protocol::{ProtocolRequest, ProtocolResponse};
 use super::types::{CloseReason, Publisher, Subscriber, SubscriptionHandler};
@@ -171,7 +171,6 @@ impl GrinboxBroker {
                 ),
             }
         };
-        let secret_key = secret_key.clone();
         let cloned_address = address.clone();
         let cloned_inner = self.inner.clone();
         let cloned_handler = handler.clone();
@@ -181,7 +180,7 @@ impl GrinboxBroker {
             let cloned_handler = cloned_handler.clone();
             let cloned_cloned_inner = cloned_inner.clone();
             let cloned_connection_meta_data = connection_meta_data.clone();
-            let result = connect(url.clone(), move |sender| {
+            let result = connect(url.clone(), |sender| {
                 {
                     let mut guard = cloned_cloned_inner.lock();
                     *guard = Some(sender.clone());
@@ -192,7 +191,7 @@ impl GrinboxBroker {
                     handler: cloned_handler.clone(),
                     challenge: None,
                     address: cloned_address.clone(),
-                    secret_key,
+                    secret_key: secret_key.clone(),
                     connection_meta_data: cloned_connection_meta_data.clone(),
                 };
                 client
@@ -284,7 +283,7 @@ impl Handler for GrinboxClient {
 
         guard.retries = 0;
 
-        try!(self.sender.timeout(KEEPALIVE_INTERVAL_MS, KEEPALIVE_TOKEN));
+        self.sender.timeout(KEEPALIVE_INTERVAL_MS, KEEPALIVE_TOKEN)?;
         Ok(())
     }
 

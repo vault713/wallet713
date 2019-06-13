@@ -1388,8 +1388,7 @@ fn do_command(
                 *out_is_safe = false;
                 return Ok(());
             } else if args.is_present("display") {
-                let mut w = wallet.lock();
-                w.show_mnemonic(config, &passphrase)?;
+                wallet.lock().show_mnemonic(config, &passphrase)?;
                 return Ok(());
             }
         }
@@ -1398,8 +1397,7 @@ fn do_command(
                 return Err(ErrorKind::HasListener.into());
             }
             println!("checking and repairing... please wait as this could take a few minutes to complete.");
-            let mut wallet = wallet.lock();
-            wallet.check_repair()?;
+            wallet.lock().check_repair(false)?;
             cli_message!("check and repair done!");
         }
         Some("export-proof") => {
@@ -1433,9 +1431,9 @@ fn do_command(
             let mut file = File::open(path)?;
             let mut proof = String::new();
             file.read_to_string(&mut proof)?;
-            let mut tx_proof: TxProof = serde_json::from_str(&proof)?;
+            let tx_proof: TxProof = serde_json::from_str(&proof)?;
 
-            let mut wallet = wallet.lock();
+            let wallet = wallet.lock();
             match wallet.verify_tx_proof(&tx_proof) {
                 Ok((sender, receiver, amount, outputs, kernel)) => {
                     proof_ok(sender, receiver, amount, outputs, kernel);

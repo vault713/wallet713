@@ -1,7 +1,6 @@
+use crate::common::Error;
+use crate::contacts::Address;
 use crate::wallet::types::{Slate, TxProof};
-
-use common::Error;
-use contacts::Address;
 
 pub enum CloseReason {
     Normal,

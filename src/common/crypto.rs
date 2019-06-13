@@ -3,7 +3,7 @@ use grin_util::secp::pedersen::Commitment;
 pub use grin_util::secp::{Message, Secp256k1, Signature};
 
 use super::base58::{FromBase58, ToBase58};
-use common::{ErrorKind, Result};
+use super::{ErrorKind, Result};
 use sha2::{Digest, Sha256};
 use std::fmt::Write;
 

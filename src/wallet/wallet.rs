@@ -1,8 +1,13 @@
 use grin_util::secp::pedersen;
 use uuid::Uuid;
 
-use common::config::{Wallet713Config, WalletConfig};
-use common::{ErrorKind, Result};
+use crate::common::config::{Wallet713Config, WalletConfig};
+use crate::common::crypto::Hex;
+use crate::common::hasher::derive_address_key;
+use crate::common::{ErrorKind, Result};
+use crate::contacts::AddressBook;
+use crate::wallet::api::Wallet713OwnerAPI;
+use crate::wallet::types::TxProof;
 
 use super::api::{controller, display};
 use super::backend::Backend;
@@ -10,12 +15,6 @@ use super::types::{
     Arc, BlockFees, CbData, ExtKeychain, HTTPNodeClient, Mutex, OutputData, NodeClient, SecretKey,
     Slate, Transaction, TxLogEntry, WalletBackend, WalletInfo, WalletInst, WalletSeed,
 };
-
-use crate::common::crypto::Hex;
-use crate::common::hasher::derive_address_key;
-use crate::contacts::AddressBook;
-use crate::wallet::api::Wallet713OwnerAPI;
-use crate::wallet::types::TxProof;
 
 pub struct Wallet {
     active_account: String,
@@ -230,9 +229,9 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn check_repair(&self) -> Result<()> {
+    pub fn check_repair(&self, delete_unconfirmed: bool) -> Result<()> {
         let wallet = self.get_wallet_instance()?;
-        controller::owner_single_use(wallet.clone(), |api| api.check_repair())?;
+        controller::owner_single_use(wallet.clone(), |api| api.check_repair(delete_unconfirmed))?;
         Ok(())
     }
 

@@ -14,9 +14,9 @@ use std::panic::RefUnwindSafe;
 use crate::api::auth::BasicAuthMiddleware;
 use crate::api::handlers::{foreign, owner};
 use crate::broker::{GrinboxPublisher, GrinboxSubscriber, KeybasePublisher, KeybaseSubscriber};
+use crate::common::ErrorKind;
 use crate::wallet::types::{Arc, Mutex, MutexGuard};
 use crate::wallet::Wallet;
-use common::ErrorKind;
 
 #[derive(Clone, StateData)]
 pub struct WalletContainer {

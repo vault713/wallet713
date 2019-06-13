@@ -11,7 +11,7 @@ where
     fn open_with_credentials(&mut self) -> Result<()>;
     fn close(&mut self) -> Result<()>;
     fn restore(&mut self) -> Result<()>;
-    fn check_repair(&mut self) -> Result<()>;
+    fn check_repair(&mut self, delete_unconfirmed: bool) -> Result<()>;
     fn get_parent_key_id(&self) -> Identifier;
     fn set_parent_key_id(&mut self, id: &Identifier);
     fn set_parent_key_id_by_name(&mut self, label: &str) -> Result<()>;

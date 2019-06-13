@@ -3,10 +3,12 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 use super::keys;
-use grin_core::consensus::reward;
-use grin_core::core::{Output, TxKernel};
+use grin_core::consensus::{reward, valid_header_version};
+use grin_core::core::{HeaderVersion, Output, TxKernel};
+use grin_core::libtx::proof::{LegacyProofBuilder, ProofBuilder};
 use grin_core::libtx::reward;
 use grin_core::{global, ser};
+use grin_keychain::SwitchCommitmentType;
 use grin_util::secp::pedersen;
 use grin_util::{from_hex, to_hex};
 
@@ -57,7 +59,9 @@ where
         .map(|out| {
             let commit = match out.commit.clone() {
                 Some(c) => pedersen::Commitment::from_vec(from_hex(c).unwrap()),
-                None => keychain.commit(out.value, &out.key_id).unwrap(),
+                None => keychain
+                    .commit(out.value, &out.key_id, &SwitchCommitmentType::Regular)
+                    .unwrap(),
             };
             (out, commit)
         })
@@ -169,7 +173,9 @@ where
     for out in unspents {
         let commit = match out.commit.clone() {
             Some(c) => pedersen::Commitment::from_vec(from_hex(c).unwrap()),
-            None => keychain.commit(out.value, &out.key_id).unwrap(),
+            None => keychain
+                .commit(out.value, &out.key_id, &SwitchCommitmentType::Regular)
+                .unwrap(),
         };
         wallet_outputs.insert(commit, (out.key_id.clone(), out.mmr_index));
     }
@@ -486,7 +492,11 @@ where
 
     debug!("receive_coinbase: {:?}", block_fees);
 
-    let (out, kern) = reward::output(wallet.keychain(), &key_id, block_fees.fees, false).unwrap();
-    /* .context(ErrorKind::Keychain)?; */
+    let keychain = wallet.keychain();
+    let (out, kern) = if valid_header_version(height, HeaderVersion(1)) {
+		reward::output(keychain, &LegacyProofBuilder::new(keychain), &key_id, block_fees.fees, false)?
+	} else {
+		reward::output(keychain, &ProofBuilder::new(keychain), &key_id, block_fees.fees, false)?
+	};
     Ok((out, kern, block_fees))
 }

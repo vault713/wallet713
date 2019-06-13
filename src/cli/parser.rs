@@ -1,5 +1,5 @@
 use clap::{App, AppSettings, Arg, ArgGroup, ArgMatches, SubCommand};
-use common::Result;
+use crate::common::Result;
 
 #[derive(Clone)]
 pub struct Parser {}

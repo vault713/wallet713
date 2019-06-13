@@ -7,6 +7,7 @@ use std::path::Path;
 use std::{fs, path};
 
 use grin_core::{global, ser};
+use grin_keychain::SwitchCommitmentType;
 use grin_store::{self, option_to_not_found, to_key, to_key_u64};
 use grin_store::Store;
 use grin_util::secp::constants::SECRET_KEY_SIZE;
@@ -41,7 +42,7 @@ fn private_ctx_xor_keys<K>(
 where
     K: Keychain,
 {
-    let root_key = keychain.derive_key(0, &K::root_key_id())?;
+    let root_key = keychain.derive_key(0, &K::root_key_id(), &SwitchCommitmentType::None)?;
 
     // derive XOR values for storing secret values in DB
     // h(root_key|slate_id|"blind")
@@ -304,8 +305,8 @@ where
         Ok(())
     }
 
-    fn check_repair(&mut self) -> Result<()> {
-        restore::check_repair(self).context(ErrorKind::Restore)?;
+    fn check_repair(&mut self, delete_unconfirmed: bool) -> Result<()> {
+        restore::check_repair(self, delete_unconfirmed).context(ErrorKind::Restore)?;
         Ok(())
     }
 
@@ -314,7 +315,7 @@ where
             Ok(None)
         } else {
             Ok(Some(grin_util::to_hex(
-                self.keychain().commit(amount, &id)?.0.to_vec(),
+                self.keychain().commit(amount, id, &SwitchCommitmentType::Regular)?.0.to_vec(),
             )))
         }
     }

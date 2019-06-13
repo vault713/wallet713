@@ -25,6 +25,7 @@ use grin_core::core::transaction::{
 };
 use grin_core::core::verifier_cache::LruVerifierCache;
 use grin_core::libtx::{aggsig, build, secp_ser, tx_fee};
+use grin_core::libtx::proof::ProofBuild;
 use grin_keychain::{BlindSum, BlindingFactor, Keychain};
 use grin_util::secp;
 use grin_util::secp::key::{PublicKey, SecretKey};
@@ -230,19 +231,21 @@ impl Slate {
 
 	/// Adds selected inputs and outputs to the slate's transaction
 	/// Returns blinding factor
-	pub fn add_transaction_elements<K>(
+	pub fn add_transaction_elements<K, B>(
 		&mut self,
 		keychain: &K,
-		mut elems: Vec<Box<build::Append<K>>>,
+		builder: &B,
+		mut elems: Vec<Box<build::Append<K, B>>>,
 	) -> Result<BlindingFactor, Error>
 	where
 		K: Keychain,
+		B: ProofBuild,
 	{
 		// Append to the exiting transaction
 		if self.tx.kernels().len() != 0 {
 			elems.insert(0, build::initial_tx(self.tx.clone()));
 		}
-		let (tx, blind) = build::partial_transaction(elems, keychain)?;
+		let (tx, blind) = build::partial_transaction(elems, keychain, builder)?;
 		self.tx = tx;
 		Ok(blind)
 	}
@@ -452,7 +455,7 @@ impl Slate {
 		let blind_offset = keychain.blind_sum(
 			&BlindSum::new()
 				.add_blinding_factor(BlindingFactor::from_secret_key(sec_key.clone()))
-				.sub_blinding_factor(self.tx.offset),
+				.sub_blinding_factor(self.tx.offset.clone()),
 		)?;
 		*sec_key = blind_offset.secret_key(&keychain.secp())?;
 		Ok(())
@@ -600,7 +603,7 @@ impl Slate {
 	where
 		K: Keychain,
 	{
-		let kernel_offset = self.tx.offset;
+		let kernel_offset = self.tx.offset.clone();
 
 		self.check_fees()?;
 
@@ -789,7 +792,7 @@ impl From<Transaction> for TransactionV2 {
 impl From<&Transaction> for TransactionV2 {
 	fn from(tx: &Transaction) -> TransactionV2 {
 		let Transaction { offset, body } = tx;
-		let offset = *offset;
+		let offset = offset.clone();
 		let body = TransactionBodyV2::from(body);
 		TransactionV2 { offset, body }
 	}

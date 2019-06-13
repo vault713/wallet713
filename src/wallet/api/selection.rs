@@ -1,5 +1,5 @@
 use grin_core::core::amount_to_hr_string;
-use grin_core::libtx::{build, tx_fee};
+use grin_core::libtx::{build, proof::{ProofBuild, ProofBuilder}, tx_fee};
 use std::collections::HashMap;
 use std::cmp::min;
 
@@ -35,22 +35,28 @@ where
     C: NodeClient,
     K: Keychain,
 {
-    let (elems, inputs, change_amounts_derivations, amount, fee) = select_send_tx(
-        wallet,
-        amount,
-        1,
-        current_height,
-        minimum_confirmations,
-        lock_height,
-        max_outputs,
-        change_outputs,
-        selection_strategy_is_use_all,
-        &parent_key_id,
-        None,
-    )?;
-
     // Create public slate
     let mut slate = Slate::blank(num_participants);
+
+    let keychain = wallet.keychain().clone();
+    let (inputs, change_amounts_derivations, amount, fee, blinding) = {
+        let s = select_send_tx(
+            wallet,
+            amount,
+            1,
+            current_height,
+            minimum_confirmations,
+            lock_height,
+            max_outputs,
+            change_outputs,
+            selection_strategy_is_use_all,
+            &parent_key_id,
+            None,
+        )?;
+        let blinding = slate.add_transaction_elements(&keychain, &ProofBuilder::new(&keychain), s.0)?;
+        (s.1, s.2, s.3, s.4, blinding)
+    };
+
     if let Some(v) = version {
         slate.version_info.version = v;
         slate.version_info.orig_version = v;
@@ -61,14 +67,10 @@ where
     slate.fee = fee;
     let slate_id = slate.id.clone();
 
-    let keychain = wallet.keychain().clone();
-
-    let blinding = slate.add_transaction_elements(&keychain, elems)?;
-
     // Create our own private context
     let mut context = Context::new(
-        wallet.keychain().secp(),
-        blinding.secret_key(&keychain.secp()).unwrap(),
+        keychain.secp(),
+        blinding.secret_key(keychain.secp()).unwrap(),
         ContextType::Tx,
     );
 
@@ -163,20 +165,21 @@ where
     // Create a potential output for this transaction
     let key_id = keys::next_available_key(wallet).unwrap();
 
-    let keychain = wallet.keychain().clone();
+    let keychain = wallet.keychain();
+    let builder = ProofBuilder::new(keychain);
     let key_id_inner = key_id.clone();
     let amount = slate.amount;
     let height = slate.height;
 
     let slate_id = slate.id.clone();
     let blinding =
-        slate.add_transaction_elements(&keychain, vec![build::output(amount, key_id.clone())])?;
+        slate.add_transaction_elements(keychain, &builder, vec![build::output(amount, key_id.clone())])?;
 
     // Add blinding sum to our context
     let mut context = Context::new(
         keychain.secp(),
         blinding
-            .secret_key(wallet.keychain().clone().secp())
+            .secret_key(keychain.secp())
             .unwrap(),
         ContextType::Tx,
     );
@@ -214,7 +217,7 @@ where
     Ok((key_id, context, wallet_add_fn))
 }
 
-fn select_send_tx<T: ?Sized, C, K>(
+fn select_send_tx<T: ?Sized, C, K, B>(
     wallet: &mut T,
     amount: u64,
     num_outputs: usize,
@@ -228,7 +231,7 @@ fn select_send_tx<T: ?Sized, C, K>(
     initial_fee: Option<u64>,
 ) -> Result<
     (
-        Vec<Box<build::Append<K>>>,
+        Vec<Box<build::Append<K, B>>>,
         Vec<OutputData>,
         Vec<(u64, Identifier, Option<u64>)>, // change amounts and derivations
         u64,                                 // amount
@@ -240,6 +243,7 @@ where
     T: WalletBackend<C, K>,
     C: NodeClient,
     K: Keychain,
+    B: ProofBuild,
 {
     // select some spendable coins from the wallet
     let (max_outputs, mut coins) = select_coins(
@@ -349,7 +353,7 @@ where
     Ok((parts, coins, change_amounts_derivations, amount, fee))
 }
 
-pub fn inputs_and_change<T: ?Sized, C, K>(
+pub fn inputs_and_change<T: ?Sized, C, K, B>(
     coins: &Vec<OutputData>,
     wallet: &mut T,
     amount: u64,
@@ -357,7 +361,7 @@ pub fn inputs_and_change<T: ?Sized, C, K>(
     num_change_outputs: usize,
 ) -> Result<
     (
-        Vec<Box<build::Append<K>>>,
+        Vec<Box<build::Append<K, B>>>,
         Vec<(u64, Identifier, Option<u64>)>,
     ),
     Error,
@@ -366,6 +370,7 @@ where
     T: WalletBackend<C, K>,
     C: NodeClient,
     K: Keychain,
+    B: ProofBuild,
 {
     let mut parts = vec![];
 
@@ -528,31 +533,34 @@ where
     slate.height = current_height;
     slate.lock_height = lock_height;
 
-    let mut elems = vec![];
-    let mut key_ids_and_amounts = vec![];
-
-    let mut remaining_amount = amount;
-    for i in 0..num_outputs {
-        let key_id = keys::next_available_key(wallet).unwrap();
-        let output_amount: u64 = if i == num_outputs - 1 {
-            remaining_amount
-        } else {
-            amount / (num_outputs as u64)
-        };
-        if output_amount > 0 {
-            key_ids_and_amounts.push((key_id.clone(), output_amount));
-            elems.push(build::output(output_amount, key_id.clone()));
-            remaining_amount -= output_amount;
-        }
-    }
-
     let keychain = wallet.keychain().clone();
-    let blinding = slate.add_transaction_elements(&keychain, elems)?;
+    let (key_ids_and_amounts, blinding) = {
+        let mut elems = vec![];
+        let mut key_ids_and_amounts = vec![];
+
+        let mut remaining_amount = amount;
+        for i in 0..num_outputs {
+            let key_id = keys::next_available_key(wallet).unwrap();
+            let output_amount: u64 = if i == num_outputs - 1 {
+                remaining_amount
+            } else {
+                amount / (num_outputs as u64)
+            };
+            if output_amount > 0 {
+                key_ids_and_amounts.push((key_id.clone(), output_amount));
+                elems.push(build::output(output_amount, key_id.clone()));
+                remaining_amount -= output_amount;
+            }
+        }
+
+        let blinding = slate.add_transaction_elements(&keychain, &ProofBuilder::new(&keychain), elems)?;
+        (key_ids_and_amounts, blinding)
+    };
 
     let mut context = Context::new(
         keychain.secp(),
         blinding
-            .secret_key(wallet.keychain().clone().secp())
+            .secret_key(keychain.secp())
             .unwrap(),
         ContextType::Tx,
     );
@@ -622,33 +630,34 @@ where
     let amount = slate.amount;
     let num_outputs = slate.tx.outputs().len();
 
-    let (elems, inputs, change_amounts_derivations, _amount, fee) = select_send_tx(
-        wallet,
-        amount,
-        num_outputs,
-        current_height,
-        minimum_confirmations,
-        lock_height,
-        max_outputs,
-        num_change_outputs,
-        selection_strategy_is_use_all,
-        &parent_key_id,
-        match slate.fee {
-            0 => None,
-            f => Some(f),
-        },
-    )?;
+    let keychain = wallet.keychain().clone();
+    let (inputs, change_amounts_derivations, fee, blinding) = {
+        let s = select_send_tx(
+            wallet,
+            amount,
+            num_outputs,
+            current_height,
+            minimum_confirmations,
+            lock_height,
+            max_outputs,
+            num_change_outputs,
+            selection_strategy_is_use_all,
+            &parent_key_id,
+            match slate.fee {
+                0 => None,
+                f => Some(f),
+            },
+        )?;
+        let blinding = slate.add_transaction_elements(&keychain, &ProofBuilder::new(&keychain), s.0)?;
+        (s.1, s.2, s.4, blinding)
+    };
 
     slate.fee = fee;
     let slate_id = slate.id.clone();
 
-    let keychain = wallet.keychain().clone();
-
-    let blinding = slate.add_transaction_elements(&keychain, elems)?;
-
     let mut context = Context::new(
-        wallet.keychain().secp(),
-        blinding.secret_key(&keychain.secp()).unwrap(),
+        keychain.secp(),
+        blinding.secret_key(keychain.secp()).unwrap(),
         ContextType::Tx,
     );
 

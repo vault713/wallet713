@@ -23,7 +23,7 @@ pub use grin_keychain::{ChildNumber, ExtKeychain, Identifier, Keychain};
 pub use grin_util::secp::key::{PublicKey, SecretKey};
 pub use super::seed::{EncryptedWalletSeed, WalletSeed};
 
-pub use common::{Arc, Error, ErrorKind, Mutex, MutexGuard, Result};
+pub use crate::common::{Arc, Error, ErrorKind, Mutex, MutexGuard, Result};
 
 pub use self::acct_path_mapping::AcctPathMapping;
 pub use self::block_fees::BlockFees;

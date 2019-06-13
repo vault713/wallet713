@@ -4,10 +4,10 @@ use url::Url;
 
 use grin_core::global::is_mainnet;
 
-use common::crypto::{
+use crate::common::crypto::{
     Base58, PublicKey, GRINBOX_ADDRESS_VERSION_MAINNET, GRINBOX_ADDRESS_VERSION_TESTNET,
 };
-use common::{ErrorKind, Result};
+use crate::common::{ErrorKind, Result};
 
 const ADDRESS_REGEX: &str = r"^((?P<address_type>keybase|grinbox|https)://).+$";
 const GRINBOX_ADDRESS_REGEX: &str = r"^(grinbox://)?(?P<public_key>[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{52})(@(?P<domain>[a-zA-Z0-9\.]+)(:(?P<port>[0-9]*))?)?$";

@@ -7,10 +7,10 @@ use std::time::Duration;
 use serde::Serialize;
 use serde_json::{json, Value};
 
+use crate::common::{Arc, ErrorKind, Mutex, Result};
+use crate::contacts::{Address, KeybaseAddress};
 use crate::wallet::types::Slate;
 use super::types::{CloseReason, Publisher, Subscriber, SubscriptionHandler};
-use common::{Arc, ErrorKind, Mutex, Result};
-use contacts::{Address, KeybaseAddress};
 
 pub const TOPIC_SLATE_NEW: &str = "grin_slate_new";
 pub const TOPIC_WALLET713_SLATES: &str = "wallet713_grin_slate";
