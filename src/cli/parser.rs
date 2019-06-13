@@ -183,6 +183,9 @@ impl<'a, 'b> Parser {
                     .arg(
                         Arg::from_usage("[message] -g, --message=<message> 'the message to include in the tx'")
                     )
+                    .arg(
+                        Arg::from_usage("[version] -v, --version=<version> 'the slate version. Default: latest version'")
+                    )
             )
             .subcommand(
                 SubCommand::with_name("invoice")

@@ -1,13 +1,12 @@
 use grin_core::core::amount_to_hr_string;
 use grin_core::libtx::{build, tx_fee};
-use grin_wallet::Slate;
 use std::collections::HashMap;
 use std::cmp::min;
 
 use super::keys;
 use super::types::{
     Context, ContextType, Error, ErrorKind, Identifier, Keychain, NodeClient, OutputData,
-    OutputStatus, Transaction, TxLogEntry, TxLogEntryType, WalletBackend,
+    OutputStatus, Slate, Transaction, TxLogEntry, TxLogEntryType, WalletBackend,
 };
 
 pub fn build_send_tx_slate<T: ?Sized, C, K>(
@@ -22,6 +21,7 @@ pub fn build_send_tx_slate<T: ?Sized, C, K>(
     change_outputs: usize,
     selection_strategy_is_use_all: bool,
     parent_key_id: Identifier,
+    version: Option<u16>,
 ) -> Result<
     (
         Slate,
@@ -51,6 +51,10 @@ where
 
     // Create public slate
     let mut slate = Slate::blank(num_participants);
+    if let Some(v) = version {
+        slate.version_info.version = v;
+        slate.version_info.orig_version = v;
+    }
     slate.amount = amount;
     slate.height = current_height;
     slate.lock_height = lock_height;

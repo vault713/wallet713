@@ -1,12 +1,12 @@
 use grin_util::secp::key::SecretKey;
 use grin_util::secp::pedersen::Commitment;
 use grin_util::secp::Signature;
-use grin_wallet::Slate;
 
 use crate::common::crypto::verify_signature;
 use crate::common::crypto::Hex;
 use crate::common::message::EncryptedMessage;
 use crate::contacts::{Address, GrinboxAddress};
+use super::Slate;
 
 #[derive(Debug)]
 pub enum ErrorKind {
@@ -68,9 +68,10 @@ impl TxProof {
             .decrypt_with_key(&self.key)
             .map_err(|_| ErrorKind::DecryptMessage)?;
 
-        serde_json::from_str(&decrypted_message)
-            .map(|message| (destination, message))
-            .map_err(|_| ErrorKind::ParseSlate)
+        let slate = Slate::deserialize_upgrade(&decrypted_message)
+            .map_err(|_| ErrorKind::ParseSlate)?;
+
+        Ok((destination, slate))
     }
 
     pub fn from_response(

@@ -1,5 +1,6 @@
 use failure::Fail;
-use grin_wallet::libwallet;
+
+use crate::wallet::error::ErrorKind as WalletErrorKind;
 
 #[derive(Clone, Eq, PartialEq, Debug, Fail)]
 pub enum ErrorKind {
@@ -38,7 +39,7 @@ pub enum ErrorKind {
     #[fail(display = "\x1b[31;1merror:\x1b[0m transaction doesn't have a proof!")]
     TransactionHasNoProof,
     #[fail(display = "\x1b[31;1merror:\x1b[0m internal transaction error!")]
-    LibTX(libwallet::ErrorKind),
+    LibTX(WalletErrorKind),
     #[fail(
         display = "\x1b[31;1merror:\x1b[0m Not enough funds. Required: {}, Available: {}",
         needed_disp, available_disp
@@ -75,6 +76,11 @@ pub enum ErrorKind {
         0
     )]
     InvalidNumOutputs(String),
+    #[fail(
+        display = "\x1b[31;1merror:\x1b[0m invalid slate version given: `{}`",
+        0
+    )]
+    InvalidSlateVersion(String),
     #[fail(
         display = "\x1b[31;1merror:\x1b[0m could not unlock wallet! are you using the correct passphrase?"
     )]

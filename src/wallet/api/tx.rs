@@ -36,6 +36,7 @@ where
         &context.sec_nonce,
         1,
         message,
+        false,
     )?;
 
     // perform partial sig
@@ -57,6 +58,7 @@ pub fn create_send_tx<T: ?Sized, C, K>(
     selection_strategy_is_use_all: bool,
     parent_key_id: &Identifier,
     message: Option<String>,
+    version: Option<u16>,
 ) -> Result<
     (
         Slate,
@@ -96,6 +98,7 @@ where
         num_change_outputs,
         selection_strategy_is_use_all,
         parent_key_id.clone(),
+        version,
     )?;
 
     // Generate a kernel offset and subtract from our context's secret key. Store
@@ -107,6 +110,7 @@ where
         &context.sec_nonce,
         0,
         message,
+        false,
     )?;
 
     Ok((slate, context, sender_lock_fn))
@@ -234,6 +238,7 @@ where
         &context.sec_nonce,
         1,
         message,
+        false,
     )?;
 
     slate.fill_round_2(wallet.keychain(), &context.sec_key, &context.sec_nonce, 1)?;
@@ -280,6 +285,7 @@ where
         &context.sec_nonce,
         0,
         message,
+        false,
     )?;
 
     Ok((slate, context, add_fn))

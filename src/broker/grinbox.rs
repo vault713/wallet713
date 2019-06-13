@@ -4,9 +4,7 @@ use ws::{
     Result as WsResult, Sender,
 };
 
-use grin_wallet::Slate;
-
-use crate::wallet::types::{TxProof, TxProofErrorKind};
+use crate::wallet::types::{Slate, TxProof, TxProofErrorKind};
 use common::crypto::{sign_challenge, Hex, SecretKey};
 use common::message::EncryptedMessage;
 use common::{Arc, ErrorKind, Mutex, Result};
@@ -122,7 +120,7 @@ impl GrinboxBroker {
         let pkey = to.public_key()?;
         let skey = secret_key.clone();
         let message = EncryptedMessage::new(
-            serde_json::to_string(&slate).unwrap(),
+            serde_json::to_string(&slate)?,
             &to,
             &pkey,
             &skey,
@@ -130,16 +128,16 @@ impl GrinboxBroker {
             .map_err(|_| {
                 WsError::new(WsErrorKind::Protocol, "could not encrypt slate!")
             })?;
-        let slate_str = serde_json::to_string(&message).unwrap();
+        let message_ser = serde_json::to_string(&message)?;
 
         let mut challenge = String::new();
-        challenge.push_str(&slate_str);
+        challenge.push_str(&message_ser);
 
         let signature = GrinboxClient::generate_signature(&challenge, secret_key);
         let request = ProtocolRequest::PostSlate {
             from: from.stripped(),
             to: to.stripped(),
-            str: slate_str,
+            str: message_ser,
             signature,
         };
 

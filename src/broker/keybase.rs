@@ -4,10 +4,10 @@ use std::iter::FromIterator;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use grin_wallet::Slate;
 use serde::Serialize;
 use serde_json::{json, Value};
 
+use crate::wallet::types::Slate;
 use super::types::{CloseReason, Publisher, Subscriber, SubscriptionHandler};
 use common::{Arc, ErrorKind, Mutex, Result};
 use contacts::{Address, KeybaseAddress};
@@ -44,7 +44,7 @@ impl KeybaseSubscriber {
 
 impl Publisher for KeybasePublisher {
     fn post_slate(&self, slate: &Slate, to: &Address) -> Result<()> {
-        let keybase_address = KeybaseAddress::from_str(&to.to_string()).unwrap();
+        let keybase_address = KeybaseAddress::from_str(&to.to_string())?;
 
         // make sure we don't send message with ttl to wallet713 as keybase oneshot does not support exploding lifetimes
         let ttl = match keybase_address.username.as_ref() {
@@ -52,11 +52,13 @@ impl Publisher for KeybasePublisher {
             _ => &self.ttl,
         };
 
-        if let Some(topic) = keybase_address.topic {
-            KeybaseBroker::send(&slate, &to.stripped(), &topic, ttl)?;
-        } else {
-            KeybaseBroker::send(&slate, &to.stripped(), TOPIC_WALLET713_SLATES, ttl)?;
-        }
+        let topic = match &keybase_address.topic {
+            Some(t) => t,
+            None => TOPIC_WALLET713_SLATES,
+        };
+
+        KeybaseBroker::send(&slate, &to.stripped(), topic, ttl)?;
+
         Ok(())
     }
 }
@@ -93,7 +95,7 @@ impl Subscriber for KeybaseSubscriber {
                         TOPIC_SLATE_NEW => TOPIC_SLATE_SIGNED.to_string(),
                         _ => TOPIC_WALLET713_SLATES.to_string(),
                     };
-                    let mut slate: Slate = serde_json::from_str(msg)?;
+                    let mut slate = Slate::deserialize_upgrade(&msg)?;
                     let address = KeybaseAddress {
                         username: sender.to_string(),
                         topic: Some(reply_topic),
