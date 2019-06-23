@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use failure::Error;
 use futures::Stream;
 use futures::stream;
 use grin_api::{Output, OutputType, OutputListing, Tip};
@@ -21,12 +22,23 @@ use grin_util::to_hex;
 use std::collections::HashMap;
 use tokio::runtime::Runtime;
 
-use crate::wallet::{Error, ErrorKind};
+use crate::wallet::ErrorKind;
 use super::TxWrapper;
+
+/// Node version info
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct NodeVersionInfo {
+	/// Semver version string
+	pub node_version: String,
+	/// block header verson
+	pub block_header_version: u16,
+	/// Whether this version info was successfully verified from a node
+	pub verified: Option<bool>,
+}
 
 /// Encapsulate all wallet-node communication functions. No functions within libwallet
 /// should care about communication details
-pub trait NodeClient: Sync + Send + Clone {
+pub trait NodeClient: Sync + Send + Clone + 'static {
 	/// Return the URL of the check node
 	fn node_url(&self) -> &str;
 
@@ -38,6 +50,8 @@ pub trait NodeClient: Sync + Send + Clone {
 
 	/// Change the API secret
 	fn set_node_api_secret(&mut self, node_api_secret: Option<String>);
+
+	fn get_version_info(&mut self) -> Option<NodeVersionInfo>;
 
 	/// Posts a transaction to a grin node
 	fn post_tx(&self, tx: &TxWrapper, fluff: bool) -> Result<(), Error>;
@@ -75,6 +89,7 @@ pub trait NodeClient: Sync + Send + Clone {
 pub struct HTTPNodeClient {
 	node_url: String,
 	node_api_secret: Option<String>,
+	node_version_info: Option<NodeVersionInfo>,
 }
 
 impl HTTPNodeClient {
@@ -83,6 +98,7 @@ impl HTTPNodeClient {
 		HTTPNodeClient {
 			node_url: node_url.to_owned(),
 			node_api_secret: node_api_secret,
+			node_version_info: None,
 		}
 	}
 }
@@ -101,6 +117,35 @@ impl NodeClient for HTTPNodeClient {
 
 	fn set_node_api_secret(&mut self, node_api_secret: Option<String>) {
 		self.node_api_secret = node_api_secret;
+	}
+
+	fn get_version_info(&mut self) -> Option<NodeVersionInfo> {
+		if let Some(v) = self.node_version_info.as_ref() {
+			return Some(v.clone());
+		}
+		let url = format!("{}/v1/version", self.node_url());
+		let mut retval =
+			match client::get::<NodeVersionInfo>(url.as_str(), self.node_api_secret()) {
+				Ok(n) => n,
+				Err(e) => {
+					// If node isn't available, allow offline functions
+					// unfortunately have to parse string due to error structure
+					let err_string = format!("{}", e);
+					if err_string.contains("404") {
+						return Some(NodeVersionInfo {
+							node_version: "1.0.0".into(),
+							block_header_version: 1,
+							verified: Some(false),
+						});
+					} else {
+						error!("Unable to contact Node to get version info: {}", e);
+						return None;
+					}
+				}
+			};
+		retval.verified = Some(true);
+		self.node_version_info = Some(retval.clone());
+		Some(retval)
 	}
 
 	/// Posts a transaction to a grin node

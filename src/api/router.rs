@@ -57,7 +57,7 @@ impl WalletContainer {
     }
 }
 
-fn build_owner_api<C, P>(route: &mut RouterBuilder<C, P>, owner_api_include_foreign: Option<bool>)
+/*fn build_owner_api<C, P>(route: &mut RouterBuilder<C, P>, owner_api_include_foreign: Option<bool>)
 where
     C: PipelineHandleChain<P> + Copy + Send + Sync + 'static,
     P: RefUnwindSafe + Send + Sync + 'static,
@@ -175,7 +175,7 @@ pub fn build_foreign_api_router(
     build_router(chain, pipelines, |route| {
         build_foreign_api(route);
     })
-}
+}*/
 
 pub fn trace_state(state: &State) {
     let method = Method::borrow_from(state);

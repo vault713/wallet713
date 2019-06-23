@@ -1,17 +1,17 @@
+use colored::Colorize;
 use ws::util::Token;
 use ws::{
     connect, CloseCode, Error as WsError, ErrorKind as WsErrorKind, Handler, Handshake, Message,
     Result as WsResult, Sender,
 };
-
 use crate::common::crypto::{sign_challenge, Hex, SecretKey};
 use crate::common::message::EncryptedMessage;
-use crate::common::{Arc, ErrorKind, Mutex, Result};
+use crate::common::{Arc, ErrorKind, Keychain, Mutex, Result};
 use crate::contacts::{Address, GrinboxAddress, DEFAULT_GRINBOX_PORT};
-use crate::wallet::types::{Slate, TxProof, TxProofErrorKind};
+use crate::wallet::types::{NodeClient, Slate, TxProof, TxProofErrorKind, WalletBackend};
 
 use super::protocol::{ProtocolRequest, ProtocolResponse};
-use super::types::{CloseReason, Publisher, Subscriber, SubscriptionHandler};
+use super::types::{CloseReason, Controller, Publisher, Subscriber, SubscriptionHandler};
 
 const KEEPALIVE_TOKEN: Token = Token(1);
 const KEEPALIVE_INTERVAL_MS: u64 = 30_000;
@@ -63,7 +63,13 @@ impl GrinboxSubscriber {
 }
 
 impl Subscriber for GrinboxSubscriber {
-    fn start(&mut self, handler: Box<SubscriptionHandler + Send>) -> Result<()> {
+    fn start<W, C, K, P>(&mut self, handler: Controller<W, C, K, P>) -> Result<()>
+        where
+            W: WalletBackend<C, K>,
+            C: NodeClient,
+            K: Keychain,
+            P: Publisher,
+    {
         self.broker
             .subscribe(&self.address, &self.secret_key, handler)?;
         Ok(())
@@ -133,7 +139,7 @@ impl GrinboxBroker {
         let mut challenge = String::new();
         challenge.push_str(&message_ser);
 
-        let signature = GrinboxClient::generate_signature(&challenge, secret_key);
+        let signature = sign_challenge(&challenge, secret_key)?.to_hex();
         let request = ProtocolRequest::PostSlate {
             from: from.stripped(),
             to: to.stripped(),
@@ -149,12 +155,18 @@ impl GrinboxBroker {
         }
     }
 
-    fn subscribe(
+    fn subscribe<W, C, K, P>(
         &mut self,
         address: &GrinboxAddress,
         secret_key: &SecretKey,
-        handler: Box<SubscriptionHandler + Send>,
-    ) -> Result<()> {
+        handler: Controller<W, C, K, P>,
+    ) -> Result<()>
+    where
+        W: WalletBackend<C, K>,
+        C: NodeClient,
+        K: Keychain,
+        P: Publisher,
+    {
         let handler = Arc::new(Mutex::new(handler));
         let url = {
             let cloned_address = address.clone();
@@ -237,23 +249,35 @@ impl GrinboxBroker {
     }
 }
 
-struct GrinboxClient {
+struct GrinboxClient<W, C, K, P>
+    where
+        W: WalletBackend<C, K>,
+        C: NodeClient,
+        K: Keychain,
+        P: Publisher,
+{
     sender: Sender,
-    handler: Arc<Mutex<Box<SubscriptionHandler + Send>>>,
+    handler: Arc<Mutex<Controller<W, C, K, P>>>,
     challenge: Option<String>,
     address: GrinboxAddress,
     secret_key: SecretKey,
     connection_meta_data: Arc<Mutex<ConnectionMetadata>>,
 }
 
-impl GrinboxClient {
+impl<W, C, K, P> GrinboxClient<W, C, K, P>
+    where
+        W: WalletBackend<C, K>,
+        C: NodeClient,
+        K: Keychain,
+        P: Publisher,
+{
     fn generate_signature(challenge: &str, secret_key: &SecretKey) -> String {
         let signature = sign_challenge(challenge, secret_key).expect("could not sign challenge!");
         signature.to_hex()
     }
 
     fn subscribe(&self, challenge: &str) -> Result<()> {
-        let signature = GrinboxClient::generate_signature(challenge, &self.secret_key);
+        let signature = sign_challenge(&challenge, &self.secret_key)?.to_hex();
         let request = ProtocolRequest::Subscribe {
             address: self.address.public_key.to_string(),
             signature,
@@ -270,7 +294,13 @@ impl GrinboxClient {
     }
 }
 
-impl Handler for GrinboxClient {
+impl<W, C, K, P> Handler for GrinboxClient<W, C, K, P>
+where
+        W: WalletBackend<C, K>,
+        C: NodeClient,
+        K: Keychain,
+        P: Publisher,
+{
     fn on_open(&mut self, _shake: Handshake) -> WsResult<()> {
         let mut guard = self.connection_meta_data.lock();
 
@@ -304,7 +334,7 @@ impl Handler for GrinboxClient {
         let response = match serde_json::from_str::<ProtocolResponse>(&msg.to_string()) {
             Ok(x) => x,
             Err(_) => {
-                cli_message!("could not parse response");
+                println!("{} Could not parse response", "ERROR:".bright_red(),);
                 return Ok(());
             }
         };
@@ -331,40 +361,8 @@ impl Handler for GrinboxClient {
                     Some(&self.address),
                 ) {
                     Ok(x) => x,
-                    Err(TxProofErrorKind::ParseAddress) => {
-                        cli_message!("could not parse address!");
-                        return Ok(());
-                    }
-                    Err(TxProofErrorKind::ParsePublicKey) => {
-                        cli_message!("could not parse public key!");
-                        return Ok(());
-                    }
-                    Err(TxProofErrorKind::ParseSignature) => {
-                        cli_message!("could not parse signature!");
-                        return Ok(());
-                    }
-                    Err(TxProofErrorKind::VerifySignature) => {
-                        cli_message!("invalid slate signature!");
-                        return Ok(());
-                    }
-                    Err(TxProofErrorKind::ParseEncryptedMessage) => {
-                        cli_message!("could not parse encrypted slate!");
-                        return Ok(());
-                    }
-                    Err(TxProofErrorKind::VerifyDestination) => {
-                        cli_message!("could not verify destination!");
-                        return Ok(());
-                    }
-                    Err(TxProofErrorKind::DecryptionKey) => {
-                        cli_message!("could not determine decryption key!");
-                        return Ok(());
-                    }
-                    Err(TxProofErrorKind::DecryptMessage) => {
-                        cli_message!("could not decrypt slate!");
-                        return Ok(());
-                    }
-                    Err(TxProofErrorKind::ParseSlate) => {
-                        cli_message!("could not parse decrypted slate!");
+                    Err(e) => {
+                        println!("{} {}", "ERROR:".bright_red(), e);
                         return Ok(());
                     }
                 };
@@ -378,7 +376,7 @@ impl Handler for GrinboxClient {
                 kind: _,
                 description: _,
             } => {
-                cli_message!("{}", response);
+                println!("{} {}", "ERROR:".bright_red(), response);
             }
             _ => {}
         }

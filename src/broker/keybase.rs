@@ -1,16 +1,15 @@
+use serde::Serialize;
+use serde_json::{json, Value};
 use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use serde::Serialize;
-use serde_json::{json, Value};
-
-use crate::common::{Arc, ErrorKind, Mutex, Result};
+use crate::common::{Arc, ErrorKind, Keychain, Mutex, Result};
 use crate::contacts::{Address, KeybaseAddress};
-use crate::wallet::types::Slate;
-use super::types::{CloseReason, Publisher, Subscriber, SubscriptionHandler};
+use crate::wallet::types::{NodeClient, Slate, WalletBackend};
+use super::types::{CloseReason, Controller, Publisher, Subscriber, SubscriptionHandler};
 
 pub const TOPIC_SLATE_NEW: &str = "grin_slate_new";
 pub const TOPIC_WALLET713_SLATES: &str = "wallet713_grin_slate";
@@ -64,7 +63,13 @@ impl Publisher for KeybasePublisher {
 }
 
 impl Subscriber for KeybaseSubscriber {
-    fn start(&mut self, handler: Box<SubscriptionHandler + Send>) -> Result<()> {
+    fn start<W, C, K, P>(&mut self, handler: Controller<W, C, K, P>) -> Result<()>
+        where
+            W: WalletBackend<C, K>,
+            C: NodeClient,
+            K: Keychain,
+            P: Publisher,
+    {
         {
             let mut guard = self.stop_signal.lock();
             *guard = false;

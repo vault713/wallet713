@@ -1,3 +1,4 @@
+use failure::Fail;
 use grin_util::secp::key::SecretKey;
 use grin_util::secp::pedersen::Commitment;
 use grin_util::secp::Signature;
@@ -8,16 +9,25 @@ use crate::common::message::EncryptedMessage;
 use crate::contacts::{Address, GrinboxAddress};
 use super::Slate;
 
-#[derive(Debug)]
+#[derive(Debug, Fail)]
 pub enum ErrorKind {
+    #[fail(display = "Unable to parse address")]
     ParseAddress,
+    #[fail(display = "Unable to parse public key")]
     ParsePublicKey,
+    #[fail(display = "Unable to parse signature")]
     ParseSignature,
+    #[fail(display = "Unable to verify signature")]
     VerifySignature,
+    #[fail(display = "Unable to parse encrypted message")]
     ParseEncryptedMessage,
+    #[fail(display = "Unable to verify destination")]
     VerifyDestination,
+    #[fail(display = "Unable to determine decryption key")]
     DecryptionKey,
+    #[fail(display = "Unable to decrypt message")]
     DecryptMessage,
+    #[fail(display = "Unable to parse slate")]
     ParseSlate,
 }
 

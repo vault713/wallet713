@@ -16,7 +16,7 @@
 //! around during an interactive wallet exchange
 
 use blake2_rfc::blake2b::blake2b;
-use failure::ResultExt;
+use failure::{Error, ResultExt};
 use grin_core::core::amount_to_hr_string;
 use grin_core::core::committed::Committed;
 use grin_core::core::transaction::{
@@ -33,13 +33,13 @@ use grin_util::secp::Signature;
 use grin_util::RwLock;
 use rand::rngs::mock::StepRng;
 use rand::thread_rng;
+use serde::{Serialize, Serializer};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::wallet::error::{Error, ErrorKind};
+use crate::wallet::ErrorKind;
 use super::versions::{v0::SlateV0, v1::SlateV1, v2::*};
-use super::versions::CURRENT_SLATE_VERSION;
-use serde::{Serialize, Serializer};
+use super::versions::{CURRENT_SLATE_VERSION, GRIN_BLOCK_HEADER_VERSION};
 
 
 /// Public data for each participant in the slate
@@ -150,8 +150,8 @@ pub struct VersionCompatInfo {
 	pub version: u16,
 	/// Original version this slate was converted from
 	pub orig_version: u16,
-	/// Minimum version this slate is compatible with
-	pub min_compat_version: u16,
+	/// The grin block header version this slate is intended for
+	pub block_header_version: u16,
 }
 
 /// Helper just to facilitate serialization
@@ -224,7 +224,7 @@ impl Slate {
 			version_info: VersionCompatInfo {
 				version: CURRENT_SLATE_VERSION,
 				orig_version: CURRENT_SLATE_VERSION,
-				min_compat_version: 0,
+				block_header_version: GRIN_BLOCK_HEADER_VERSION,
 			},
 		}
 	}
@@ -259,14 +259,13 @@ impl Slate {
 		sec_nonce: &SecretKey,
 		participant_id: usize,
 		message: Option<String>,
-		use_test_rng: bool,
 	) -> Result<(), Error>
 	where
 		K: Keychain,
 	{
 		// Whoever does this first generates the offset
 		if self.tx.offset == BlindingFactor::zero() {
-			self.generate_offset(keychain, sec_key, use_test_rng)?;
+			self.generate_offset(keychain, sec_key)?;
 		}
 		self.add_participant_info(
 			keychain,
@@ -275,7 +274,6 @@ impl Slate {
 			participant_id,
 			None,
 			message,
-			use_test_rng,
 		)?;
 		Ok(())
 	}
@@ -372,7 +370,6 @@ impl Slate {
 		id: usize,
 		part_sig: Option<Signature>,
 		message: Option<String>,
-		use_test_rng: bool,
 	) -> Result<(), Error>
 	where
 		K: Keychain,
@@ -380,12 +377,6 @@ impl Slate {
 		// Add our public key and nonce to the slate
 		let pub_key = PublicKey::from_secret_key(keychain.secp(), &sec_key)?;
 		let pub_nonce = PublicKey::from_secret_key(keychain.secp(), &sec_nonce)?;
-
-		let test_message_nonce = SecretKey::from_slice(&keychain.secp(), &[1; 32]).unwrap();
-		let message_nonce = match use_test_rng {
-			false => None,
-			true => Some(&test_message_nonce),
-		};
 
 		// Sign the provided message
 		let message_sig = {
@@ -396,7 +387,7 @@ impl Slate {
 					&keychain.secp(),
 					&m,
 					&sec_key,
-					message_nonce,
+					None,
 					Some(&pub_key),
 				)?;
 				Some(res)
@@ -408,9 +399,9 @@ impl Slate {
 			id: id as u64,
 			public_blind_excess: pub_key,
 			public_nonce: pub_nonce,
-			part_sig: part_sig,
-			message: message,
-			message_sig: message_sig,
+			part_sig,
+			message,
+			message_sig,
 		});
 		Ok(())
 	}
@@ -433,7 +424,6 @@ impl Slate {
 		&mut self,
 		keychain: &K,
 		sec_key: &mut SecretKey,
-		use_test_rng: bool,
 	) -> Result<(), Error>
 	where
 		K: Keychain,
@@ -441,16 +431,7 @@ impl Slate {
 		// Generate a random kernel offset here
 		// and subtract it from the blind_sum so we create
 		// the aggsig context with the "split" key
-		self.tx.offset = match use_test_rng {
-			false => {
-				BlindingFactor::from_secret_key(SecretKey::new(&keychain.secp(), &mut thread_rng()))
-			}
-			true => {
-				// allow for consistent test results
-				let mut test_rng = StepRng::new(1234567890u64, 1);
-				BlindingFactor::from_secret_key(SecretKey::new(&keychain.secp(), &mut test_rng))
-			}
-		};
+		self.tx.offset = BlindingFactor::from_secret_key(SecretKey::new(&keychain.secp(), &mut thread_rng()));
 
 		let blind_offset = keychain.blind_sum(
 			&BlindSum::new()
@@ -768,15 +749,15 @@ impl From<&VersionCompatInfo> for VersionCompatInfoV2 {
 		let VersionCompatInfo {
 			version,
 			orig_version,
-			min_compat_version,
+			block_header_version,
 		} = data;
 		let version = *version;
 		let orig_version = *orig_version;
-		let min_compat_version = *min_compat_version;
+		let block_header_version = *block_header_version;
 		VersionCompatInfoV2 {
 			version,
 			orig_version,
-			min_compat_version,
+			block_header_version,
 		}
 	}
 }
@@ -921,15 +902,15 @@ impl From<&VersionCompatInfoV2> for VersionCompatInfo {
 		let VersionCompatInfoV2 {
 			version,
 			orig_version,
-			min_compat_version,
+			block_header_version,
 		} = data;
 		let version = *version;
 		let orig_version = *orig_version;
-		let min_compat_version = *min_compat_version;
+		let block_header_version = *block_header_version;
 		VersionCompatInfo {
 			version,
 			orig_version,
-			min_compat_version,
+			block_header_version,
 		}
 	}
 }

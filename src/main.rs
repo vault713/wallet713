@@ -16,6 +16,7 @@ extern crate chrono;
 extern crate ansi_term;
 extern crate colored;
 extern crate digest;
+extern crate dirs;
 extern crate failure;
 extern crate futures;
 extern crate gotham;
@@ -45,7 +46,6 @@ extern crate grin_keychain;
 extern crate grin_store;
 extern crate grin_util;
 
-use std::borrow::Cow::{self, Borrowed, Owned};
 use std::fs::File;
 use std::io;
 use std::io::{Read, Write};
@@ -55,23 +55,19 @@ use clap::{App, Arg, ArgMatches};
 use colored::*;
 use grin_core::core;
 use grin_core::global::{is_mainnet, set_mining_mode, ChainTypes};
-use rustyline::completion::{Completer, FilenameCompleter, Pair};
-use rustyline::config::OutputStreamType;
-use rustyline::error::ReadlineError;
-use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
-use rustyline::hint::Hinter;
-use rustyline::{CompletionType, Config, EditMode, Editor, Helper};
 use url::Url;
 
-#[macro_use]
-mod common;
 mod api;
 mod broker;
 mod cli;
+#[macro_use]
+mod common;
 mod contacts;
+mod controller;
+mod internal;
 mod wallet;
 
-use api::router::{build_foreign_api_router, build_owner_api_router};
+//use api::router::{build_foreign_api_router, build_owner_api_router};
 use cli::Parser;
 use common::config::Wallet713Config;
 use common::{ErrorKind, Result, RuntimeMode, COLORED_PROMPT, PROMPT, post};
@@ -140,7 +136,7 @@ fn do_config(
     Ok(config)
 }
 
-fn do_contacts(args: &ArgMatches, address_book: Arc<Mutex<AddressBook>>) -> Result<()> {
+/*fn do_contacts(args: &ArgMatches, address_book: Arc<Mutex<AddressBook>>) -> Result<()> {
     let mut address_book = address_book.lock();
     if let Some(add_args) = args.subcommand_matches("add") {
         let name = add_args.value_of("name").expect("missing argument: name");
@@ -166,7 +162,7 @@ fn do_contacts(args: &ArgMatches, address_book: Arc<Mutex<AddressBook>>) -> Resu
         let contacts: Vec<()> = address_book
             .contacts()
             .map(|contact| {
-                cli_message!("@{} = {}", contact.get_name(), contact.get_address());
+                cli_message!("@{} = {}", contact.name, contact.address);
                 ()
             })
             .collect();
@@ -178,7 +174,7 @@ fn do_contacts(args: &ArgMatches, address_book: Arc<Mutex<AddressBook>>) -> Resu
         }
     }
     Ok(())
-}
+}*/
 
 const WELCOME_FOOTER: &str = r#"Use `help` to see available commands
 "#;
@@ -205,142 +201,8 @@ use broker::{
 };
 use std::borrow::Borrow;
 
-struct Controller {
-    name: String,
-    wallet: Arc<Mutex<Wallet>>,
-    address_book: Arc<Mutex<AddressBook>>,
-    publisher: Box<Publisher + Send>,
-}
 
-impl Controller {
-    pub fn new(
-        name: &str,
-        wallet: Arc<Mutex<Wallet>>,
-        address_book: Arc<Mutex<AddressBook>>,
-        publisher: Box<Publisher + Send>,
-    ) -> Result<Self> {
-        Ok(Self {
-            name: name.to_string(),
-            wallet,
-            address_book,
-            publisher,
-        })
-    }
-
-    fn process_incoming_slate(
-        &self,
-        address: Option<String>,
-        slate: &mut Slate,
-        tx_proof: Option<&mut TxProof>,
-    ) -> Result<bool> {
-        if slate.num_participants > slate.participant_data.len() {
-            //TODO: this needs to be changed to properly figure out if this slate is an invoice or a send
-            if slate.tx.inputs().len() == 0 {
-                self.wallet.lock().process_receiver_initiated_slate(slate)?;
-            } else {
-                self.wallet
-                    .lock()
-                    .process_sender_initiated_slate(address, slate)?;
-            }
-            Ok(false)
-        } else {
-            self.wallet.lock().finalize_slate(slate, tx_proof)?;
-            Ok(true)
-        }
-    }
-}
-
-impl SubscriptionHandler for Controller {
-    fn on_open(&self) {
-        cli_message!("listener started for [{}]", self.name.bright_green());
-    }
-
-    fn on_slate(&self, from: &Address, slate: &mut Slate, tx_proof: Option<&mut TxProof>) {
-        let mut display_from = from.stripped();
-        if let Ok(contact) = self
-            .address_book
-            .lock()
-            .get_contact_by_address(&from.to_string())
-        {
-            display_from = contact.get_name().to_string();
-        }
-
-        if slate.num_participants > slate.participant_data.len() {
-            cli_message!(
-                "slate [{}] received from [{}] for [{}] grins",
-                slate.id.to_string().bright_green(),
-                display_from.bright_green(),
-                core::amount_to_hr_string(slate.amount, false).bright_green()
-            );
-        } else {
-            cli_message!(
-                "slate [{}] received back from [{}] for [{}] grins",
-                slate.id.to_string().bright_green(),
-                display_from.bright_green(),
-                core::amount_to_hr_string(slate.amount, false).bright_green()
-            );
-        };
-
-        if from.address_type() == AddressType::Grinbox {
-            GrinboxAddress::from_str(&from.to_string()).expect("invalid grinbox address");
-        }
-
-        let result = self
-            .process_incoming_slate(Some(from.to_string()), slate, tx_proof)
-            .and_then(|is_finalized| {
-                if !is_finalized {
-                    self.publisher
-                        .post_slate(slate, from)
-                        .map_err(|e| {
-                            cli_message!("{}: {}", "ERROR".bright_red(), e);
-                            e
-                        })
-                        .expect("failed posting slate!");
-                    cli_message!(
-                        "slate [{}] sent back to [{}] successfully",
-                        slate.id.to_string().bright_green(),
-                        display_from.bright_green()
-                    );
-                } else {
-                    cli_message!(
-                        "slate [{}] finalized successfully",
-                        slate.id.to_string().bright_green()
-                    );
-                }
-                Ok(())
-            });
-
-        match result {
-            Ok(()) => {}
-            Err(e) => cli_message!("{}", e),
-        }
-    }
-
-    fn on_close(&self, reason: CloseReason) {
-        match reason {
-            CloseReason::Normal => cli_message!("listener [{}] stopped", self.name.bright_green()),
-            CloseReason::Abnormal(_) => cli_message!(
-                "{}: listener [{}] stopped unexpectedly",
-                "ERROR".bright_red(),
-                self.name.bright_green()
-            ),
-        }
-    }
-
-    fn on_dropped(&self) {
-        cli_message!("{}: listener [{}] lost connection. it will keep trying to restore connection in the background.", "WARNING".bright_yellow(), self.name.bright_green())
-    }
-
-    fn on_reestablished(&self) {
-        cli_message!(
-            "{}: listener [{}] reestablished connection.",
-            "INFO".bright_blue(),
-            self.name.bright_green()
-        )
-    }
-}
-
-fn start_grinbox_listener(
+/*fn start_grinbox_listener(
     config: &Wallet713Config,
     wallet: Arc<Mutex<Wallet>>,
     address_book: Arc<Mutex<AddressBook>>,
@@ -416,51 +278,8 @@ fn start_keybase_listener(
             .expect("something went wrong!");
     });
     Ok((keybase_publisher, keybase_subscriber, keybase_listener_handle))
-}
+}*/
 
-struct EditorHelper(FilenameCompleter, MatchingBracketHighlighter);
-
-impl Completer for EditorHelper {
-    type Candidate = Pair;
-
-    fn complete(
-        &self,
-        line: &str,
-        pos: usize,
-    ) -> std::result::Result<(usize, Vec<Pair>), ReadlineError> {
-        self.0.complete(line, pos)
-    }
-}
-
-impl Hinter for EditorHelper {
-    fn hint(&self, _line: &str, _pos: usize) -> Option<String> {
-        None
-    }
-}
-
-impl Highlighter for EditorHelper {
-    fn highlight_prompt<'p>(&self, prompt: &'p str) -> Cow<'p, str> {
-        if prompt == PROMPT {
-            Borrowed(COLORED_PROMPT)
-        } else {
-            Borrowed(prompt)
-        }
-    }
-
-    fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
-        Owned("\x1b[1m".to_owned() + hint + "\x1b[m")
-    }
-
-    fn highlight<'l>(&self, line: &'l str, pos: usize) -> Cow<'l, str> {
-        self.1.highlight(line, pos)
-    }
-
-    fn highlight_char(&self, line: &str, pos: usize) -> bool {
-        self.1.highlight_char(line, pos)
-    }
-}
-
-impl Helper for EditorHelper {}
 
 fn main() {
     enable_ansi_support();
@@ -499,13 +318,26 @@ fn main() {
         Backend::new(data_path).expect("could not create address book backend!");
     let address_book = AddressBook::new(Box::new(address_book_backend))
         .expect("could not create an address book!");
-    let address_book = Arc::new(Mutex::new(address_book));
-
-    println!("{}", format!("\nWelcome to wallet713 v{}\n", crate_version!()).bright_yellow().bold());
 
     if config.check_updates() {
         get_motd().unwrap_or(());
     }
+
+    // TODO: clean this up
+    use grin_keychain::ExtKeychain;
+    use wallet::{Container, create_container};
+    use wallet::types::{HTTPNodeClient, WalletSeed};
+
+
+//    let backend = wallet::Backend::<HTTPNodeClient, ExtKeychain>::new(&wallet_config, "", node_client).unwrap();
+    let container = create_container(config, Some(address_book)).unwrap();
+
+    use controller::cli::CLI;
+    let cli = CLI::new(container);
+    cli.start();
+
+    return;
+
 
     let wallet = Wallet::new(config.max_auto_accept_invoice);
     let wallet = Arc::new(Mutex::new(wallet));
@@ -513,7 +345,7 @@ fn main() {
     let mut grinbox_broker: Option<(GrinboxPublisher, GrinboxSubscriber)> = None;
     let mut keybase_broker: Option<(KeybasePublisher, KeybaseSubscriber)> = None;
 
-    let has_seed = Wallet::seed_exists(&config);
+    /*let has_seed = Wallet::seed_exists(&config);
     if !has_seed {
         let mut line = String::new();
 
@@ -575,9 +407,9 @@ fn main() {
         }
 
         println!();
-    }
+    }*/
 
-    if wallet.lock().is_locked() {
+    /*if wallet.lock().is_locked() {
         let account = matches.value_of("account").unwrap_or("default").to_string();
         let has_wallet = if matches.is_present("passphrase") {
             let passphrase = password_prompt(matches.value_of("passphrase"));
@@ -606,7 +438,7 @@ fn main() {
                     .bold()
             );
         }
-    }
+    }*/
 
     cli_message!("{}", WELCOME_FOOTER.bright_blue());
 
@@ -615,7 +447,7 @@ fn main() {
     let mut owner_api_handle: Option<std::thread::JoinHandle<()>> = None;
     let mut foreign_api_handle: Option<std::thread::JoinHandle<()>> = None;
 
-    if config.grinbox_listener_auto_start() {
+    /*if config.grinbox_listener_auto_start() {
         let result = start_grinbox_listener(&config, wallet.clone(), address_book.clone());
         match result {
             Err(e) => cli_message!("{}: {}", "ERROR".bright_red(), e),
@@ -719,21 +551,9 @@ fn main() {
         }
 
         return;
-    }
+    }*/
 
-    let editor_config = Config::builder()
-        .history_ignore_space(true)
-        .completion_type(CompletionType::List)
-        .edit_mode(EditMode::Emacs)
-        .output_stream(OutputStreamType::Stdout)
-        .build();
-    let mut rl = Editor::with_config(editor_config);
-    rl.set_helper(Some(EditorHelper(
-        FilenameCompleter::new(),
-        MatchingBracketHighlighter::new(),
-    )));
-
-    let wallet713_home_path_buf = Wallet713Config::default_home_path(&config.chain).unwrap();
+    /*let wallet713_home_path_buf = Wallet713Config::default_home_path(&config.chain).unwrap();
     let wallet713_home_path = wallet713_home_path_buf.to_str().unwrap();
 
     if let Some(path) = Path::new(wallet713_home_path)
@@ -741,9 +561,9 @@ fn main() {
         .to_str()
     {
         rl.load_history(path).is_ok();
-    }
+    }*/
 
-    loop {
+    /*loop {
         let command = rl.readline(PROMPT);
         match command {
             Ok(command) => {
@@ -776,17 +596,17 @@ fn main() {
                 break;
             }
         }
-    }
+    }*/
 
-    if let Some(path) = Path::new(wallet713_home_path)
+    /*if let Some(path) = Path::new(wallet713_home_path)
         .join(CLI_HISTORY_PATH)
         .to_str()
     {
         rl.save_history(path).is_ok();
-    }
+    }*/
 }
 
-fn derive_address_key(
+/*fn derive_address_key(
     config: &mut Wallet713Config,
     wallet: Arc<Mutex<Wallet>>,
     grinbox_broker: &mut Option<(GrinboxPublisher, GrinboxSubscriber)>,
@@ -861,7 +681,7 @@ fn proof_ok(
         false => "floonet.",
     };
     cli_message!("   https://{}grinscan.net/kernel/{}", prefix, kernel);
-}
+}*/
 
 fn do_command(
     command: &str,
@@ -873,7 +693,7 @@ fn do_command(
     out_is_safe: &mut bool,
 ) -> Result<()> {
     *out_is_safe = true;
-    let home_dir = dirs::home_dir()
+    /*let home_dir = dirs::home_dir()
         .map(|p| p.to_str().unwrap().to_string())
         .unwrap_or("~".to_string());
 
@@ -914,35 +734,6 @@ fn do_command(
         Some("address") => {
             show_address(config, true)?;
         }
-        Some("init") => {
-            *out_is_safe = false;
-            if keybase_broker.is_some() || grinbox_broker.is_some() {
-                return Err(ErrorKind::HasListener.into());
-            }
-            let args = matches.subcommand_matches("init").unwrap();
-            let passphrase = match args.is_present("passphrase") {
-                true => password_prompt(args.value_of("passphrase")),
-                false => "".to_string(),
-            };
-            *out_is_safe = args.value_of("passphrase").is_none();
-
-            if passphrase.is_empty() {
-                println!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
-            }
-
-            wallet
-                .lock()
-                .init(config, "default", passphrase.as_str(), true)?;
-
-            println!("{}", "Press ENTER when you have done so".bright_green().bold());
-
-            let mut line = String::new();
-            io::stdout().flush().unwrap();
-            io::stdin().read_line(&mut line).unwrap();
-
-            derive_address_key(config, wallet, grinbox_broker)?;
-            return Ok(());
-        }
         Some("lock") => {
             if keybase_broker.is_some() || grinbox_broker.is_some() {
                 return Err(ErrorKind::HasListener.into());
@@ -967,30 +758,6 @@ fn do_command(
             }
 
             derive_address_key(config, wallet, grinbox_broker)?;
-            return Ok(());
-        }
-        Some("accounts") => {
-            wallet.lock().list_accounts()?;
-        }
-        Some("account") => {
-            let args = matches.subcommand_matches("account").unwrap();
-            *out_is_safe = args.value_of("passphrase").is_none();
-
-            let create_args = args.subcommand_matches("create");
-            let switch_args = args.subcommand_matches("switch");
-            if let Some(args) = create_args {
-                wallet
-                    .lock()
-                    .create_account(args.value_of("name").unwrap())?;
-            } else if let Some(args) = switch_args {
-                let account = args.value_of("name").unwrap();
-                let passphrase = match args.is_present("passphrase") {
-                    true => password_prompt(args.value_of("passphrase")),
-                    false => "".to_string(),
-                };
-                wallet.lock().unlock(config, account, passphrase.as_str())?;
-            }
-
             return Ok(());
         }
         Some("listen") => {
@@ -1069,36 +836,9 @@ fn do_command(
                 }
             }
         }
-        Some("info") => {
-            wallet.lock().info()?;
-        }
-        Some("txs") => {
-            wallet.lock().txs(Some(address_book.clone()))?;
-        }
         Some("contacts") => {
             let arg_matches = matches.subcommand_matches("contacts").unwrap();
             do_contacts(&arg_matches, address_book.clone())?;
-        }
-        Some("outputs") => {
-            let args = matches.subcommand_matches("outputs").unwrap();
-            let show_spent = args.is_present("show-spent");
-            wallet.lock().outputs(show_spent)?;
-        }
-        Some("repost") => {
-            let args = matches.subcommand_matches("repost").unwrap();
-            let id = args.value_of("id").unwrap();
-            let id = id
-                .parse::<u32>()
-                .map_err(|_| ErrorKind::InvalidTxId(id.to_string()))?;
-            wallet.lock().repost(id, false)?;
-        }
-        Some("cancel") => {
-            let args = matches.subcommand_matches("cancel").unwrap();
-            let id = args.value_of("id").unwrap();
-            let id = id
-                .parse::<u32>()
-                .map_err(|_| ErrorKind::InvalidTxId(id.to_string()))?;
-            wallet.lock().cancel(id)?;
         }
         Some("receive") => {
             let args = matches.subcommand_matches("receive").unwrap();
@@ -1114,159 +854,6 @@ fn do_command(
             cli_message!("{} received.", input);
             file.write_all(serde_json::to_string(&slate)?.as_bytes())?;
             cli_message!("{}.response created successfully.", input);
-        }
-        Some("finalize") => {
-            let args = matches.subcommand_matches("finalize").unwrap();
-            let input = args.value_of("file").unwrap();
-            let mut file = File::open(input.replace("~", &home_dir))?;
-            let mut slate = String::new();
-            file.read_to_string(&mut slate)?;
-            let mut slate = Slate::deserialize_upgrade(&slate)?;
-            wallet.lock().finalize_slate(&mut slate, None)?;
-            cli_message!("{} finalized.", input);
-        }
-        Some("send") => {
-            let args = matches.subcommand_matches("send").unwrap();
-            let to = args.value_of("to");
-            let input = args.value_of("file");
-            let message = args.value_of("message").map(|s| s.to_string());
-
-            let strategy = args.value_of("strategy").unwrap_or("smallest");
-            if strategy != "smallest" && strategy != "all" {
-                return Err(ErrorKind::InvalidStrategy.into());
-            }
-
-            let confirmations = args.value_of("confirmations").unwrap_or("10");
-            let confirmations = u64::from_str_radix(confirmations, 10)
-                .map_err(|_| ErrorKind::InvalidMinConfirmations(confirmations.to_string()))?;
-
-            let change_outputs = args.value_of("change-outputs").unwrap_or("1");
-            let change_outputs = usize::from_str_radix(change_outputs, 10)
-                .map_err(|_| ErrorKind::InvalidNumOutputs(change_outputs.to_string()))?;
-
-            let version = match args.value_of("version") {
-                Some(v) => Some(u16::from_str_radix(v, 10)
-                    .map_err(|_| ErrorKind::InvalidSlateVersion(v.to_string()))?),
-                None => None,
-            };
-
-            let amount = args.value_of("amount").unwrap();
-            let amount = core::amount_from_hr_string(amount)
-                .map_err(|_| ErrorKind::InvalidAmount(amount.to_string()))?;
-
-            // Store slate in a file
-            if let Some(input) = input {
-                let mut file = File::create(input.replace("~", &home_dir))?;
-                let slate = wallet.lock().initiate_send_tx(
-                    Some(String::from("file")),
-                    amount,
-                    confirmations,
-                    strategy,
-                    change_outputs,
-                    500,
-                    message,
-                    version,
-                )?;
-                file.write_all(serde_json::to_string(&slate)?.as_bytes())?;
-                cli_message!("{} created successfully.", input);
-                return Ok(());
-            }
-
-            let mut to = to.unwrap().to_string();
-            let mut display_to = None;
-            if to.starts_with("@") {
-                let contact = address_book.lock().get_contact(&to[1..])?;
-                to = contact.get_address().to_string();
-                display_to = Some(contact.get_name().to_string());
-            }
-
-            // try parse as a general address and fallback to grinbox address
-            let address = Address::parse(&to);
-            let address: Result<Box<Address>> = match address {
-                Ok(address) => Ok(address),
-                Err(e) => {
-                    Ok(Box::new(GrinboxAddress::from_str(&to).map_err(|_| e)?) as Box<Address>)
-                }
-            };
-            let to = address?;
-            if display_to.is_none() {
-                display_to = Some(to.stripped());
-            }
-
-            let mut slate: Slate = match to.address_type() {
-                AddressType::Keybase => {
-                    if let Some((publisher, _)) = keybase_broker {
-                        let slate = wallet.lock().initiate_send_tx(
-                            Some(to.to_string()),
-                            amount,
-                            confirmations,
-                            strategy,
-                            change_outputs,
-                            500,
-                            message,
-                            version,
-                        )?;
-                        let mut keybase_address =
-                            contacts::KeybaseAddress::from_str(&to.to_string())?;
-                        keybase_address.topic = Some(broker::TOPIC_SLATE_NEW.to_string());
-                        publisher.post_slate(&slate, keybase_address.borrow())?;
-                        slate
-                    } else {
-                        return Err(ErrorKind::ClosedListener("keybase".to_string()).into());
-                    }
-                }
-                AddressType::Grinbox => {
-                    if let Some((publisher, _)) = grinbox_broker {
-                        let slate = wallet.lock().initiate_send_tx(
-                            Some(to.to_string()),
-                            amount,
-                            confirmations,
-                            strategy,
-                            change_outputs,
-                            500,
-                            message,
-                            version,
-                        )?;
-                        publisher.post_slate(&slate, to.borrow())?;
-                        slate
-                    } else {
-                        return Err(ErrorKind::ClosedListener("grinbox".to_string()).into());
-                    }
-                }
-                AddressType::Https => {
-                    let url =
-                        Url::parse(&format!("{}/v1/wallet/foreign/receive_tx", to.to_string()))?;
-                    let slate = wallet.lock().initiate_send_tx(
-                        Some(to.to_string()),
-                        amount,
-                        confirmations,
-                        strategy,
-                        change_outputs,
-                        500,
-                        message,
-                        version,
-                    )?;
-                    let slate_res = post(url.as_str(), None, &slate)
-                        .map_err(|_| ErrorKind::HttpRequest)?;
-                    Slate::deserialize_upgrade(&slate_res)
-                        .map_err(|_| ErrorKind::HttpRequest)?
-                }
-            };
-
-            cli_message!(
-                "slate [{}] for [{}] grins sent successfully to [{}]",
-                slate.id.to_string().bright_green(),
-                core::amount_to_hr_string(slate.amount, false).bright_green(),
-                display_to.unwrap().bright_green()
-            );
-
-            if to.address_type() == AddressType::Https {
-                wallet.lock().finalize_slate(&mut slate, None)?;
-                cli_message!(
-                    "slate [{}] finalized successfully",
-                    slate.id.to_string().bright_green()
-                );
-            }
         }
         Some("invoice") => {
             let args = matches.subcommand_matches("invoice").unwrap();
@@ -1329,34 +916,6 @@ fn do_command(
                 display_to.unwrap().bright_green()
             );
         }
-        Some("restore") => {
-            *out_is_safe = false;
-            if keybase_broker.is_some() || grinbox_broker.is_some() {
-                return Err(ErrorKind::HasListener.into());
-            }
-            let args = matches.subcommand_matches("restore").unwrap();
-            let passphrase = match args.is_present("passphrase") {
-                true => password_prompt(args.value_of("passphrase")),
-                false => "".to_string(),
-            };
-            *out_is_safe = args.value_of("passphrase").is_none();
-
-            println!("restoring... please wait as this could take a few minutes to complete.");
-
-            {
-                let mut w = wallet.lock();
-                w.init(config, "default", passphrase.as_str(), false)?;
-                w.restore_state()?;
-            }
-
-            derive_address_key(config, wallet, grinbox_broker)?;
-            if passphrase.is_empty() {
-                println!("{}: wallet with no passphrase.", "WARNING".bright_yellow());
-            }
-
-            println!("wallet restoration done!");
-            return Ok(());
-        }
         Some("recover") => {
             *out_is_safe = false;
             if keybase_broker.is_some() || grinbox_broker.is_some() {
@@ -1391,14 +950,6 @@ fn do_command(
                 wallet.lock().show_mnemonic(config, &passphrase)?;
                 return Ok(());
             }
-        }
-        Some("check") => {
-            if keybase_broker.is_some() || grinbox_broker.is_some() {
-                return Err(ErrorKind::HasListener.into());
-            }
-            println!("checking and repairing... please wait as this could take a few minutes to complete.");
-            wallet.lock().check_repair(false)?;
-            cli_message!("check and repair done!");
         }
         Some("export-proof") => {
             let args = matches.subcommand_matches("export-proof").unwrap();
@@ -1451,7 +1002,7 @@ fn do_command(
             );
         }
         None => {}
-    };
+    };*/
 
     Ok(())
 }

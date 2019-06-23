@@ -1,0 +1,121 @@
+use clap::ArgMatches;
+use failure::Error;
+use grin_core::core::amount_from_hr_string;
+use std::str::FromStr;
+use crate::common::ErrorKind;
+use crate::contacts::AddressBook;
+use crate::wallet::types::{InitTxArgs, InitTxSendArgs};
+
+macro_rules! usage {
+	( $r:expr ) => {
+		return Err(ErrorKind::Usage($r.usage().to_owned()));
+	};
+}
+
+#[derive(Clone, Debug)]
+pub enum AccountArgs<'a> {
+    Create(&'a str),
+    Switch(&'a str),
+}
+
+#[derive(Clone, Debug)]
+pub enum SendCommandType<'a> {
+    Estimate,
+    File(&'a str),
+    Address,
+}
+
+fn required<'a>(args: &'a ArgMatches, name: &str) -> Result<&'a str, ErrorKind> {
+    args
+        .value_of(name)
+        .ok_or_else(|| ErrorKind::Argument(name.to_owned()))
+}
+
+fn parse<T>(arg: &str) -> Result<T, ErrorKind>
+    where
+        T: FromStr,
+{
+    arg
+        .parse::<T>()
+        .map_err(|_| ErrorKind::ParseNumber(arg.to_owned()))
+}
+
+pub fn account_command<'a>(args: &'a ArgMatches) -> Result<AccountArgs<'a>, ErrorKind> {
+    let account_args = match args.subcommand() {
+        ("create", Some(args)) => {
+            AccountArgs::Create(required(args, "name")?)
+        },
+        ("switch", Some(args)) => {
+            AccountArgs::Switch(required(args, "name")?)
+        },
+        (_, _) => {
+            usage!(args);
+        }
+    };
+    Ok(account_args)
+}
+
+pub fn send_command<'a>(args: &'a ArgMatches) -> Result<(SendCommandType<'a>, InitTxArgs), ErrorKind> {
+    let mut init_args = InitTxArgs::default();
+
+    let amount = required(args, "amount")?;
+    init_args.amount = amount_from_hr_string(amount)
+        .map_err(|_| ErrorKind::ParseNumber(amount.to_owned()))?;
+    if let Some(confirmations) = args.value_of("confirmations") {
+        init_args.minimum_confirmations = parse(confirmations)?;
+    }
+    if let Some(change_outputs) = args.value_of("change_outputs") {
+        init_args.num_change_outputs = parse(change_outputs)?;
+    }
+    init_args.selection_strategy_is_use_all = match args.value_of("strategy") {
+        Some("all") => true,
+        _ => false,
+    };
+    init_args.message = args.value_of("message").map(|m| m.to_owned());
+    if let Some(version) = args.value_of("version") {
+        init_args.target_slate_version = Some(parse(version)?);
+    }
+
+    let cmd_type = if let Some(address) = args.value_of("address") {
+        init_args.send_args = Some(InitTxSendArgs {
+            method: None,
+            dest: address.to_owned(),
+            finalize: true,
+            post_tx: true,
+            fluff: args.is_present("fluff"),
+        });
+        SendCommandType::Address
+    }
+    else if let Some(file) = args.value_of("file_name") {
+        SendCommandType::File(file)
+    }
+    else if args.is_present("estimate") {
+        init_args.estimate_only = Some(true);
+        SendCommandType::Estimate
+    }
+    else {
+        usage!(args);
+    };
+
+    Ok((cmd_type, init_args))
+}
+
+pub fn finalize_command<'a>(args: &'a ArgMatches) -> Result<(&'a str, bool), ErrorKind> {
+    Ok((required(args, "file_name")?, args.is_present("fluff")))
+}
+
+pub fn repost_command(args: &ArgMatches) -> Result<(u32, bool), ErrorKind> {
+    Ok((parse(required(args, "index")?)?, args.is_present("fluff")))
+}
+
+pub fn cancel_command(args: &ArgMatches) -> Result<u32, ErrorKind> {
+    Ok(parse(required(args, "index")?)?)
+}
+
+pub fn repair_command(args: &ArgMatches) -> Result<bool, ErrorKind> {
+    Ok(args.is_present("delete_unconfirmed"))
+}
+
+pub fn listen_command<'a>(args: &'a ArgMatches) -> Result<&'a str, ErrorKind> {
+    Ok(args.value_of("type").unwrap_or(""))
+}

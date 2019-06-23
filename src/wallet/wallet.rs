@@ -6,10 +6,9 @@ use crate::common::crypto::Hex;
 use crate::common::hasher::derive_address_key;
 use crate::common::{ErrorKind, Result};
 use crate::contacts::AddressBook;
-use crate::wallet::api::Wallet713OwnerAPI;
 use crate::wallet::types::TxProof;
 
-use super::api::{controller, display};
+use super::api::Owner;
 use super::backend::Backend;
 use super::types::{
     Arc, BlockFees, CbData, ExtKeychain, HTTPNodeClient, Mutex, OutputData, NodeClient, SecretKey,
@@ -18,7 +17,7 @@ use super::types::{
 
 pub struct Wallet {
     active_account: String,
-    backend: Option<Arc<Mutex<Backend<HTTPNodeClient, ExtKeychain>>>>,
+    pub backend: Option<Arc<Mutex<Backend<HTTPNodeClient, ExtKeychain>>>>,
     max_auto_accept_invoice: Option<u64>,
 }
 
@@ -31,7 +30,7 @@ impl Wallet {
         }
     }
 
-    pub fn seed_exists(config: &Wallet713Config) -> bool {
+    /*pub fn seed_exists(config: &Wallet713Config) -> bool {
         let wallet_config = config.as_wallet_config().unwrap();
         WalletSeed::seed_file_exists(&wallet_config).is_err()
     }
@@ -86,25 +85,6 @@ impl Wallet {
     ) -> Result<()> {
         let wallet_config = config.as_wallet_config()?;
         WalletSeed::recover_from_phrase(&wallet_config, &words.join(" "), passphrase)?;
-        Ok(())
-    }
-
-    pub fn list_accounts(&self) -> Result<()> {
-        let wallet = self.get_wallet_instance()?;
-        controller::owner_single_use(wallet.clone(), |api| {
-            let acct_mappings = api.accounts()?;
-            display::accounts(acct_mappings);
-            Ok(())
-        })?;
-        Ok(())
-    }
-
-    pub fn create_account(&self, name: &str) -> Result<()> {
-        let wallet = self.get_wallet_instance()?;
-        controller::owner_single_use(wallet.clone(), |api| {
-            api.create_account_path(name)?;
-            Ok(())
-        })?;
         Ok(())
     }
 
@@ -468,5 +448,5 @@ impl Wallet {
         );
         let backend = Backend::new(wallet_config, passphrase, node_api_client)?;
         Ok(backend)
-    }
+    }*/
 }

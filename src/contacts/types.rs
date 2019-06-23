@@ -9,7 +9,7 @@ use crate::common::crypto::{
 };
 use crate::common::{ErrorKind, Result};
 
-const ADDRESS_REGEX: &str = r"^((?P<address_type>keybase|grinbox|https)://).+$";
+const ADDRESS_REGEX: &str = r"^((?P<address_type>keybase|grinbox|http|https)://).+$";
 const GRINBOX_ADDRESS_REGEX: &str = r"^(grinbox://)?(?P<public_key>[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{52})(@(?P<domain>[a-zA-Z0-9\.]+)(:(?P<port>[0-9]*))?)?$";
 const KEYBASE_ADDRESS_REGEX: &str = r"^(keybase://)?(?P<username>[0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_]{1,16})(:(?P<topic>[a-zA-Z0-9_-]+))?$";
 const DEFAULT_GRINBOX_DOMAIN: &str = "grinbox.io";
@@ -22,7 +22,7 @@ pub const DEFAULT_GRINBOX_PORT: u16 = 80;
 pub enum AddressType {
     Grinbox,
     Keybase,
-    Https,
+    Http,
 }
 
 pub trait Address: Debug + Display {
@@ -33,28 +33,29 @@ pub trait Address: Debug + Display {
     fn stripped(&self) -> String;
 }
 
-impl Address {
-    pub fn parse(address: &str) -> Result<Box<Address>> {
-        let re = Regex::new(ADDRESS_REGEX)?;
-        let captures = re.captures(address);
-        if captures.is_none() {
-            return Ok(Box::new(GrinboxAddress::from_str(address)?));
-        }
-
-        let captures = captures.unwrap();
-        let address_type = captures.name("address_type").unwrap().as_str().to_string();
-        let address: Box<Address> = match address_type.as_ref() {
-            "keybase" => Box::new(KeybaseAddress::from_str(address)?),
-            "grinbox" => Box::new(GrinboxAddress::from_str(address)?),
-            "https" => Box::new(HttpsAddress::from_str(address)?),
-            x => Err(ErrorKind::UnknownAddressType(x.to_string()))?,
-        };
-        Ok(address)
+pub fn parse_address(address: &str) -> Result<Box<Address>> {
+    let re = Regex::new(ADDRESS_REGEX)?;
+    let captures = re.captures(address);
+    if captures.is_none() {
+        return Ok(Box::new(
+            GrinboxAddress::from_str(address)
+                .map_err(|_| ErrorKind::ParseAddress)?
+        ));
     }
+
+    let captures = captures.unwrap();
+    let address_type = captures.name("address_type").unwrap().as_str().to_string();
+    let address: Box<Address> = match address_type.as_ref() {
+        "keybase" => Box::new(KeybaseAddress::from_str(address)?),
+        "grinbox" => Box::new(GrinboxAddress::from_str(address)?),
+        "http" | "https" => Box::new(HttpAddress::from_str(address)?),
+        x => Err(ErrorKind::UnknownAddressType(x.to_string()))?,
+    };
+    Ok(address)
 }
 
 pub trait AddressBookBackend {
-    fn get_contact(&mut self, name: &[u8]) -> Result<Contact>;
+    fn get_contact(&self, name: &[u8]) -> Result<Option<Contact>>;
     fn contacts(&self) -> Box<Iterator<Item = Contact>>;
     fn batch<'a>(&'a self) -> Result<Box<AddressBookBatch + 'a>>;
 }
@@ -93,9 +94,8 @@ impl AddressBook {
         Ok(())
     }
 
-    pub fn get_contact(&mut self, name: &str) -> Result<Contact> {
-        let contact = self.backend.get_contact(name.as_bytes())?;
-        Ok(contact)
+    pub fn get_contact(&self, name: &str) -> Result<Option<Contact>> {
+        self.backend.get_contact(name.as_bytes())
     }
 
     pub fn get_contact_by_address(&mut self, address: &str) -> Result<Contact> {
@@ -114,8 +114,8 @@ impl AddressBook {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Contact {
-    name: String,
-    address: String,
+    pub name: String,
+    pub address: String,
 }
 
 impl Contact {
@@ -124,14 +124,6 @@ impl Contact {
             name: name.to_string(),
             address: address.to_string(),
         })
-    }
-
-    pub fn get_name(&self) -> &String {
-        &self.name
-    }
-
-    pub fn get_address(&self) -> &String {
-        &self.address
     }
 }
 
@@ -255,19 +247,19 @@ impl Display for GrinboxAddress {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct HttpsAddress {
+pub struct HttpAddress {
     pub uri: String,
 }
 
-impl Address for HttpsAddress {
+impl Address for HttpAddress {
     fn from_str(s: &str) -> Result<Self> {
-        Url::parse(s).map_err(|_| ErrorKind::HttpsAddressParsingError(s.to_string()))?;
+        Url::parse(s).map_err(|_| ErrorKind::HttpAddressParsingError(s.to_string()))?;
 
         Ok(Self { uri: s.to_string() })
     }
 
     fn address_type(&self) -> AddressType {
-        AddressType::Https
+        AddressType::Http
     }
 
     fn stripped(&self) -> String {
@@ -275,7 +267,7 @@ impl Address for HttpsAddress {
     }
 }
 
-impl Display for HttpsAddress {
+impl Display for HttpAddress {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.uri)?;
         Ok(())

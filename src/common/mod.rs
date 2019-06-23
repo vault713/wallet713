@@ -7,6 +7,7 @@ mod error_kind;
 pub mod hasher;
 pub mod message;
 pub mod motd;
+pub mod ser;
 
 pub use self::error_kind::ErrorKind;
 pub use self::macros::*;
@@ -18,6 +19,8 @@ use std::result::Result as StdResult;
 pub use std::sync::Arc;
 
 pub type Result<T> = StdResult<T, Error>;
+pub trait Keychain: grin_keychain::Keychain + 'static {}
+impl Keychain for grin_keychain::ExtKeychain {}
 
 #[derive(Clone, PartialEq)]
 pub enum RuntimeMode {

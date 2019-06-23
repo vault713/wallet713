@@ -10,6 +10,12 @@ pub enum ErrorKind {
     ModelNotFound,
     #[fail(display = "\x1b[31;1merror:\x1b[0m could not open wallet seed!")]
     WalletSeedCouldNotBeOpened,
+    #[fail(display = "Wallet already has a seed")]
+    WalletHasSeed,
+    #[fail(display = "Wallet doesnt have a seed")]
+    WalletNoSeed,
+    #[fail(display = "Wallet already connected")]
+    WalletConnected,
     #[fail(display = "\x1b[31;1merror:\x1b[0m error opening wallet!")]
     OpenWalletError,
     #[fail(display = "\x1b[31;1merror:\x1b[0m error deriving keychain!")]
@@ -132,10 +138,12 @@ pub enum ErrorKind {
     )]
     KeybaseAddressParsingError(String),
     #[fail(
-        display = "\x1b[31;1merror:\x1b[0m could not parse `{}` to a https address!",
+        display = "\x1b[31;1merror:\x1b[0m could not parse `{}` to a http address!",
         0
     )]
-    HttpsAddressParsingError(String),
+    HttpAddressParsingError(String),
+    #[fail(display = "Unable to parse address")]
+    ParseAddress,
     #[fail(display = "\x1b[31;1merror:\x1b[0m could not send keybase message!")]
     KeybaseMessageSendError,
     #[fail(display = "\x1b[31;1merror:\x1b[0m failed receiving slate!")]
@@ -185,4 +193,12 @@ pub enum ErrorKind {
     VerifyProof,
     #[fail(display = "\x1b[31;1merror:\x1b[0m file '{}' not found", 0)]
     FileNotFound(String),
+    #[fail(display = "{}", 0)]
+    Usage(String),
+    #[fail(display = "argument '{}' required", 0)]
+    Argument(String),
+    #[fail(display = "Uknown listener type '{}'", 0)]
+    UnknownListenerType(String),
+    #[fail(display = "unable to parse number '{}'", 0)]
+    ParseNumber(String),
 }
