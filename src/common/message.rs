@@ -11,8 +11,7 @@ use crate::contacts::GrinboxAddress;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EncryptedMessage {
-    #[serde(default)]
-    pub destination: Option<GrinboxAddress>,
+    pub destination: GrinboxAddress,
     encrypted_message: String,
     salt: String,
     nonce: String,
@@ -48,7 +47,7 @@ impl EncryptedMessage {
             .map_err(|_| ErrorKind::Encryption)?;
 
         Ok(EncryptedMessage {
-            destination: Some(destination.clone()),
+            destination: destination.clone(),
             encrypted_message: to_hex(enc_bytes),
             salt: to_hex(salt.to_vec()),
             nonce: to_hex(nonce.to_vec()),

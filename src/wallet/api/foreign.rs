@@ -13,9 +13,9 @@
 // limitations under the License.
 
 use failure::Error;
-use grin_keychain::Keychain;
+use gotham::state::StateData;
 use std::marker::PhantomData;
-use crate::common::{Arc, Mutex, MutexGuard};
+use crate::common::{Arc, Keychain, Mutex, MutexGuard};
 use crate::internal::{tx, updater};
 use crate::wallet::types::{
     BlockFees, CbData, NodeClient, NodeVersionInfo, Slate, SlateVersion, WalletBackend
@@ -42,6 +42,7 @@ pub enum ForeignCheckMiddlewareFn {
 	FinalizeInvoiceTx,
 }
 
+#[derive(StateData)]
 pub struct Foreign<W, C, K>
 where
 	W: WalletBackend<C, K>,
@@ -173,4 +174,20 @@ where
 		w.close()?;
 		res
 	}*/
+}
+
+impl<W, C, K> Clone for Foreign<W, C, K>
+where
+	W: WalletBackend<C, K>,
+	C: NodeClient,
+	K: Keychain,
+{
+	fn clone(&self) -> Self {
+		Self {
+			container: self.container.clone(),
+			middleware: self.middleware.clone(),
+			phantom_k: PhantomData,
+			phantom_c: PhantomData,
+		}
+	}
 }

@@ -8,7 +8,7 @@ use crate::common::crypto::{sign_challenge, Hex, SecretKey};
 use crate::common::message::EncryptedMessage;
 use crate::common::{Arc, ErrorKind, Keychain, Mutex, Result};
 use crate::contacts::{Address, GrinboxAddress, DEFAULT_GRINBOX_PORT};
-use crate::wallet::types::{NodeClient, Slate, TxProof, TxProofErrorKind, WalletBackend};
+use crate::wallet::types::{NodeClient, Slate, TxProof, TxProofErrorKind, VersionedSlate, WalletBackend};
 
 use super::protocol::{ProtocolRequest, ProtocolResponse};
 use super::types::{CloseReason, Controller, Publisher, Subscriber, SubscriptionHandler};
@@ -38,7 +38,7 @@ impl GrinboxPublisher {
 }
 
 impl Publisher for GrinboxPublisher {
-    fn post_slate(&self, slate: &Slate, to: &Address) -> Result<()> {
+    fn post_slate(&self, slate: &VersionedSlate, to: &Address) -> Result<()> {
         let to = GrinboxAddress::from_str(&to.to_string())?;
         self.broker.post_slate(slate, &to, &self.address, &self.secret_key)?;
         Ok(())
@@ -114,7 +114,7 @@ impl GrinboxBroker {
 
     fn post_slate(
         &self,
-        slate: &Slate,
+        slate: &VersionedSlate,
         to: &GrinboxAddress,
         from: &GrinboxAddress,
         secret_key: &SecretKey,
@@ -352,7 +352,7 @@ where
                 challenge,
                 signature,
             } => {
-                let (mut slate, mut tx_proof) = match TxProof::from_response(
+                let (slate, mut tx_proof) = match TxProof::from_response(
                     from,
                     str,
                     challenge,
@@ -370,7 +370,7 @@ where
                 let address = tx_proof.address.clone();
                 self.handler
                     .lock()
-                    .on_slate(&address, &mut slate, Some(&mut tx_proof));
+                    .on_slate(&address, &slate, Some(&mut tx_proof));
             }
             ProtocolResponse::Error {
                 kind: _,

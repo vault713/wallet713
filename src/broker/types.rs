@@ -4,7 +4,7 @@ use std::marker::Send;
 use crate::common::{Arc, Keychain, Mutex, Error};
 use crate::contacts::{Address, AddressBook, AddressType, GrinboxAddress};
 use crate::wallet::api::{Foreign, Owner, check_middleware};
-use crate::wallet::types::{NodeClient, Slate, TxProof, WalletBackend};
+use crate::wallet::types::{NodeClient, Slate, VersionedSlate, TxProof, WalletBackend};
 use crate::wallet::Container;
 
 pub enum CloseReason {
@@ -13,7 +13,7 @@ pub enum CloseReason {
 }
 
 pub trait Publisher: Send {
-    fn post_slate(&self, slate: &Slate, to: &Address) -> Result<(), Error>;
+    fn post_slate(&self, slate: &VersionedSlate, to: &Address) -> Result<(), Error>;
 }
 
 pub trait Subscriber {
@@ -30,7 +30,7 @@ pub trait Subscriber {
 
 pub trait SubscriptionHandler: Send {
     fn on_open(&self);
-    fn on_slate(&self, from: &Address, slate: &mut Slate, proof: Option<&mut TxProof>);
+    fn on_slate(&self, from: &Address, slate: &VersionedSlate, proof: Option<&mut TxProof>);
     fn on_close(&self, result: CloseReason);
     fn on_dropped(&self);
     fn on_reestablished(&self);
@@ -100,7 +100,7 @@ impl<W, C, K, P> SubscriptionHandler for Controller<W, C, K, P>
         println!("listener started for [{}]", self.name.bright_green());
     }
 
-    fn on_slate(&self, from: &Address, slate: &mut Slate, tx_proof: Option<&mut TxProof>) {
+    fn on_slate(&self, from: &Address, slate: &VersionedSlate, tx_proof: Option<&mut TxProof>) {
         let mut display_from = from.stripped();
         /*if let Ok(contact) = self
             .address_book
@@ -109,6 +109,9 @@ impl<W, C, K, P> SubscriptionHandler for Controller<W, C, K, P>
         {
             display_from = contact.get_name().to_string();
         }*/
+
+        let version = slate.version();
+        let mut slate: Slate = slate.clone().into();
 
         if slate.num_participants > slate.participant_data.len() {
             println!(
@@ -131,11 +134,14 @@ impl<W, C, K, P> SubscriptionHandler for Controller<W, C, K, P>
         }
 
         let result = self
-            .process_incoming_slate(Some(from.to_string()), slate, tx_proof)
+            .process_incoming_slate(Some(from.to_string()), &mut slate, tx_proof)
             .and_then(|is_finalized| {
                 if !is_finalized {
+                    let id = slate.id.clone();
+                    let slate = VersionedSlate::into_version(slate, version);
+
                     self.publisher
-                        .post_slate(slate, from)
+                        .post_slate(&slate, from)
                         .map_err(|e| {
                             println!("{}: {}", "ERROR".bright_red(), e);
                             e
@@ -143,7 +149,7 @@ impl<W, C, K, P> SubscriptionHandler for Controller<W, C, K, P>
                         .expect("failed posting slate!");
                     println!(
                         "slate [{}] sent back to [{}] successfully",
-                        slate.id.to_string().bright_green(),
+                        id.to_string().bright_green(),
                         display_from.bright_green()
                     );
                 } else {

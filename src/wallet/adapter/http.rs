@@ -20,7 +20,7 @@ use grin_api::Error as APIError;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::wallet::types::Slate;
+use crate::wallet::types::VersionedSlate;
 use crate::wallet::ErrorKind;
 use super::Adapter;
 
@@ -29,8 +29,8 @@ pub struct HTTPAdapter {}
 
 impl HTTPAdapter {
 	/// Create
-	pub fn new() -> Box<dyn Adapter> {
-		Box::new(Self {})
+	pub fn new() -> Self {
+		Self {}
 	}
 
 	/// Check version of the other wallet
@@ -88,7 +88,7 @@ impl Adapter for HTTPAdapter {
 		true
 	}
 
-	fn send_tx_sync(&self, dest: &str, slate: &Slate) -> Result<Slate, Error> {
+	fn send_tx_sync(&self, dest: &str, slate: &VersionedSlate) -> Result<VersionedSlate, Error> {
 		if &dest[..4] != "http" {
 			let err_str = format!(
 				"dest formatted as {} but send -d expected stdout or http://IP:port",
@@ -134,17 +134,16 @@ impl Adapter for HTTPAdapter {
 
 		let slate_value = res["result"]["Ok"].clone();
 		trace!("slate_value: {}", slate_value);
-		let slate = Slate::deserialize_upgrade(&serde_json::to_string(&slate_value).unwrap())
-			.map_err(|_| ErrorKind::SlateDeser)?;
 
+		let slate: VersionedSlate = serde_json::from_str(&serde_json::to_string(&slate_value).unwrap())?;
 		Ok(slate)
 	}
 
-	fn send_tx_async(&self, _dest: &str, _slate: &Slate) -> Result<(), Error> {
+	fn send_tx_async(&self, _dest: &str, _slate: &VersionedSlate) -> Result<(), Error> {
 		unimplemented!();
 	}
 
-	fn receive_tx_async(&self, _params: &str) -> Result<Slate, Error> {
+	fn receive_tx_async(&self, _params: &str) -> Result<VersionedSlate, Error> {
 		unimplemented!();
 	}
 }

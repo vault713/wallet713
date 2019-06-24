@@ -219,6 +219,10 @@ pub enum ErrorKind {
 	#[fail(display = "Not listening on Keybase")]
 	KeybaseNoListener,
 
+	/// Already listening on foreign http
+	#[fail(display = "Already listening on foreign http")]
+	ForeignHttpListener,
+
 	/// No transaction stored
 	#[fail(display = "No transaction stored")]
 	TransactionNotStored,

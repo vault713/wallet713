@@ -195,10 +195,12 @@ pub enum ErrorKind {
     FileNotFound(String),
     #[fail(display = "{}", 0)]
     Usage(String),
-    #[fail(display = "argument '{}' required", 0)]
+    #[fail(display = "Argument '{}' required", 0)]
     Argument(String),
     #[fail(display = "Uknown listener type '{}'", 0)]
     UnknownListenerType(String),
-    #[fail(display = "unable to parse number '{}'", 0)]
+    #[fail(display = "Unable to parse number '{}'", 0)]
     ParseNumber(String),
+    #[fail(display = "Unable to parse slate")]
+    ParseSlate,
 }

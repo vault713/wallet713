@@ -13,6 +13,8 @@
 // limitations under the License.
 
 use failure::Error;
+use futures::sync::oneshot;
+use futures::Future;
 use grin_core::core::hash::Hashed;
 use grin_core::core::Transaction;
 use grin_core::ser::ser_vec;
@@ -20,10 +22,12 @@ use grin_keychain::Identifier;
 use grin_util::secp::key::PublicKey;
 use grin_util::{ZeroingString, to_hex};
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::marker::PhantomData;
 use std::thread::{JoinHandle, spawn};
 use uuid::Uuid;
 
+use crate::api::router::build_foreign_api_router;
 use crate::broker::{Controller, GrinboxPublisher, GrinboxSubscriber, Subscriber};
 use crate::common::hasher::derive_address_key;
 use crate::common::{Arc, Keychain, Mutex, MutexGuard};
@@ -32,8 +36,8 @@ use crate::wallet::adapter::{Adapter, GrinboxAdapter, HTTPAdapter};
 use crate::wallet::{Container, ErrorKind};
 use crate::internal::*;
 use crate::wallet::types::{
-    AcctPathMapping, InitTxArgs, NodeClient, OutputCommitMapping, Slate, TxLogEntry,
-	TxWrapper, WalletBackend, WalletInfo,
+    AcctPathMapping, InitTxArgs, NodeClient, OutputCommitMapping, Slate, SlateVersion, TxLogEntry,
+	TxWrapper, VersionedSlate, WalletBackend, WalletInfo,
 };
 
 pub struct Owner<W, C, K>
@@ -168,34 +172,65 @@ where
 			});
 
 			c.grinbox = Some((address.clone(), publisher, subscriber, handle));
-
 			Ok(address)
 		})
 	}
 
 	pub fn stop_grinbox_listener(&self) -> Result<(), Error> {
-		self.open_and_close(|c| {
-			match c.grinbox.take() {
-				None => Ok(()),
-				Some((address, publisher, subscriber, handle)) => {
-					println!("Stopping");
-					subscriber.stop();
-					println!("Stopped");
-					let _ = handle.join();
-					println!("Joined");
-					c.grinbox = None;
-					Ok(())
-				}
-			}
-		})
+        let mut c = self.container.lock();
+        match c.grinbox.take() {
+            None => Ok(()),
+            Some((address, publisher, subscriber, handle)) => {
+                subscriber.stop();
+                let _ = handle.join();
+                c.grinbox = None;
+                Ok(())
+            }
+        }
 	}
 
-	pub fn start_keybase_listener() {
-
+	pub fn start_keybase_listener() -> Result<(), Error> {
+		Ok(())
 	}
 
-	pub fn stop_keybase_listener() {
+	pub fn stop_keybase_listener() -> Result<(), Error> {
+		Ok(())
+	}
 
+	pub fn start_foreign_http_listener(&self) -> Result<String, Error> {
+        let lock = self.container.clone();
+        let mut c = self.container.lock();
+        if c.foreign_http.is_some() {
+            return Err(ErrorKind::ForeignHttpListener.into());
+        }
+        let (stop_send, stop_recv) = oneshot::channel::<()>();
+        let address = c.config.foreign_api_address();
+        let router = build_foreign_api_router(self.container.clone(), c.config.foreign_api_secret.clone());
+        let server = gotham::init_server(address.clone(), router);
+        let fut = server
+            .select(stop_recv.map(|_| ()).map_err(|_| ()))
+            .map(|(res, _)| res)
+            .map_err(|(error, _)| error);
+        let handle = spawn(move || {
+            tokio::run(fut);
+            ()
+        });
+
+        c.foreign_http = Some((stop_send, handle));
+        Ok(address)
+	}
+
+	pub fn stop_foreign_http_listener(&self) -> Result<(), Error> {
+		let mut c = self.container.lock();
+        match c.foreign_http.take() {
+            None => Ok(()),
+            Some((stop, handle)) => {
+                let _ = stop.send(());
+                let _ = handle.join();
+                c.foreign_http = None;
+                Ok(())
+            }
+        }
 	}
 
 	pub fn accounts(&self) -> Result<Vec<AcctPathMapping>, Error> {
@@ -340,26 +375,30 @@ where
 
 		}
 		let mut send_args = args.send_args.clone();
-
+        let version = args.target_slate_version.clone();
 		let mut slate = self.open_and_close(|c| {
 			let w = c.backend()?;
 			tx::init_send_tx(w, args)
 		})?;
+
 		// Helper functionality. If send arguments exist, attempt to send
 		match &mut send_args {
 			Some(sa) => {
+				let version = match version {
+					Some(v) => SlateVersion::try_from(v)?,
+					None => SlateVersion::default(),
+				};
+				let vslate = VersionedSlate::into_version(slate.clone(), version);
+
 				match sa.method.clone().unwrap().as_ref() {
 					"http" => {
-						slate = HTTPAdapter::new().send_tx_sync(&sa.dest, &slate)?;
+						slate = HTTPAdapter::new().send_tx_sync(&sa.dest, &vslate)?.into();
 					}
 					"grinbox" => {
 						sa.finalize = false;
 						sa.post_tx = false;
-						let c = self.container.lock();
-
-						let publisher = c.grinbox.as_ref().map(|g| &g.1);
-						GrinboxAdapter::new(publisher)
-							.send_tx_async(&sa.dest, &slate)?;
+                        GrinboxAdapter::new(&self.container.lock())
+							.send_tx_async(&sa.dest, &vslate)?;
 					}
 					/*"keybase" => {
 						sa.finalize = false;

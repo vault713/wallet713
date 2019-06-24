@@ -13,7 +13,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use crate::common::{Arc, ErrorKind, Keychain, Mutex};
 use crate::wallet::api::owner::Owner;
-use crate::wallet::types::{NodeClient, Slate, WalletBackend};
+use crate::wallet::types::{NodeClient, Slate, VersionedSlate, WalletBackend};
 use crate::wallet::Container;
 use super::args::{self, AccountArgs, SendCommandType};
 use super::display::{self, InitialPromptOption};
@@ -205,8 +205,10 @@ where
                 let mut file = File::open(file_name.replace("~", &home_dir))?;
                 let mut slate = String::new();
                 file.read_to_string(&mut slate)?;
-                let mut slate = Slate::deserialize_upgrade(&slate)?;
-                let slate = self.api.finalize_tx(&slate)?;
+                let slate: VersionedSlate = serde_json::from_str(&slate)
+                    .map_err(|_| ErrorKind::ParseSlate)?;
+                let version = slate.version();
+                let slate = self.api.finalize_tx(&slate.into())?;
                 self.api.post_tx(&slate.tx, fluff)?;
                 cli_message!("Transaction finalized and posted successfully");
             }
@@ -222,6 +224,10 @@ where
                     "grinbox" | "" => {
                         self.api.start_grinbox_listener()?;
                     },
+                    "http" => {
+                        let address = self.api.start_foreign_http_listener()?;
+                        println!("Foreign api listening on {}", address);
+                    }
                     _ => {
                         return Err(ErrorKind::UnknownListenerType(t.to_owned()).into());
                     }
@@ -293,6 +299,9 @@ where
                     "grinbox" | "" => {
                         self.api.stop_grinbox_listener()?;
                     },
+                    "http" => {
+                        self.api.stop_foreign_http_listener()?;
+                    }
                     _ => {
                         return Err(ErrorKind::UnknownListenerType(t.to_owned()).into());
                     }

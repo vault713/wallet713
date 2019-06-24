@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use crate::common::{Arc, ErrorKind, Keychain, Mutex, Result};
 use crate::contacts::{Address, KeybaseAddress};
-use crate::wallet::types::{NodeClient, Slate, WalletBackend};
+use crate::wallet::types::{NodeClient, Slate, VersionedSlate, WalletBackend};
 use super::types::{CloseReason, Controller, Publisher, Subscriber, SubscriptionHandler};
 
 pub const TOPIC_SLATE_NEW: &str = "grin_slate_new";
@@ -42,7 +42,7 @@ impl KeybaseSubscriber {
 }
 
 impl Publisher for KeybasePublisher {
-    fn post_slate(&self, slate: &Slate, to: &Address) -> Result<()> {
+    fn post_slate(&self, slate: &VersionedSlate, to: &Address) -> Result<()> {
         let keybase_address = KeybaseAddress::from_str(&to.to_string())?;
 
         // make sure we don't send message with ttl to wallet713 as keybase oneshot does not support exploding lifetimes
@@ -100,12 +100,15 @@ impl Subscriber for KeybaseSubscriber {
                         TOPIC_SLATE_NEW => TOPIC_SLATE_SIGNED.to_string(),
                         _ => TOPIC_WALLET713_SLATES.to_string(),
                     };
-                    let mut slate = Slate::deserialize_upgrade(&msg)?;
+
+                    let slate: VersionedSlate = serde_json::from_str(&msg)
+                        .map_err(|_| ErrorKind::ParseSlate)?;
+
                     let address = KeybaseAddress {
                         username: sender.to_string(),
                         topic: Some(reply_topic),
                     };
-                    handler.on_slate(address.borrow(), &mut slate, None);
+                    handler.on_slate(address.borrow(), &slate, None);
                 }
             } else {
                 if !dropped {

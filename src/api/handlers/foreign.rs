@@ -1,4 +1,4 @@
-use futures::future;
+/*use futures::future;
 use futures::{Future, Stream};
 use gotham::handler::{HandlerFuture, IntoHandlerError};
 use gotham::state::{FromState, State};
@@ -8,7 +8,7 @@ use hyper::{Body, Response, StatusCode};
 use crate::api::error::ApiError;
 use crate::api::router::{trace_create_response, trace_state_and_body, WalletContainer};
 use crate::common::Result;
-use crate::wallet::types::{BlockFees, Slate};
+use crate::wallet::types::{BlockFees, Slate};*/
 
 /*pub fn receive_tx(mut state: State) -> Box<HandlerFuture> {
     let future = Body::take_from(&mut state)

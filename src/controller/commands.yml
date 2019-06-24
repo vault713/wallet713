@@ -57,11 +57,6 @@ subcommands:
         - type:
             help: The type of listener to start
             index: 1
-            required: true
-            possible_values:
-              - grinbox
-              - keybase
-              - http
   - outputs:
       about: Display the wallet's outputs
       args:
@@ -139,12 +134,7 @@ subcommands:
       about: Stop a foreign API listener
       args:
         - type:
-            help: The type of listener to start
+            help: The type of listener to stop
             index: 1
-            required: true
-            possible_values:
-              - grinbox
-              - keybase
-              - http
   - txs:
       about: Display the transaction log

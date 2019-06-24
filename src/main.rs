@@ -17,6 +17,7 @@ extern crate ansi_term;
 extern crate colored;
 extern crate digest;
 extern crate dirs;
+extern crate easy_jsonrpc;
 extern crate failure;
 extern crate futures;
 extern crate gotham;

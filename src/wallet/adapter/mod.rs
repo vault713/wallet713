@@ -26,7 +26,7 @@ use failure::Error;
 use std::collections::HashMap;
 
 use crate::common::config::WalletConfig;
-use super::types::Slate;
+use super::types::VersionedSlate;
 
 /// Encapsulate wallet to wallet communication functions
 pub trait Adapter {
@@ -34,11 +34,11 @@ pub trait Adapter {
 	fn supports_sync(&self) -> bool;
 
 	/// Send a transaction slate to another listening wallet and return result
-	fn send_tx_sync(&self, addr: &str, slate: &Slate) -> Result<Slate, Error>;
+	fn send_tx_sync(&self, addr: &str, slate: &VersionedSlate) -> Result<VersionedSlate, Error>;
 
 	/// Send a transaction asynchronously (result will be returned via the listener)
-	fn send_tx_async(&self, addr: &str, slate: &Slate) -> Result<(), Error>;
+	fn send_tx_async(&self, addr: &str, slate: &VersionedSlate) -> Result<(), Error>;
 
 	/// Receive a transaction async. (Actually just read it from wherever and return the slate)
-	fn receive_tx_async(&self, params: &str) -> Result<Slate, Error>;
+	fn receive_tx_async(&self, params: &str) -> Result<VersionedSlate, Error>;
 }

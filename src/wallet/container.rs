@@ -1,4 +1,5 @@
 use failure::Error;
+use futures::sync::oneshot;
 use grin_keychain::{ExtKeychain, Keychain};
 use std::marker::PhantomData;
 use std::thread::JoinHandle;
@@ -22,6 +23,8 @@ pub struct Container<W, C, K>
     pub account: String,
     pub grinbox: Option<(GrinboxAddress, GrinboxPublisher, GrinboxSubscriber, JoinHandle<()>)>,
     pub keybase: Option<(KeybaseAddress, KeybasePublisher, KeybaseSubscriber)>,
+    pub foreign_http: Option<(oneshot::Sender<()>, JoinHandle<()>)>,
+    pub owner_http: Option<JoinHandle<()>>,
     phantom_c: PhantomData<C>,
     phantom_k: PhantomData<K>,
 }
@@ -40,6 +43,8 @@ impl<W, C, K> Container<W, C, K>
             account: String::from("default"),
             grinbox: None,
             keybase: None,
+            foreign_http: None,
+            owner_http: None,
             phantom_c: PhantomData,
             phantom_k: PhantomData,
         }

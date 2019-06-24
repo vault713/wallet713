@@ -125,10 +125,8 @@ where
 
     /// Get the seed
     fn get_seed(&self) -> Result<ZeroingString> {
-        println!("ZZZ");
         match &self.password {
             Some(p) => {
-                println!("XXX");
                 let seed = WalletSeed::from_file(&self.config, p)?;
                 seed.to_mnemonic()
                     .map(|s| s.into())
