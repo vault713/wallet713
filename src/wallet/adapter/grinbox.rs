@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use crate::broker::{GrinboxPublisher, Publisher};
 use crate::contacts::{Address, GrinboxAddress};
-use crate::common::{Keychain, MutexGuard};
+use crate::common::{Arc, Keychain, Mutex};
 use crate::wallet::types::{NodeClient, VersionedSlate, WalletBackend};
 use crate::wallet::{Container, ErrorKind};
 use super::Adapter;
@@ -20,7 +20,7 @@ pub struct GrinboxAdapter<'a, W, C, K>
 		C: NodeClient,
 		K: Keychain,
 {
-    container: &'a MutexGuard<'a, Container<W, C, K>>,
+    container: &'a Arc<Mutex<Container<W, C, K>>>,
 }
 
 impl<'a, W, C, K> GrinboxAdapter<'a, W, C, K>
@@ -30,14 +30,10 @@ impl<'a, W, C, K> GrinboxAdapter<'a, W, C, K>
 		K: Keychain,
 {
 	/// Create
-	pub fn new(container: &'a MutexGuard<Container<W, C, K>>) -> Self {
+	pub fn new(container: &'a Arc<Mutex<Container<W, C, K>>>) -> Self {
         Self {
             container,
         }
-	}
-
-	fn publisher(&self) -> Option<&GrinboxPublisher> {
-		self.container.grinbox.as_ref().map(|g| &g.1)
 	}
 }
 
@@ -56,9 +52,10 @@ impl<'a, W, C, K> Adapter for GrinboxAdapter<'a, W, C, K>
 	}
 
 	fn send_tx_async(&self, dest: &str, slate: &VersionedSlate) -> Result<(), Error> {
-		let publisher = self.publisher()
+		let address = GrinboxAddress::from_str(dest)?;
+		let c = self.container.lock();
+		let publisher = c.grinbox.as_ref().map(|g| &g.1)
 			.ok_or(ErrorKind::GrinboxNoListener)?;
-        let address = GrinboxAddress::from_str(dest)?;
         publisher.post_slate(slate, &address)
 	}
 

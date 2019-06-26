@@ -21,7 +21,7 @@ use crate::wallet::types::{
     BlockFees, CbData, NodeClient, NodeVersionInfo, Slate, SlateVersion, WalletBackend
 };
 use crate::wallet::Container;
-use super::VersionInfo;
+use super::{VersionInfo, check_middleware};
 
 const FOREIGN_API_VERSION: u16 = 2;
 
@@ -61,10 +61,10 @@ where
 	C: NodeClient,
 	K: Keychain,
 {
-    pub fn new(container: Arc<Mutex<Container<W, C, K>>>, middleware: Option<ForeignCheckMiddleware>) -> Self {
+    pub fn new(container: Arc<Mutex<Container<W, C, K>>>) -> Self {
 		Foreign {
 			container,
-            middleware,
+            middleware: Some(check_middleware),
 			phantom_k: PhantomData,
 			phantom_c: PhantomData,
 		}

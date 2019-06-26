@@ -635,56 +635,9 @@ fn show_address(config: &Wallet713Config, include_index: bool) -> Result<()> {
         );
     }
     Ok(())
-}
-
-fn password_prompt(opt: Option<&str>) -> String {
-    opt.map(String::from).unwrap_or_else(|| {
-        rpassword::prompt_password_stdout("Password: ").unwrap_or(String::from(""))
-    })
-}
-
-fn proof_ok(
-    sender: Option<String>,
-    receiver: String,
-    amount: u64,
-    outputs: Vec<String>,
-    kernel: String,
-) {
-    let sender_message = sender
-        .as_ref()
-        .map(|s| format!(" from [{}]", s.bright_green()))
-        .unwrap_or(String::new());
-
-    println!(
-        "this file proves that [{}] grins was sent to [{}]{}",
-        core::amount_to_hr_string(amount, false).bright_green(),
-        receiver.bright_green(),
-        sender_message
-    );
-
-    if sender.is_none() {
-        println!(
-            "{}: this proof does not prove which address sent the funds, only which received it",
-            "WARNING".bright_yellow()
-        );
-    }
-
-    println!("\noutputs:");
-    for output in outputs {
-        println!("   {}", output.bright_magenta());
-    }
-    println!("kernel:");
-    println!("   {}", kernel.bright_magenta());
-    println!("\n{}: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations", "WARNING".bright_yellow());
-    println!("please use a grin block explorer to verify this is the case. for example:");
-    let prefix = match is_mainnet() {
-        true => "",
-        false => "floonet.",
-    };
-    cli_message!("   https://{}grinscan.net/kernel/{}", prefix, kernel);
 }*/
 
-fn do_command(
+/*fn do_command(
     command: &str,
     config: &mut Wallet713Config,
     wallet: Arc<Mutex<Wallet>>,
@@ -694,7 +647,7 @@ fn do_command(
     out_is_safe: &mut bool,
 ) -> Result<()> {
     *out_is_safe = true;
-    /*let home_dir = dirs::home_dir()
+    let home_dir = dirs::home_dir()
         .map(|p| p.to_str().unwrap().to_string())
         .unwrap_or("~".to_string());
 
@@ -735,126 +688,9 @@ fn do_command(
         Some("address") => {
             show_address(config, true)?;
         }
-        Some("lock") => {
-            if keybase_broker.is_some() || grinbox_broker.is_some() {
-                return Err(ErrorKind::HasListener.into());
-            }
-            wallet.lock().lock();
-        }
-        Some("unlock") => {
-            let args = matches.subcommand_matches("unlock").unwrap();
-            let account = args.value_of("account").unwrap_or("default");
-            let passphrase = match args.is_present("passphrase") {
-                true => password_prompt(args.value_of("passphrase")),
-                false => "".to_string(),
-            };
-            *out_is_safe = args.value_of("passphrase").is_none();
-
-            {
-                let mut w = wallet.lock();
-                if !w.is_locked() {
-                    return Err(ErrorKind::WalletAlreadyUnlocked.into());
-                }
-                w.unlock(config, account, passphrase.as_str())?;
-            }
-
-            derive_address_key(config, wallet, grinbox_broker)?;
-            return Ok(());
-        }
-        Some("listen") => {
-            let grinbox = matches
-                .subcommand_matches("listen")
-                .unwrap()
-                .is_present("grinbox");
-            let keybase = matches
-                .subcommand_matches("listen")
-                .unwrap()
-                .is_present("keybase");
-            if grinbox || !keybase {
-                let is_running = match grinbox_broker {
-                    Some((_, subscriber)) => subscriber.is_running(),
-                    _ => false,
-                };
-                if is_running {
-                    Err(ErrorKind::AlreadyListening("grinbox".to_string()))?
-                } else {
-                    let (publisher, subscriber, _) =
-                        start_grinbox_listener(config, wallet.clone(), address_book.clone())?;
-                    *grinbox_broker = Some((publisher, subscriber));
-                }
-            }
-            if keybase {
-                let is_running = match keybase_broker {
-                    Some((_, subscriber)) => subscriber.is_running(),
-                    _ => false,
-                };
-                if is_running {
-                    Err(ErrorKind::AlreadyListening("keybase".to_string()))?
-                } else {
-                    let (publisher, subscriber, _) =
-                        start_keybase_listener(config, wallet.clone(), address_book.clone())?;
-                    *keybase_broker = Some((publisher, subscriber));
-                }
-            }
-        }
-        Some("stop") => {
-            let grinbox = matches
-                .subcommand_matches("stop")
-                .unwrap()
-                .is_present("grinbox");
-            let keybase = matches
-                .subcommand_matches("stop")
-                .unwrap()
-                .is_present("keybase");
-            if grinbox || !keybase {
-                let is_running = match grinbox_broker {
-                    Some((_, subscriber)) => subscriber.is_running(),
-                    _ => false,
-                };
-                if is_running {
-                    cli_message!("stopping grinbox listener...");
-                    if let Some((_, subscriber)) = grinbox_broker {
-                        subscriber.stop();
-                    };
-                    *grinbox_broker = None;
-                } else {
-                    Err(ErrorKind::ClosedListener("grinbox".to_string()))?
-                }
-            }
-            if keybase {
-                let is_running = match keybase_broker {
-                    Some((_, subscriber)) => subscriber.is_running(),
-                    _ => false,
-                };
-                if is_running {
-                    cli_message!("stopping keybase listener...");
-                    if let Some((_, subscriber)) = keybase_broker {
-                        subscriber.stop();
-                    };
-                    *keybase_broker = None;
-                } else {
-                    Err(ErrorKind::ClosedListener("keybase".to_string()))?
-                }
-            }
-        }
         Some("contacts") => {
             let arg_matches = matches.subcommand_matches("contacts").unwrap();
             do_contacts(&arg_matches, address_book.clone())?;
-        }
-        Some("receive") => {
-            let args = matches.subcommand_matches("receive").unwrap();
-            let input = args.value_of("file").unwrap();
-            let mut file = File::open(input.replace("~", &home_dir))?;
-            let mut slate = String::new();
-            file.read_to_string(&mut slate)?;
-            let mut slate = Slate::deserialize_upgrade(&slate)?;
-            let mut file = File::create(&format!("{}.response", input.replace("~", &home_dir)))?;
-            wallet
-                .lock()
-                .process_sender_initiated_slate(Some(String::from("file")), &mut slate)?;
-            cli_message!("{} received.", input);
-            file.write_all(serde_json::to_string(&slate)?.as_bytes())?;
-            cli_message!("{}.response created successfully.", input);
         }
         Some("invoice") => {
             let args = matches.subcommand_matches("invoice").unwrap();
@@ -952,61 +788,10 @@ fn do_command(
                 return Ok(());
             }
         }
-        Some("export-proof") => {
-            let args = matches.subcommand_matches("export-proof").unwrap();
-            let input = args.value_of("file").unwrap();
-            let id = args.value_of("id").unwrap();
-            let id = id
-                .parse::<u32>()
-                .map_err(|_| ErrorKind::InvalidTxId(id.to_string()))?;
-            let w = wallet.lock();
-            let tx_proof = w.get_tx_proof(id)?;
-            match w.verify_tx_proof(&tx_proof) {
-                Ok((sender, receiver, amount, outputs, kernel)) => {
-                    let mut file = File::create(input.replace("~", &home_dir))?;
-                    file.write_all(serde_json::to_string(&tx_proof)?.as_bytes())?;
-                    println!("proof written to {}", input);
-                    proof_ok(sender, receiver, amount, outputs, kernel);
-                }
-                Err(_) => {
-                    cli_message!("unable to verify proof");
-                }
-            }
-        }
-        Some("verify-proof") => {
-            let args = matches.subcommand_matches("verify-proof").unwrap();
-            let input = args.value_of("file").unwrap();
-            let path = Path::new(&input.replace("~", &home_dir)).to_path_buf();
-            if !path.exists() {
-                return Err(ErrorKind::FileNotFound(input.to_string()).into());
-            }
-            let mut file = File::open(path)?;
-            let mut proof = String::new();
-            file.read_to_string(&mut proof)?;
-            let tx_proof: TxProof = serde_json::from_str(&proof)?;
-
-            let wallet = wallet.lock();
-            match wallet.verify_tx_proof(&tx_proof) {
-                Ok((sender, receiver, amount, outputs, kernel)) => {
-                    proof_ok(sender, receiver, amount, outputs, kernel);
-                }
-                Err(_) => {
-                    cli_message!("unable to verify proof");
-                }
-            }
-        }
-        Some(subcommand) => {
-            cli_message!(
-                "{}: subcommand `{}` not implemented!",
-                "ERROR".bright_red(),
-                subcommand.bright_green()
-            );
-        }
-        None => {}
-    };*/
+    };
 
     Ok(())
-}
+}*/
 
 #[cfg(windows)]
 pub fn enable_ansi_support() {

@@ -227,8 +227,15 @@ pub enum ErrorKind {
 	#[fail(display = "No transaction stored")]
 	TransactionNotStored,
 
-	#[fail(display = "Incoming Slate is not compatible with this wallet. Please upgrade the node or use a different one")]
+	/// No transaction proof stored
+	#[fail(display = "No transaction proof stored")]
+	TransactionProofNotStored,
+
+	#[fail(display = "Incoming slate is not compatible with this wallet. Please upgrade the node or use a different one")]
 	Compatibility,
+
+	#[fail(display = "Unable to verify proof")]
+	VerifyProof,
 
 	/// Other
 	#[fail(display = "Generic error: {}", _0)]

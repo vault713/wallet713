@@ -12,10 +12,10 @@ use std::borrow::Cow::{self, Borrowed, Owned};
 use std::fs::File;
 use std::io::{Read, Write};
 use crate::common::{Arc, ErrorKind, Keychain, Mutex};
-use crate::wallet::api::owner::Owner;
-use crate::wallet::types::{NodeClient, Slate, VersionedSlate, WalletBackend};
+use crate::wallet::api::{Foreign, Owner};
+use crate::wallet::types::{NodeClient, Slate, TxProof, VersionedSlate, WalletBackend};
 use crate::wallet::Container;
-use super::args::{self, AccountArgs, SendCommandType};
+use super::args::{self, AccountArgs, ProofArgs, SendCommandType};
 use super::display::{self, InitialPromptOption};
 
 const COLORED_PROMPT: &'static str = "\x1b[36mwallet713>\x1b[0m ";
@@ -27,7 +27,8 @@ where
 	C: NodeClient,
 	K: Keychain,
 {
-    api: Owner<W, C, K>
+    api: Owner<W, C, K>,
+    foreign: Foreign<W, C, K>,
 }
 
 impl<W, C, K> CLI<W, C, K>
@@ -38,7 +39,8 @@ where
 {
     pub fn new(container: Arc<Mutex<Container<W, C, K>>>) -> Self {
         Self {
-            api: Owner::new(container),
+            api: Owner::new(container.clone()),
+            foreign: Foreign::new(container)
         }
     }
 
@@ -59,6 +61,8 @@ where
         else if self.initial_prompt()? {
             return Ok(());
         }
+
+        self.start_listeners()?;
 
         self.command_loop();
         Ok(())
@@ -104,6 +108,20 @@ where
         println!("Restoring wallet..");
         self.api.restore()?;
         println!("Wallet restored successfully");
+        Ok(())
+    }
+
+    fn start_listeners(&self) -> Result<(), Error> {
+        let config = self.api.get_config();
+        if config.grinbox_listener_auto_start() {
+            self.api.start_grinbox_listener()?;
+        }
+
+        if config.foreign_api() {
+            let address = self.api.start_foreign_http_listener()?;
+            println!("Foreign api listening on {}", address);
+        }
+
         Ok(())
     }
 
@@ -207,8 +225,7 @@ where
                 file.read_to_string(&mut slate)?;
                 let slate: VersionedSlate = serde_json::from_str(&slate)
                     .map_err(|_| ErrorKind::ParseSlate)?;
-                let version = slate.version();
-                let slate = self.api.finalize_tx(&slate.into())?;
+                let slate = self.api.finalize_tx(&slate.into(), None)?;
                 self.api.post_tx(&slate.tx, fluff)?;
                 cli_message!("Transaction finalized and posted successfully");
             }
@@ -241,14 +258,51 @@ where
                     None => self.api.node_height()?.1
                 };
                 display::outputs(&account, height, validated, outputs, true);
+            },
+            ("proof", Some(m)) => {
+                let (sender, receiver, amount, outputs, excess) = match args::proof_command(m)? {
+                    ProofArgs::Export(index, file_name) => {
+                        let tx_proof = self.api.get_stored_tx_proof(Some(index), None)?
+                            .ok_or(ErrorKind::TransactionHasNoProof)?;
+                        let verify = self.api.verify_tx_proof(&tx_proof)?;
+                        let mut file = File::create(file_name.replace("~", &home_dir))?;
+                        file.write_all(serde_json::to_string(&tx_proof)?.as_bytes())?;
+                        println!("Proof exported to '{}'", file_name);
+                        verify
+                    },
+                    ProofArgs::Verify(file_name) => {
+                        let mut file = File::open(file_name.replace("~", &home_dir))?;
+                        let mut tx_proof = String::new();
+                        file.read_to_string(&mut tx_proof)?;
+                        let tx_proof: TxProof = serde_json::from_str(&tx_proof)?;
+                        self.api.verify_tx_proof(&tx_proof)?
+                    }
+                };
+                display::proof(sender, receiver, amount, outputs, excess);
             }
             ("repost", Some(m)) => {
                 let (index, fluff) = args::repost_command(m)?;
                 self.api.repost_tx(Some(index), None, fluff)?;
-                cli_message!("Transaction reposted successfully");
+                cli_message!("Transaction '{}' reposted successfully", index);
+            }
+            ("receive", Some(m)) => {
+                let (file_name, message) = args::receive_command(m)?;
+                let mut file = File::open(file_name.replace("~", &home_dir))?;
+                let mut slate = String::new();
+                file.read_to_string(&mut slate)?;
+                let slate: VersionedSlate = serde_json::from_str(&slate)
+                    .map_err(|_| ErrorKind::ParseSlate)?;
+                let version = slate.version().clone();
+                let slate = slate.into();
+                let slate = self.foreign.receive_tx(&slate, None, message.map(|m| m.to_owned()))?;
+                cli_message!("Slate '{}' received", file_name);
+                let mut file_out = File::create(&format!("{}.response", file_name.replace("~", &home_dir)))?;
+                let slate = VersionedSlate::into_version(slate, version);
+                file_out.write_all(serde_json::to_string(&slate)?.as_bytes())?;
+                cli_message!("Response slate file '{}'.response created successfully", file_name);
             }
             ("restore", _) => {
-                println!("Restoring wallet..");
+                cli_message!("Restoring wallet..");
                 self.api.restore()?;
                 cli_message!("Wallet restored successfully");
             }

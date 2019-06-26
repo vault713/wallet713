@@ -363,19 +363,19 @@ where
         Ok(tx_proof_file.exists())
     }
 
-    fn get_stored_tx_proof(&self, uuid: &str) -> Result<TxProof> {
+    fn get_stored_tx_proof(&self, uuid: &str) -> Result<Option<TxProof>> {
         let filename = format!("{}.proof", uuid);
         let path = Path::new(&self.config.data_file_dir)
             .join(TX_PROOF_SAVE_DIR)
             .join(filename);
         let tx_proof_file = Path::new(&path).to_path_buf();
         if !tx_proof_file.exists() {
-            return Err(ErrorKind::TransactionHasNoProof.into());
+            return Ok(None);
         }
         let mut tx_proof_f = File::open(tx_proof_file)?;
         let mut content = String::new();
         tx_proof_f.read_to_string(&mut content)?;
-        Ok(serde_json::from_str(&content)?)
+        Ok(Some(serde_json::from_str(&content)?))
     }
 
     fn batch<'a>(&'a self) -> Result<Box<dyn WalletBackendBatch<K> + 'a>> {

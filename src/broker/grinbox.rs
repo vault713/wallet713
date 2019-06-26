@@ -1,14 +1,15 @@
 use colored::Colorize;
 use ws::util::Token;
 use ws::{
-    connect, CloseCode, Error as WsError, ErrorKind as WsErrorKind, Handler, Handshake, Message,
-    Result as WsResult, Sender,
+    CloseCode, Error as WsError, ErrorKind as WsErrorKind, Handler, Handshake, Message,
+    Result as WsResult, Sender, connect
 };
-use crate::common::crypto::{sign_challenge, Hex, SecretKey};
+use crate::common::crypto::{Hex, SecretKey, sign_challenge};
 use crate::common::message::EncryptedMessage;
 use crate::common::{Arc, ErrorKind, Keychain, Mutex, Result};
 use crate::contacts::{Address, GrinboxAddress, DEFAULT_GRINBOX_PORT};
 use crate::wallet::types::{NodeClient, Slate, TxProof, TxProofErrorKind, VersionedSlate, WalletBackend};
+use crate::cli_message;
 
 use super::protocol::{ProtocolRequest, ProtocolResponse};
 use super::types::{CloseReason, Controller, Publisher, Subscriber, SubscriptionHandler};
@@ -334,7 +335,7 @@ where
         let response = match serde_json::from_str::<ProtocolResponse>(&msg.to_string()) {
             Ok(x) => x,
             Err(_) => {
-                println!("{} Could not parse response", "ERROR:".bright_red(),);
+                cli_message!("{} Could not parse response", "ERROR:".bright_red());
                 return Ok(());
             }
         };
@@ -362,7 +363,7 @@ where
                 ) {
                     Ok(x) => x,
                     Err(e) => {
-                        println!("{} {}", "ERROR:".bright_red(), e);
+                        cli_message!("{} {}", "ERROR:".bright_red(), e);
                         return Ok(());
                     }
                 };
@@ -376,7 +377,7 @@ where
                 kind: _,
                 description: _,
             } => {
-                println!("{} {}", "ERROR:".bright_red(), response);
+                cli_message!("{} {}", "ERROR:".bright_red(), response);
             }
             _ => {}
         }

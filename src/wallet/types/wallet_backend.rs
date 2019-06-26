@@ -47,7 +47,7 @@ where
     fn get_last_confirmed_height(&self) -> Result<u64>;
     fn get_stored_tx(&self, uuid: &str) -> Result<Option<Transaction>>;
     fn has_stored_tx_proof(&self, uuid: &str) -> Result<bool>;
-    fn get_stored_tx_proof(&self, uuid: &str) -> Result<TxProof>;
+    fn get_stored_tx_proof(&self, uuid: &str) -> Result<Option<TxProof>>;
     fn get_tx_log_by_slate_id(&self, slate_id: &str) -> Result<Option<TxLogEntry>>;
     fn outputs<'a>(&'a self) -> Result<Box<dyn Iterator<Item = OutputData> + 'a>>;
     fn tx_logs<'a>(&'a self) -> Result<Box<dyn Iterator<Item = TxLogEntry> + 'a>>;

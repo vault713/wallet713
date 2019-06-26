@@ -15,7 +15,8 @@
 use colored::Colorize;
 use failure::Error;
 use grin_core::core::amount_to_hr_string;
-use grin_core::global::coinbase_maturity;
+use grin_core::global::{coinbase_maturity, is_mainnet};
+use grin_util::secp::pedersen::Commitment;
 use grin_util::{ZeroingString, to_hex};
 use uuid::Uuid;
 use rpassword::prompt_password_stdout;
@@ -24,7 +25,7 @@ use std::fmt::Display;
 use std::io::{self, Write};
 use std::ops::Deref;
 use crate::common::ErrorKind;
-use crate::contacts::AddressBook;
+use crate::contacts::{AddressBook, GrinboxAddress};
 use crate::wallet::types::{AcctPathMapping, OutputCommitMapping, OutputStatus, TxLogEntry, WalletInfo};
 
 pub enum InitialPromptOption {
@@ -467,4 +468,36 @@ pub fn info(
 			 (is your `grin server` offline or broken?)"
 		);
 	}
+}
+
+pub fn proof(
+    sender: GrinboxAddress,
+    receiver: GrinboxAddress,
+    amount: u64,
+    outputs: Vec<Commitment>,
+    excess: Commitment,
+) {
+	let outputs = outputs.iter().map(|o| to_hex(o.0.to_vec())).collect::<Vec<_>>();
+	let excess = to_hex(excess.0.to_vec());
+
+	println!(
+        "This file proves that [{}] grins was sent to [{}] from [{}]",
+        amount_to_hr_string(amount, false).bright_green(),
+        format!("{}", receiver).bright_green(),
+		format!("{}", sender).bright_green()
+    );
+
+    println!("\nOutputs:");
+    for output in outputs {
+        println!("   {}", output.bright_magenta());
+    }
+    println!("Kernel excess:");
+    println!("   {}", excess.bright_magenta());
+    println!("\n{}: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations", "WARNING".bright_yellow());
+    println!("Please use a grin block explorer to verify this is the case. for example:");
+    let prefix = match is_mainnet() {
+        true => "",
+        false => "floonet.",
+    };
+    cli_message!("   https://{}grinscan.net/kernel/{}", prefix, excess);
 }

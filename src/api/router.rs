@@ -52,7 +52,7 @@ impl<W, C, K> ApiMiddleware<W, C, K>
         container: Arc<Mutex<Container<W, C, K>>>
     ) -> Self {
         Self {
-            api: Foreign::new(container, None),
+            api: Foreign::new(container),
         }
     }
 }

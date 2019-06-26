@@ -3,9 +3,10 @@ use grin_core::core::amount_to_hr_string;
 use std::marker::Send;
 use crate::common::{Arc, Keychain, Mutex, Error};
 use crate::contacts::{Address, AddressBook, AddressType, GrinboxAddress};
-use crate::wallet::api::{Foreign, Owner, check_middleware};
+use crate::wallet::api::{Foreign, Owner};
 use crate::wallet::types::{NodeClient, Slate, VersionedSlate, TxProof, WalletBackend};
 use crate::wallet::Container;
+use crate::cli_message;
 
 pub enum CloseReason {
     Normal,
@@ -64,7 +65,7 @@ impl<W, C, K, P> Controller<W, C, K, P>
         Ok(Self {
             name: name.to_string(),
             owner: Owner::new(container.clone()),
-            foreign: Foreign::new(container, Some(check_middleware)),
+            foreign: Foreign::new(container),
             publisher,
         })
     }
@@ -83,7 +84,7 @@ impl<W, C, K, P> Controller<W, C, K, P>
             }
             Ok(false)
         } else {
-            self.owner.finalize_tx(slate)?;
+            self.owner.finalize_tx(slate, tx_proof)?;
             Ok(true)
         }
     }
@@ -97,7 +98,7 @@ impl<W, C, K, P> SubscriptionHandler for Controller<W, C, K, P>
         P: Publisher,
 {
     fn on_open(&self) {
-        println!("listener started for [{}]", self.name.bright_green());
+        cli_message!("listener started for [{}]", self.name.bright_green());
     }
 
     fn on_slate(&self, from: &Address, slate: &VersionedSlate, tx_proof: Option<&mut TxProof>) {
@@ -114,15 +115,15 @@ impl<W, C, K, P> SubscriptionHandler for Controller<W, C, K, P>
         let mut slate: Slate = slate.clone().into();
 
         if slate.num_participants > slate.participant_data.len() {
-            println!(
-                "slate [{}] received from [{}] for [{}] grins",
+            cli_message!(
+                "Slate [{}] received from [{}] for [{}] grins",
                 slate.id.to_string().bright_green(),
                 display_from.bright_green(),
                 amount_to_hr_string(slate.amount, false).bright_green()
             );
         } else {
-            println!(
-                "slate [{}] received back from [{}] for [{}] grins",
+            cli_message!(
+                "Slate [{}] received back from [{}] for [{}] grins",
                 slate.id.to_string().bright_green(),
                 display_from.bright_green(),
                 amount_to_hr_string(slate.amount, false).bright_green()
@@ -143,17 +144,17 @@ impl<W, C, K, P> SubscriptionHandler for Controller<W, C, K, P>
                     self.publisher
                         .post_slate(&slate, from)
                         .map_err(|e| {
-                            println!("{}: {}", "ERROR".bright_red(), e);
+                            cli_message!("{}: {}", "ERROR".bright_red(), e);
                             e
                         })
                         .expect("failed posting slate!");
-                    println!(
+                    cli_message!(
                         "slate [{}] sent back to [{}] successfully",
                         id.to_string().bright_green(),
                         display_from.bright_green()
                     );
                 } else {
-                    println!(
+                    cli_message!(
                         "slate [{}] finalized successfully",
                         slate.id.to_string().bright_green()
                     );
@@ -163,14 +164,14 @@ impl<W, C, K, P> SubscriptionHandler for Controller<W, C, K, P>
 
         match result {
             Ok(()) => {}
-            Err(e) => println!("{}", e),
+            Err(e) => cli_message!("{}", e),
         }
     }
 
     fn on_close(&self, reason: CloseReason) {
         match reason {
-            CloseReason::Normal => println!("listener [{}] stopped", self.name.bright_green()),
-            CloseReason::Abnormal(_) => println!(
+            CloseReason::Normal => cli_message!("listener [{}] stopped", self.name.bright_green()),
+            CloseReason::Abnormal(_) => cli_message!(
                 "{}: listener [{}] stopped unexpectedly",
                 "ERROR".bright_red(),
                 self.name.bright_green()
@@ -179,11 +180,11 @@ impl<W, C, K, P> SubscriptionHandler for Controller<W, C, K, P>
     }
 
     fn on_dropped(&self) {
-        println!("{}: listener [{}] lost connection. it will keep trying to restore connection in the background.", "WARNING".bright_yellow(), self.name.bright_green())
+        cli_message!("{}: listener [{}] lost connection. it will keep trying to restore connection in the background.", "WARNING".bright_yellow(), self.name.bright_green())
     }
 
     fn on_reestablished(&self) {
-        println!(
+        cli_message!(
             "{}: listener [{}] reestablished connection.",
             "INFO".bright_blue(),
             self.name.bright_green()

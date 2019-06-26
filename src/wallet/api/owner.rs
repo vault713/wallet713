@@ -20,6 +20,7 @@ use grin_core::core::Transaction;
 use grin_core::ser::ser_vec;
 use grin_keychain::Identifier;
 use grin_util::secp::key::PublicKey;
+use grin_util::secp::pedersen::Commitment;
 use grin_util::{ZeroingString, to_hex};
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -29,6 +30,7 @@ use uuid::Uuid;
 
 use crate::api::router::build_foreign_api_router;
 use crate::broker::{Controller, GrinboxPublisher, GrinboxSubscriber, Subscriber};
+use crate::common::config::Wallet713Config;
 use crate::common::hasher::derive_address_key;
 use crate::common::{Arc, Keychain, Mutex, MutexGuard};
 use crate::contacts::{Address, AddressType, GrinboxAddress, parse_address};
@@ -37,7 +39,7 @@ use crate::wallet::{Container, ErrorKind};
 use crate::internal::*;
 use crate::wallet::types::{
     AcctPathMapping, InitTxArgs, NodeClient, OutputCommitMapping, Slate, SlateVersion, TxLogEntry,
-	TxWrapper, VersionedSlate, WalletBackend, WalletInfo,
+	TxProof, TxWrapper, VersionedSlate, WalletBackend, WalletInfo,
 };
 
 pub struct Owner<W, C, K>
@@ -124,6 +126,11 @@ where
 		let mut c = self.container.lock();
 		let w = c.raw_backend();
 		w.clear()
+	}
+
+	pub fn get_config(&self) -> Wallet713Config {
+		let c = self.container.lock();
+		c.config.clone()
 	}
 
 	pub fn start_grinbox_listener(&self) -> Result<GrinboxAddress, Error> {
@@ -327,6 +334,27 @@ where
 		})
 	}
 
+	fn retrieve_tx(
+		&self,
+		tx_id: Option<u32>,
+		tx_slate_id: Option<Uuid>,
+	) -> Result<TxLogEntry, Error> {
+		let mut tx_id_string = String::new();
+		if let Some(tx_id) = tx_id {
+			tx_id_string = tx_id.to_string();
+		} else if let Some(tx_slate_id) = tx_slate_id {
+			tx_id_string = tx_slate_id.to_string();
+		}
+
+		let (_, _, txs, _, _) = self.retrieve_txs(true, false, false, tx_id, tx_slate_id)?;
+		match txs.into_iter().next() {
+			Some(t) => Ok(t),
+			None => {
+				Err(ErrorKind::TransactionDoesntExist(tx_id_string).into())
+			}
+		}
+	}
+
     pub fn retrieve_summary_info(
 		&self,
 		refresh_from_node: bool,
@@ -375,7 +403,10 @@ where
 
 		}
 		let mut send_args = args.send_args.clone();
-        let version = args.target_slate_version.clone();
+		let version = match args.target_slate_version {
+			Some(v) => SlateVersion::try_from(v)?,
+			None => SlateVersion::default(),
+		};
 		let mut slate = self.open_and_close(|c| {
 			let w = c.backend()?;
 			tx::init_send_tx(w, args)
@@ -384,21 +415,20 @@ where
 		// Helper functionality. If send arguments exist, attempt to send
 		match &mut send_args {
 			Some(sa) => {
-				let version = match version {
-					Some(v) => SlateVersion::try_from(v)?,
-					None => SlateVersion::default(),
-				};
 				let vslate = VersionedSlate::into_version(slate.clone(), version);
-
-				match sa.method.clone().unwrap().as_ref() {
+				let sync = match sa.method.clone().unwrap().as_ref() {
 					"http" => {
-						slate = HTTPAdapter::new().send_tx_sync(&sa.dest, &vslate)?.into();
+						slate = HTTPAdapter::new()
+							.send_tx_sync(&sa.dest, &vslate)?
+							.into();
+						true
 					}
 					"grinbox" => {
 						sa.finalize = false;
 						sa.post_tx = false;
-                        GrinboxAdapter::new(&self.container.lock())
+                        GrinboxAdapter::new(&self.container)
 							.send_tx_async(&sa.dest, &vslate)?;
+						false
 					}
 					/*"keybase" => {
 						sa.finalize = false;
@@ -413,17 +443,22 @@ where
 							"unsupported payment method".to_owned(),
 						))?;
 					}
-				}
-				self.tx_lock_outputs(&slate, 0, Some(sa.dest.clone()))?;
-				let slate = match sa.finalize {
-					true => self.finalize_tx(&slate)?,
-					false => slate,
 				};
+				self.tx_lock_outputs(&slate, 0, Some(sa.dest.clone()))?;
+				if sync {
+					let slate = match sa.finalize {
+						true => self.finalize_tx(&slate, None)?,
+						false => slate,
+					};
 
-				if sa.post_tx {
-					self.post_tx(&slate.tx, sa.fluff)?;
+					if sa.post_tx {
+						self.post_tx(&slate.tx, sa.fluff)?;
+					}
+					Ok(slate)
 				}
-				Ok(slate)
+				else {
+					Ok(slate)
+				}
 			}
 			None => Ok(slate),
 		}
@@ -452,11 +487,11 @@ where
 		})
 	}
 
-	pub fn finalize_tx(&self, slate: &Slate) -> Result<Slate, Error> {
+	pub fn finalize_tx(&self, slate: &Slate, tx_proof: Option<&mut TxProof>) -> Result<Slate, Error> {
 		self.open_and_close(|c| {
 			let w = c.backend()?;
 			let mut slate = slate.clone();
-			slate = tx::finalize_tx(w, &slate)?;
+			slate = tx::finalize_tx(w, &slate, tx_proof)?;
 			Ok(slate)
 		})
 	}
@@ -493,47 +528,53 @@ where
 	}
 
 	pub fn get_stored_tx(&self, slate_id: &Uuid) -> Result<Option<Transaction>, Error> {
-		self.open_and_close(|c| {
-			let w = c.backend()?;
-			w.get_stored_tx(&slate_id.to_string())
-		})
+		let mut c = self.container.lock();
+		let w = c.backend()?;
+		w.get_stored_tx(&slate_id.to_string())
 	}
 
 	pub fn repost_tx(&self, tx_id: Option<u32>, tx_slate_id: Option<Uuid>, fluff: bool) -> Result<(), Error> {
-		let mut tx_id_string = String::new();
-		if let Some(tx_id) = tx_id {
-			tx_id_string = tx_id.to_string();
-		} else if let Some(tx_slate_id) = tx_slate_id {
-			tx_id_string = tx_slate_id.to_string();
-		}
-
-		let (_, _, txs, _, _) = self.retrieve_txs(true, false, false, tx_id, tx_slate_id)?;
-		let tx_entry = match txs.into_iter().next() {
-			Some(t) => t,
-			None => {
-				return Err(ErrorKind::TransactionDoesntExist(tx_id_string))?;
-			}
-		};
+		let tx_entry = self.retrieve_tx(tx_id, tx_slate_id)?;
 		if tx_entry.confirmed {
 			return Err(ErrorKind::TransactionAlreadyConfirmed.into());
 		}
-		let slate_id = match &tx_entry.tx_slate_id {
-			Some(id) => id,
-			None => {
-				return Err(ErrorKind::TransactionDoesntExist(tx_id_string).into());
-			}
-		};
-		let tx = match self.get_stored_tx(slate_id)? {
-			Some(tx) => tx,
-			None => {
-				return Err(ErrorKind::TransactionNotStored.into());
-			}
-		};
+		let slate_id = tx_entry.tx_slate_id.ok_or(ErrorKind::TransactionProofNotStored)?;
+		let mut c = self.container.lock();
+		let w = c.backend()?;
+		let tx = w.get_stored_tx(&slate_id.to_string())?.ok_or(ErrorKind::TransactionNotStored)?;
 		self.post_tx(&tx, fluff)
 	}
 
 	pub fn verify_slate_messages(&self, slate: &Slate) -> Result<(), Error> {
 		slate.verify_messages()
+	}
+
+	pub fn get_stored_tx_proof(&self, tx_id: Option<u32>, tx_slate_id: Option<Uuid>) -> Result<Option<TxProof>, Error> {
+		let tx_entry = self.retrieve_tx(tx_id, tx_slate_id)?;
+		let slate_id = match tx_entry.tx_slate_id {
+			Some(id) => id,
+			None => {
+				return Ok(None);
+			}
+		};
+		let mut c = self.container.lock();
+		let w = c.backend()?;
+		w.get_stored_tx_proof(&slate_id.to_string())
+	}
+
+	pub fn verify_tx_proof(&self, tx_proof: &TxProof) ->
+	Result<
+		(
+			GrinboxAddress,				// sender address
+			GrinboxAddress,				// receiver address
+			u64,						// amount
+			Vec<Commitment>,			// receiver outputs
+			Commitment,					// kernel excess
+		),
+		Error,
+	>
+	{
+		tx::verify_tx_proof(tx_proof)
 	}
 
 	pub fn restore(&self) -> Result<(), Error> {

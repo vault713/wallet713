@@ -14,9 +14,14 @@
 
 use failure::Error;
 use grin_keychain::{Identifier, Keychain};
+use grin_util::secp::key::PublicKey;
+use grin_util::secp::pedersen::Commitment;
+use grin_util::static_secp_instance;
+use std::collections::HashSet;
 use uuid::Uuid;
+use crate::contacts::GrinboxAddress;
 use crate::wallet::types::{
-	Context, InitTxArgs, NodeClient, Slate, TxLogEntryType, WalletBackend
+	Context, InitTxArgs, NodeClient, Slate, TxLogEntryType, TxProof, WalletBackend
 };
 use crate::wallet::ErrorKind;
 use super::selection;
@@ -202,6 +207,16 @@ where
 		parent_key_id.clone(),
 	)?;
 
+	// Store input and output commitments in context
+	// They will be added tp the transaction proof
+	for input in slate.tx.inputs() {
+		context.input_commits.push(input.commit.clone());
+	}
+
+	for output in slate.tx.outputs() {
+		context.output_commits.push(output.commit.clone());
+	}
+
 	// Generate a kernel offset and subtract from our context's secret key. Store
 	// the offset in the slate's transaction kernel, and adds our public key
 	// information to the slate
@@ -329,6 +344,7 @@ where
 pub fn update_stored_tx<T: ?Sized, C, K>(
 	wallet: &mut T,
 	slate: &Slate,
+	tx_proof: Option<&mut TxProof>,
 	is_invoiced: bool,
 ) -> Result<(), Error>
 where
@@ -356,7 +372,11 @@ where
 	};
 	{
 		let mut batch = wallet.batch()?;
-		batch.store_tx(&tx.tx_slate_id.unwrap().to_string(), &slate.tx)?;
+		let id = tx.tx_slate_id.unwrap().to_string();
+		batch.store_tx(&id, &slate.tx)?;
+		if let Some(proof) = tx_proof {
+			batch.store_tx_proof(&id, proof)?;
+		}
 		batch.commit()?;
 	}
 	Ok(())
@@ -379,7 +399,7 @@ where
 }
 
 /// Finalize slate
-pub fn finalize_tx<T: ?Sized, C, K>(wallet: &mut T, slate: &Slate) -> Result<Slate, Error>
+pub fn finalize_tx<T: ?Sized, C, K>(wallet: &mut T, slate: &Slate, tx_proof: Option<&mut TxProof>) -> Result<Slate, Error>
 where
 	T: WalletBackend<C, K>,
 	C: NodeClient,
@@ -387,8 +407,21 @@ where
 {
 	let mut s = slate.clone();
 	let context = wallet.get_private_context(s.id.as_bytes(), 0)?;
+
+	let tx_proof = tx_proof.map(|proof| {
+		proof.amount = context.amount;
+		proof.fee = context.fee;
+		for input in &context.input_commits {
+			proof.inputs.push(input.clone());
+		}
+		for output in &context.output_commits {
+			proof.outputs.push(output.clone());
+		}
+		proof
+	});
+
 	complete_tx(wallet, &mut s, 0, &context)?;
-	update_stored_tx(wallet, &mut s, false)?;
+	update_stored_tx(wallet, &mut s, tx_proof, false)?;
 	{
 		let mut batch = wallet.batch()?;
 		batch.delete_private_context(s.id.as_bytes(), 0)?;
@@ -452,4 +485,102 @@ where
 		false,
 	)?;
 	Ok(ret_slate)
+}
+
+/// Verifies a transaction proof and returns relevant information
+pub fn verify_tx_proof(
+	tx_proof: &TxProof,
+) -> Result<
+	(
+		GrinboxAddress,				// sender address
+		GrinboxAddress,				// receiver address
+		u64,						// amount
+		Vec<Commitment>,			// receiver output
+		Commitment,					// kernel excess
+	),
+	Error,
+> {
+	let secp = static_secp_instance();
+	let secp = secp.lock();
+
+	// Check signature on the message and decrypt it
+	// The `destination` of the message is the sender of the tx
+	let (destination, slate) = tx_proof
+		.verify_extract(None)
+		.map_err(|_| ErrorKind::VerifyProof)?;
+
+	// Inputs owned by sender
+	let inputs_ex = tx_proof.inputs.iter().collect::<HashSet<_>>();
+
+	let slate: Slate = slate.into();
+
+	// Select inputs owned by the receiver (usually none)
+	let mut inputs: Vec<Commitment> = slate
+		.tx
+		.inputs()
+		.iter()
+		.map(|i| i.commitment())
+		.filter(|c| !inputs_ex.contains(c))
+		.collect();
+
+	// Outputs owned by sender
+	let outputs_ex = tx_proof.outputs.iter().collect::<HashSet<_>>();
+
+	// Select outputs owned by the receiver
+	let outputs: Vec<Commitment> = slate
+		.tx
+		.outputs()
+		.iter()
+		.map(|o| o.commitment())
+		.filter(|c| !outputs_ex.contains(c))
+		.collect();
+
+	// Receiver's excess
+	let excess = &slate.participant_data[1].public_blind_excess;
+
+	// Calculate receiver's excess from their inputs and inputs
+	let commit_amount = secp.commit_value(tx_proof.amount)?;
+	inputs.push(commit_amount);
+
+	let commit_excess = secp.commit_sum(outputs.clone(), inputs)?;
+	let pubkey_excess = commit_excess.to_pubkey(&secp)?;
+
+	// Verify receiver's excess with their inputs and outputs
+	if excess != &pubkey_excess {
+		return Err(ErrorKind::VerifyProof.into());
+	}
+
+	// Calculate kernel excess from inputs and outputs
+	let excess_parts: Vec<&PublicKey> = slate
+		.participant_data
+		.iter()
+		.map(|p| &p.public_blind_excess)
+		.collect();
+	let excess_sum =
+		PublicKey::from_combination(&secp, excess_parts).map_err(|_| ErrorKind::VerifyProof)?;
+
+	let mut input_com: Vec<Commitment> =
+		slate.tx.inputs().iter().map(|i| i.commitment()).collect();
+
+	let mut output_com: Vec<Commitment> =
+		slate.tx.outputs().iter().map(|o| o.commitment()).collect();
+
+	input_com.push(secp.commit(0, slate.tx.offset.secret_key(&secp)?)?);
+
+	output_com.push(secp.commit_value(slate.fee)?);
+
+	let excess_sum_com = secp.commit_sum(output_com, input_com)?;
+
+	// Verify kernel excess with all inputs and outputs
+	if excess_sum_com.to_pubkey(&secp)? != excess_sum {
+		return Err(ErrorKind::VerifyProof.into());
+	}
+
+	return Ok((
+		destination,
+		tx_proof.address.clone(),
+		tx_proof.amount,
+		outputs,
+		excess_sum_com,
+	));
 }

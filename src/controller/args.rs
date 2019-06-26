@@ -25,6 +25,12 @@ pub enum SendCommandType<'a> {
     Address,
 }
 
+#[derive(Clone, Debug)]
+pub enum ProofArgs<'a> {
+    Export(u32, &'a str),
+    Verify(&'a str),
+}
+
 fn required<'a>(args: &'a ArgMatches, name: &str) -> Result<&'a str, ErrorKind> {
     args
         .value_of(name)
@@ -118,4 +124,23 @@ pub fn repair_command(args: &ArgMatches) -> Result<bool, ErrorKind> {
 
 pub fn listen_command<'a>(args: &'a ArgMatches) -> Result<&'a str, ErrorKind> {
     Ok(args.value_of("type").unwrap_or(""))
+}
+
+pub fn receive_command<'a>(args: &'a ArgMatches) -> Result<(&'a str, Option<&'a str>), ErrorKind> {
+    Ok((required(args, "file_name")?, args.value_of("message")))
+}
+
+pub fn proof_command<'a>(args: &'a ArgMatches) -> Result<ProofArgs<'a>, ErrorKind> {
+    let proof_args = match args.subcommand() {
+        ("export", Some(args)) => {
+            ProofArgs::Export(parse(required(args, "index")?)?, required(args, "file_name")?)
+        },
+        ("verify", Some(args)) => {
+            ProofArgs::Verify(required(args, "file_name")?)
+        },
+        (_, _) => {
+            usage!(args);
+        }
+    };
+    Ok(proof_args)
 }
