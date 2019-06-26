@@ -143,18 +143,18 @@ impl NodeClient for HTTPNodeClient {
 	) -> Result<HashMap<Commitment, (String, u64, u64)>, Error> {
 		let addr = self.node_url();
 		// build the necessary query params -
-		// ?id=xxx&id=yyy&id=zzz
+		// ?id=xxx,yyy,zzz
 		let query_params: Vec<String> = wallet_outputs
 			.iter()
-			.map(|commit| format!("id={}", to_hex(commit.as_ref().to_vec())))
+			.map(|commit| format!("{}", to_hex(commit.as_ref().to_vec())))
 			.collect();
 
 		// build a map of api outputs by commit so we can look them up efficiently
 		let mut api_outputs: HashMap<Commitment, (String, u64, u64)> = HashMap::new();
 		let mut tasks = Vec::new();
 
-		for query_chunk in query_params.chunks(200) {
-			let url = format!("{}/v1/chain/outputs/byids?{}", addr, query_chunk.join("&"),);
+		for query_chunk in query_params.chunks(120) {
+			let url = format!("{}/v1/chain/outputs/byids?id={}", addr, query_chunk.join(","),);
 			tasks.push(client::get_async::<Vec<Output>>(
 				url.as_str(),
 				self.node_api_secret(),
