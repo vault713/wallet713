@@ -126,3 +126,13 @@ impl Default for IssueInvoiceTxArgs {
 		}
 	}
 }
+
+/// Node height result
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct NodeHeightResult {
+	/// Last known height
+	#[serde(with = "ser::string_or_u64")]
+	pub height: u64,
+	/// Whether this height was updated from the node
+	pub updated_from_node: bool,
+}

@@ -57,6 +57,10 @@ subcommands:
         - type:
             help: The type of listener to start
             index: 1
+            required: false
+        - owner:
+            help: Run owner listener (only applicable for http)
+            short: o
   - outputs:
       about: Display the wallet's outputs
       args:
@@ -168,5 +172,9 @@ subcommands:
         - type:
             help: The type of listener to stop
             index: 1
+            required: false
+        - owner:
+            help: Run owner listener (only applicable for http)
+            short: o
   - txs:
       about: Display the transaction log

@@ -1,11 +1,10 @@
-/// Grinbox 'plugin' implementation
+/// Keybase 'plugin' implementation
 
 use failure::Error;
 use grin_api::client;
 use grin_api::Error as APIError;
 use serde::Serialize;
 use serde_json::Value;
-
 use crate::api::listener::ListenerInterface;
 use crate::broker::{GrinboxPublisher, Publisher};
 use crate::contacts::{Address, GrinboxAddress};
@@ -15,7 +14,7 @@ use crate::wallet::{Container, ErrorKind};
 use super::Adapter;
 
 #[derive(Clone)]
-pub struct GrinboxAdapter<'a, W, C, K>
+pub struct KeybaseAdapter<'a, W, C, K>
 	where
 		W: WalletBackend<C, K>,
 		C: NodeClient,
@@ -24,7 +23,7 @@ pub struct GrinboxAdapter<'a, W, C, K>
     container: &'a Arc<Mutex<Container<W, C, K>>>,
 }
 
-impl<'a, W, C, K> GrinboxAdapter<'a, W, C, K>
+impl<'a, W, C, K> KeybaseAdapter<'a, W, C, K>
 	where
 		W: WalletBackend<C, K>,
 		C: NodeClient,
@@ -38,7 +37,7 @@ impl<'a, W, C, K> GrinboxAdapter<'a, W, C, K>
 	}
 }
 
-impl<'a, W, C, K> Adapter for GrinboxAdapter<'a, W, C, K>
+impl<'a, W, C, K> Adapter for KeybaseAdapter<'a, W, C, K>
 	where
 		W: WalletBackend<C, K>,
 		C: NodeClient,
@@ -53,8 +52,9 @@ impl<'a, W, C, K> Adapter for GrinboxAdapter<'a, W, C, K>
 	}
 
 	fn send_tx_async(&self, dest: &str, slate: &VersionedSlate) -> Result<(), Error> {
+		let address = GrinboxAddress::from_str(dest)?;
 		let c = self.container.lock();
-		c.listener(ListenerInterface::Grinbox)?
+		c.listener(ListenerInterface::Keybase)?
 			.publish(slate, &dest.to_owned())
 	}
 }

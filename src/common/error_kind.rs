@@ -197,10 +197,14 @@ pub enum ErrorKind {
     Usage(String),
     #[fail(display = "Argument '{}' required", 0)]
     Argument(String),
-    #[fail(display = "Uknown listener type '{}'", 0)]
-    UnknownListenerType(String),
     #[fail(display = "Unable to parse number '{}'", 0)]
     ParseNumber(String),
     #[fail(display = "Unable to parse slate")]
     ParseSlate,
+    #[fail(display = "Incorrect listener interface")]
+    IncorrectListenerInterface,
+    #[fail(display = "No seed")]
+	NoSeed,
+    #[fail(display = "No backend")]
+	NoBackend,
 }

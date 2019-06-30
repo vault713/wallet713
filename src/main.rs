@@ -79,8 +79,6 @@ use crate::common::motd::get_motd;
 
 use contacts::{Address, AddressBook, AddressType, Backend, Contact, GrinboxAddress};
 
-const CLI_HISTORY_PATH: &str = ".history";
-
 fn do_config(
     args: &ArgMatches,
     chain: &Option<ChainTypes>,
@@ -177,9 +175,6 @@ fn do_config(
     Ok(())
 }*/
 
-const WELCOME_FOOTER: &str = r#"Use `help` to see available commands
-"#;
-
 fn welcome(args: &ArgMatches, runtime_mode: &RuntimeMode) -> Result<Wallet713Config> {
     let chain: Option<ChainTypes> = match args.is_present("floonet") {
         true => Some(ChainTypes::Floonet),
@@ -202,86 +197,6 @@ use broker::{
 };
 use std::borrow::Borrow;
 
-
-/*fn start_grinbox_listener(
-    config: &Wallet713Config,
-    wallet: Arc<Mutex<Wallet>>,
-    address_book: Arc<Mutex<AddressBook>>,
-) -> Result<(GrinboxPublisher, GrinboxSubscriber, std::thread::JoinHandle<()>)> {
-    // make sure wallet is not locked, if it is try to unlock with no passphrase
-    {
-        let mut wallet = wallet.lock();
-        if wallet.is_locked() {
-            wallet.unlock(config, "default", "")?;
-        }
-    }
-
-    cli_message!("starting grinbox listener...");
-    let grinbox_address = config.get_grinbox_address()?;
-    let grinbox_secret_key = config.get_grinbox_secret_key()?;
-
-    let grinbox_publisher = GrinboxPublisher::new(
-        &grinbox_address,
-        &grinbox_secret_key,
-        config.grinbox_protocol_unsecure(),
-    )?;
-
-    let grinbox_subscriber = GrinboxSubscriber::new(
-        &grinbox_publisher
-    )?;
-
-    let cloned_publisher = grinbox_publisher.clone();
-    let mut cloned_subscriber = grinbox_subscriber.clone();
-    let grinbox_listener_handle = std::thread::spawn(move || {
-        let controller = Controller::new(
-            &grinbox_address.stripped(),
-            wallet.clone(),
-            address_book.clone(),
-            Box::new(cloned_publisher),
-        )
-        .expect("could not start grinbox controller!");
-        cloned_subscriber
-            .start(Box::new(controller))
-            .expect("something went wrong!");
-    });
-    Ok((grinbox_publisher, grinbox_subscriber, grinbox_listener_handle))
-}
-
-fn start_keybase_listener(
-    config: &Wallet713Config,
-    wallet: Arc<Mutex<Wallet>>,
-    address_book: Arc<Mutex<AddressBook>>,
-) -> Result<(KeybasePublisher, KeybaseSubscriber, std::thread::JoinHandle<()>)> {
-    // make sure wallet is not locked, if it is try to unlock with no passphrase
-    {
-        let mut wallet = wallet.lock();
-        if wallet.is_locked() {
-            wallet.unlock(config, "default", "")?;
-        }
-    }
-
-    cli_message!("starting keybase listener...");
-    let keybase_subscriber = KeybaseSubscriber::new()?;
-    let keybase_publisher = KeybasePublisher::new(config.default_keybase_ttl.clone())?;
-
-    let mut cloned_subscriber = keybase_subscriber.clone();
-    let cloned_publisher = keybase_publisher.clone();
-    let keybase_listener_handle = std::thread::spawn(move || {
-        let controller = Controller::new(
-            "keybase",
-            wallet.clone(),
-            address_book.clone(),
-            Box::new(cloned_publisher),
-        )
-        .expect("could not start keybase controller!");
-        cloned_subscriber
-            .start(Box::new(controller))
-            .expect("something went wrong!");
-    });
-    Ok((keybase_publisher, keybase_subscriber, keybase_listener_handle))
-}*/
-
-
 fn main() {
     enable_ansi_support();
 
@@ -290,7 +205,6 @@ fn main() {
         .arg(Arg::from_usage("[config-path] -c, --config=<config-path> 'the path to the config file'"))
         .arg(Arg::from_usage("[log-config-path] -l, --log-config-path=<log-config-path> 'the path to the log config file'"))
         .arg(Arg::from_usage("[account] -a, --account=<account> 'the account to use'"))
-        .arg(Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'").min_values(0))
         .arg(Arg::from_usage("[daemon] -d, --daemon 'run daemon'"))
         .arg(Arg::from_usage("[floonet] -f, --floonet 'use floonet'"))
         .get_matches();
@@ -320,10 +234,6 @@ fn main() {
     let address_book = AddressBook::new(Box::new(address_book_backend))
         .expect("could not create an address book!");
 
-    if config.check_updates() {
-        get_motd().unwrap_or(());
-    }
-
     // TODO: clean this up
     use grin_keychain::ExtKeychain;
     use wallet::{Container, create_container};
@@ -339,138 +249,7 @@ fn main() {
 
     return;
 
-
-    let wallet = Wallet::new(config.max_auto_accept_invoice);
-    let wallet = Arc::new(Mutex::new(wallet));
-
-    let mut grinbox_broker: Option<(GrinboxPublisher, GrinboxSubscriber)> = None;
-    let mut keybase_broker: Option<(KeybasePublisher, KeybaseSubscriber)> = None;
-
-    /*let has_seed = Wallet::seed_exists(&config);
-    if !has_seed {
-        let mut line = String::new();
-
-        println!("{}", "Please choose an option".bright_green().bold());
-        println!(" 1) {} a new wallet", "init".bold());
-        println!(" 2) {} from mnemonic", "recover".bold());
-        println!(" 3) {}", "exit".bold());
-        println!();
-        print!("{}", "> ".cyan());
-        io::stdout().flush().unwrap();
-
-        if io::stdin().read_line(&mut line).unwrap() == 0 {
-            println!("{}: invalid option", "ERROR".bright_red());
-            std::process::exit(1);
-        }
-
-        println!();
-
-        let line = line.trim();
-        let mut out_is_safe = false;
-        match line {
-            "1" | "init" | "" => {
-                println!("{}", "Initialising a new wallet".bold());
-                println!();
-                println!("Set an optional password to secure your wallet with. Leave blank for no password.");
-                println!();
-                if let Err(err) = do_command("init -p", &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker, &mut out_is_safe) {
-                    println!("{}: {}", "ERROR".bright_red(), err);
-                    std::process::exit(1);
-                }
-            },
-            "2" | "recover" | "restore" => {
-                println!("{}", "Recovering from mnemonic".bold());
-                print!("Mnemonic: ");
-                io::stdout().flush().unwrap();
-                let mut line = String::new();
-                if io::stdin().read_line(&mut line).unwrap() == 0 {
-                    println!("{}: invalid mnemonic", "ERROR".bright_red());
-                    std::process::exit(1);
-                }
-                let line = line.trim();
-                println!();
-                println!("Set an optional password to secure your wallet with. Leave blank for no password.");
-                println!();
-                // TODO: refactor this
-                let cmd = format!("recover -m {} -p", line);
-                if let Err(err) = do_command(&cmd, &mut config, wallet.clone(), address_book.clone(), &mut keybase_broker, &mut grinbox_broker, &mut out_is_safe) {
-                    println!("{}: {}", "ERROR".bright_red(), err);
-                    std::process::exit(1);
-                }
-            },
-            "3" | "exit" => {
-                return;
-            },
-            _ => {
-                println!("{}: invalid option", "ERROR".bright_red());
-                std::process::exit(1);
-            },
-        }
-
-        println!();
-    }*/
-
-    /*if wallet.lock().is_locked() {
-        let account = matches.value_of("account").unwrap_or("default").to_string();
-        let has_wallet = if matches.is_present("passphrase") {
-            let passphrase = password_prompt(matches.value_of("passphrase"));
-            let result = wallet.lock().unlock(&config, &account, &passphrase);
-            if let Err(ref err) = result {
-                println!("{}: {}", "ERROR".bright_red(), err);
-                std::process::exit(1);
-            }
-            result.is_ok()
-        }
-        else {
-            wallet.lock().unlock(&config, &account, "").is_ok()
-        };
-
-        if has_wallet {
-            let der = derive_address_key(&mut config, wallet.clone(), &mut grinbox_broker);
-            if der.is_err() {
-                cli_message!("{}: {}", "ERROR".bright_red(), der.unwrap_err());
-            }
-        }
-        else {
-            println!(
-                "{}",
-                "Unlock your existing wallet or type `init` to initiate a new one"
-                    .bright_blue()
-                    .bold()
-            );
-        }
-    }*/
-
-    cli_message!("{}", WELCOME_FOOTER.bright_blue());
-
-    let mut grinbox_listener_handle: Option<std::thread::JoinHandle<()>> = None;
-    let mut keybase_listener_handle: Option<std::thread::JoinHandle<()>> = None;
-    let mut owner_api_handle: Option<std::thread::JoinHandle<()>> = None;
-    let mut foreign_api_handle: Option<std::thread::JoinHandle<()>> = None;
-
-    /*if config.grinbox_listener_auto_start() {
-        let result = start_grinbox_listener(&config, wallet.clone(), address_book.clone());
-        match result {
-            Err(e) => cli_message!("{}: {}", "ERROR".bright_red(), e),
-            Ok((publisher, subscriber, handle)) => {
-                grinbox_broker = Some((publisher, subscriber));
-                grinbox_listener_handle = Some(handle);
-            },
-        }
-    }
-
-    if config.keybase_listener_auto_start() {
-        let result = start_keybase_listener(&config, wallet.clone(), address_book.clone());
-        match result {
-            Err(e) => cli_message!("{}: {}", "ERROR".bright_red(), e),
-            Ok((publisher, subscriber, handle)) => {
-                keybase_broker = Some((publisher, subscriber));
-                keybase_listener_handle = Some(handle);
-            },
-        }
-    }
-
-    if config.owner_api() || config.foreign_api() {
+    /*if config.owner_api() || config.foreign_api() {
         owner_api_handle = match config.owner_api {
             Some(true) => {
                 cli_message!(
@@ -523,36 +302,7 @@ fn main() {
             }
             _ => None,
         };
-    };
-
-    if runtime_mode == RuntimeMode::Daemon {
-        let mut listening = false;
-        if let Some(handle) = grinbox_listener_handle {
-            handle.join().unwrap();
-            listening = true;
-        }
-
-        if let Some(handle) = keybase_listener_handle {
-            handle.join().unwrap();
-            listening = true;
-        }
-
-        if let Some(handle) = owner_api_handle {
-            handle.join().unwrap();
-            listening = true;
-        }
-
-        if let Some(handle) = foreign_api_handle {
-            handle.join().unwrap();
-            listening = true;
-        }
-
-        if !listening {
-            warn!("no listener configured, exiting");
-        }
-
-        return;
-    }*/
+    };*/
 
     /*let wallet713_home_path_buf = Wallet713Config::default_home_path(&config.chain).unwrap();
     let wallet713_home_path = wallet713_home_path_buf.to_str().unwrap();

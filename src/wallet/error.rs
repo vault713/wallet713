@@ -207,21 +207,14 @@ pub enum ErrorKind {
 	#[fail(display = "Contact '{}' not found", 0)]
 	ContactNotFound(String),
 
-	/// Already listening on Grinbox
-	#[fail(display = "Already listening on Grinbox")]
-	GrinboxListener,
+	#[fail(display = "Already listening on {}", 0)]
+	AlreadyListening(String),
 
-	/// Not listening on Grinbox
-	#[fail(display = "Not listening on Grinbox")]
-	GrinboxNoListener,
+	#[fail(display = "No listener on {}", 0)]
+	NoListener(String),
 
-	/// Not listening on Keybase
-	#[fail(display = "Not listening on Keybase")]
-	KeybaseNoListener,
-
-	/// Already listening on foreign http
-	#[fail(display = "Already listening on foreign http")]
-	ForeignHttpListener,
+	#[fail(display = "Invalid listener interface")]
+	InvalidListenerInterface,
 
 	/// No transaction stored
 	#[fail(display = "No transaction stored")]

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use colored::Colorize;
 use failure::Error;
 use futures::sync::oneshot;
 use futures::Future;
@@ -22,14 +23,15 @@ use grin_keychain::Identifier;
 use grin_util::secp::key::PublicKey;
 use grin_util::secp::pedersen::Commitment;
 use grin_util::{ZeroingString, to_hex};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::marker::PhantomData;
 use std::thread::{JoinHandle, spawn};
 use uuid::Uuid;
 
+use crate::api::listener::*;
 use crate::api::router::build_foreign_api_router;
-use crate::broker::{Controller, GrinboxPublisher, GrinboxSubscriber, Subscriber};
+use crate::broker::{Controller, GrinboxPublisher, GrinboxSubscriber, KeybasePublisher, KeybaseSubscriber, Subscriber};
 use crate::common::config::Wallet713Config;
 use crate::common::hasher::derive_address_key;
 use crate::common::{Arc, Keychain, Mutex, MutexGuard};
@@ -37,11 +39,10 @@ use crate::contacts::{Address, AddressType, GrinboxAddress, parse_address};
 use crate::wallet::adapter::{Adapter, GrinboxAdapter, HTTPAdapter};
 use crate::wallet::{Container, ErrorKind};
 use crate::internal::*;
-use crate::wallet::types::{
-    AcctPathMapping, InitTxArgs, NodeClient, OutputCommitMapping, Slate, SlateVersion, TxLogEntry,
-	TxProof, TxWrapper, VersionedSlate, WalletBackend, WalletInfo,
-};
+use crate::wallet::types::{AcctPathMapping, InitTxArgs, NodeClient, OutputCommitMapping, Slate, SlateVersion, TxLogEntry, TxProof, TxWrapper, VersionedSlate, WalletBackend, WalletInfo, NodeHeightResult};
+use crate::cli_message;
 
+#[derive(StateData)]
 pub struct Owner<W, C, K>
 where
 	W: WalletBackend<C, K>,
@@ -49,8 +50,6 @@ where
 	K: Keychain,
 {
     container: Arc<Mutex<Container<W, C, K>>>,
-	phantom_k: PhantomData<K>,
-	phantom_c: PhantomData<C>,
 }
 
 impl<W, C, K> Owner<W, C, K>
@@ -62,31 +61,7 @@ where
     pub fn new(container: Arc<Mutex<Container<W, C, K>>>) -> Self {
 		Owner {
 			container,
-			phantom_k: PhantomData,
-			phantom_c: PhantomData,
 		}
-	}
-
-	/// Convenience function that opens and closes the wallet with the stored credentials
-	fn open_and_close<F, X>(&self, f: F) -> Result<X, Error>
-	where
-		F: FnOnce(&mut MutexGuard<Container<W, C, K>>) -> Result<X, Error>
-	{
-		let mut c = self.container.lock();
-		{
-			let w = c.backend()?;
-			w.open_with_credentials()?;
-		}
-		let res = f(&mut c);
-		{
-			// Always try to close wallet
-			// Operation still considered successful, even if closing failed
-			let w = c.backend();
-			if w.is_ok() {
-				let _ = w.unwrap().close();
-			}
-		}
-		res
 	}
 
 	pub fn has_seed(&self) -> Result<bool, Error> {
@@ -128,116 +103,62 @@ where
 		w.clear()
 	}
 
-	pub fn get_config(&self) -> Wallet713Config {
+	pub fn config(&self) -> Wallet713Config {
 		let c = self.container.lock();
 		c.config.clone()
 	}
 
-	pub fn start_grinbox_listener(&self) -> Result<GrinboxAddress, Error> {
+	pub fn start_listener(&self, interface: ListenerInterface) -> Result<String, Error> {
+		let container= self.container.clone();
 		self.open_and_close(|c| {
-			if !c.backend()?.has_seed()? {
-				return Err(ErrorKind::NoSeed.into());
+			if c.listeners.contains_key(&interface) {
+				return Err(ErrorKind::AlreadyListening(format!("{}", interface)).into());
 			}
 
-			if c.grinbox.is_some() {
-				return Err(ErrorKind::GrinboxListener.into());
-			}
+			let listener = match interface {
+				ListenerInterface::Grinbox => start_grinbox(container, c),
+				ListenerInterface::Keybase => start_keybase(container, c),
+				ListenerInterface::ForeignHttp => start_foreign_http(container, c),
+				ListenerInterface::OwnerHttp => start_owner_http(container, c),
+			}?;
 
-			let index = c.config.grinbox_address_index();
-			let keychain = c.backend()?.keychain();
-			let sec_key = derive_address_key(keychain, index)?;
-			let pub_key = PublicKey::from_secret_key(keychain.secp(), &sec_key)?;
-			let address = GrinboxAddress::new(
-				pub_key,
-				Some(c.config.grinbox_domain.clone()),
-				c.config.grinbox_port,
-			);
-
-			let publisher = GrinboxPublisher::new(
-				&address,
-				&sec_key,
-				c.config.grinbox_protocol_unsecure(),
-			)?;
-
-			let subscriber = GrinboxSubscriber::new(&publisher)?;
-
-			let caddress = address.clone();
-			let cpublisher = publisher.clone();
-			let mut csubscriber = subscriber.clone();
-			let ccontainer = self.container.clone();
-			let handle = spawn(move || {
-				let controller = Controller::new(
-					&caddress.stripped(),
-					ccontainer,
-					cpublisher,
-				)
-				.expect("could not start grinbox controller!");
-				csubscriber
-					.start(controller)
-					.expect("something went wrong!");
-				()
-			});
-
-			c.grinbox = Some((address.clone(), publisher, subscriber, handle));
+			let address = listener.address();
+			cli_message!("Listener for {} started", address.bright_green());
+			c.listeners.insert(interface, listener);
 			Ok(address)
 		})
 	}
 
-	pub fn stop_grinbox_listener(&self) -> Result<(), Error> {
-        let mut c = self.container.lock();
-        match c.grinbox.take() {
-            None => Ok(()),
-            Some((address, publisher, subscriber, handle)) => {
-                subscriber.stop();
-                let _ = handle.join();
-                c.grinbox = None;
-                Ok(())
-            }
-        }
-	}
-
-	pub fn start_keybase_listener() -> Result<(), Error> {
-		Ok(())
-	}
-
-	pub fn stop_keybase_listener() -> Result<(), Error> {
-		Ok(())
-	}
-
-	pub fn start_foreign_http_listener(&self) -> Result<String, Error> {
-        let lock = self.container.clone();
-        let mut c = self.container.lock();
-        if c.foreign_http.is_some() {
-            return Err(ErrorKind::ForeignHttpListener.into());
-        }
-        let (stop_send, stop_recv) = oneshot::channel::<()>();
-        let address = c.config.foreign_api_address();
-        let router = build_foreign_api_router(self.container.clone(), c.config.foreign_api_secret.clone());
-        let server = gotham::init_server(address.clone(), router);
-        let fut = server
-            .select(stop_recv.map(|_| ()).map_err(|_| ()))
-            .map(|(res, _)| res)
-            .map_err(|(error, _)| error);
-        let handle = spawn(move || {
-            tokio::run(fut);
-            ()
-        });
-
-        c.foreign_http = Some((stop_send, handle));
-        Ok(address)
-	}
-
-	pub fn stop_foreign_http_listener(&self) -> Result<(), Error> {
+	pub fn stop_listener(&self, interface: ListenerInterface) -> Result<bool, Error> {
 		let mut c = self.container.lock();
-        match c.foreign_http.take() {
-            None => Ok(()),
-            Some((stop, handle)) => {
-                let _ = stop.send(());
-                let _ = handle.join();
-                c.foreign_http = None;
-                Ok(())
-            }
+		if let Some(listener) = c.listeners.remove(&interface) {
+			let address = listener.address();
+            listener.stop()?;
+			println!("Listener for {} stopped", address.bright_green());
+            Ok(true)
         }
+        else {
+            Ok(false)
+        }
+	}
+
+	/// Batch start listeners
+	pub fn start_listeners(&self, interfaces: HashSet<ListenerInterface>) -> Result<(), Error> {
+		for interface in interfaces {
+			self.start_listener(interface)?;
+		}
+		Ok(())
+	}
+
+	/// Stop all running listeners
+	pub fn stop_listeners(&self) -> Result<HashSet<ListenerInterface>, Error> {
+		let mut c = self.container.lock();
+		let mut interfaces = HashSet::new();
+		for (interface, listener) in c.listeners.drain() {
+			let _ = listener.stop();
+			interfaces.insert(interface);
+		}
+		Ok(interfaces)
 	}
 
 	pub fn accounts(&self) -> Result<Vec<AcctPathMapping>, Error> {
@@ -416,19 +337,12 @@ where
 		match &mut send_args {
 			Some(sa) => {
 				let vslate = VersionedSlate::into_version(slate.clone(), version);
-				let sync = match sa.method.clone().unwrap().as_ref() {
+				let adapter: Box<dyn Adapter> = match sa.method.clone().unwrap().as_ref() {
 					"http" => {
-						slate = HTTPAdapter::new()
-							.send_tx_sync(&sa.dest, &vslate)?
-							.into();
-						true
+						HTTPAdapter::new()
 					}
 					"grinbox" => {
-						sa.finalize = false;
-						sa.post_tx = false;
-                        GrinboxAdapter::new(&self.container)
-							.send_tx_async(&sa.dest, &vslate)?;
-						false
+						GrinboxAdapter::new(&self.container)
 					}
 					/*"keybase" => {
 						sa.finalize = false;
@@ -444,21 +358,26 @@ where
 						))?;
 					}
 				};
+
+				if adapter.supports_sync() {
+					slate = adapter.send_tx_sync(&sa.dest, &vslate)?.into();
+				}
+				else {
+					adapter.send_tx_async(&sa.dest, &vslate)?;
+				}
 				self.tx_lock_outputs(&slate, 0, Some(sa.dest.clone()))?;
-				if sync {
-					let slate = match sa.finalize {
-						true => self.finalize_tx(&slate, None)?,
-						false => slate,
+
+				if adapter.supports_sync() {
+					if sa.finalize {
+						slate = self.finalize_tx(&slate, None)?;
 					};
 
 					if sa.post_tx {
 						self.post_tx(&slate.tx, sa.fluff)?;
 					}
-					Ok(slate)
 				}
-				else {
-					Ok(slate)
-				}
+
+				Ok(slate)
 			}
 			None => Ok(slate),
 		}
@@ -593,10 +512,54 @@ where
 		})
 	}
 
-	pub fn node_height(&self) -> Result<(bool, u64), Error> {
+	pub fn node_height(&self) -> Result<NodeHeightResult, Error> {
 		self.open_and_close(|c| {
 			let w = c.backend()?;
-			updater::node_height(w)
+			let (updated_from_node, height) = updater::node_height(w)?;
+            Ok(NodeHeightResult {
+                height,
+                updated_from_node,
+            })
 		})
+	}
+
+	/// Internal functions
+
+	/// Convenience function that opens and closes the wallet with the stored credentials
+	fn open_and_close<F, X>(&self, f: F) -> Result<X, Error>
+	where
+		F: FnOnce(&mut MutexGuard<Container<W, C, K>>) -> Result<X, Error>
+	{
+		let mut c = self.container.lock();
+		{
+			let w = c.backend()?;
+			if !w.has_seed()? {
+				return Err(ErrorKind::NoSeed.into());
+			}
+			w.open_with_credentials()?;
+		}
+		let res = f(&mut c);
+		{
+			// Always try to close wallet
+			// Operation still considered successful, even if closing failed
+			let w = c.backend();
+			if w.is_ok() {
+				let _ = w.unwrap().close();
+			}
+		}
+		res
+	}
+}
+
+impl<W, C, K> Clone for Owner<W, C, K>
+where
+	W: WalletBackend<C, K>,
+	C: NodeClient,
+	K: Keychain,
+{
+	fn clone(&self) -> Self {
+		Self {
+			container: self.container.clone(),
+		}
 	}
 }

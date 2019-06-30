@@ -36,7 +36,7 @@ pub trait ForeignRpc {
 		dest_acct_name: Option<String>,
 		message: Option<String>,
 	) -> Result<VersionedSlate, ErrorKind>;
-	fn finalize_invoice_tx(&self, slate: &Slate) -> Result<Slate, ErrorKind>;
+//	fn finalize_invoice_tx(&self, slate: &Slate) -> Result<Slate, ErrorKind>;
 }
 
 impl<W, C, K> ForeignRpc for Foreign<W, C, K>
@@ -80,8 +80,8 @@ where
 		Ok(VersionedSlate::into_version(slate, version))
 	}
 
-	fn finalize_invoice_tx(&self, slate: &Slate) -> Result<Slate, ErrorKind> {
+	/*fn finalize_invoice_tx(&self, slate: &Slate) -> Result<Slate, ErrorKind> {
 		Foreign::finalize_invoice_tx(self, slate)
 			.map_err(|e| ErrorKind::GenericError(e.to_string()))
-	}
+	}*/
 }

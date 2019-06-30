@@ -122,8 +122,8 @@ pub fn repair_command(args: &ArgMatches) -> Result<bool, ErrorKind> {
     Ok(args.is_present("delete_unconfirmed"))
 }
 
-pub fn listen_command<'a>(args: &'a ArgMatches) -> Result<&'a str, ErrorKind> {
-    Ok(args.value_of("type").unwrap_or(""))
+pub fn listen_command<'a>(args: &'a ArgMatches) -> Result<(&'a str, bool), ErrorKind> {
+    Ok((args.value_of("type").unwrap_or(""), args.is_present("owner")))
 }
 
 pub fn receive_command<'a>(args: &'a ArgMatches) -> Result<(&'a str, Option<&'a str>), ErrorKind> {

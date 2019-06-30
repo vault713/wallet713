@@ -14,6 +14,7 @@ use gotham::router::Router;
 use gotham::state::{FromState, State, StateData};
 use hyper::{Body, Chunk, HeaderMap, Method, Response, StatusCode, Uri, Version};
 use mime::Mime;
+use serde_json::{Value, json};
 use std::panic::RefUnwindSafe;
 
 use crate::api::auth::BasicAuthMiddleware;
@@ -21,10 +22,10 @@ use crate::api::error::ApiError;
 use crate::api::handlers::{foreign, owner};
 use crate::broker::{GrinboxPublisher, GrinboxSubscriber, KeybasePublisher, KeybaseSubscriber};
 use crate::common::{ErrorKind, Keychain};
-use crate::wallet::api::Foreign;
+use crate::wallet::api::{Foreign, Owner};
 use crate::wallet::types::{Arc, NodeClient, Mutex, MutexGuard, WalletBackend};
 use crate::wallet::Container;
-use super::rpc::ForeignRpc;
+use super::rpc::{ForeignRpc, OwnerRpc};
 
 pub struct ApiMiddleware<W, C, K>
     where
@@ -89,83 +90,6 @@ impl<W, C, K> NewMiddleware for ApiMiddleware<W, C, K>
     }
 }
 
-/*fn build_owner_api<C, P>(route: &mut RouterBuilder<C, P>, owner_api_include_foreign: Option<bool>)
-where
-    C: PipelineHandleChain<P> + Copy + Send + Sync + 'static,
-    P: RefUnwindSafe + Send + Sync + 'static,
-{
-    route
-        .get("/v1/wallet/owner/retrieve_outputs")
-        .with_query_string_extractor::<owner::RetrieveOutputsQueryParams>()
-        .to(owner::retrieve_outputs);
-
-    route
-        .get("/v1/wallet/owner/retrieve_txs")
-        .with_query_string_extractor::<owner::RetrieveTransactionsQueryParams>()
-        .to(owner::retrieve_txs);
-
-    route
-        .get("/v1/wallet/owner/retrieve_stored_tx")
-        .with_query_string_extractor::<owner::RetrieveStoredTransactionQueryParams>()
-        .to(owner::retrieve_stored_tx);
-
-    route
-        .get("/v1/wallet/owner/node_height")
-        .to(owner::node_height);
-
-    route
-        .get("/v1/wallet/owner/retrieve_summary_info")
-        .to(owner::retrieve_summary_info);
-
-    route
-        .post("/v1/wallet/owner/finalize_tx")
-        .to(owner::finalize_tx);
-
-    route
-        .post("/v1/wallet/owner/cancel_tx")
-        .with_query_string_extractor::<owner::CancelTransactionQueryParams>()
-        .to(owner::cancel_tx);
-
-    route
-        .post("/v1/wallet/owner/post_tx")
-        .with_query_string_extractor::<owner::PostTransactionQueryParams>()
-        .to(owner::post_tx);
-
-    route
-        .post("/v1/wallet/owner/issue_send_tx")
-        .to(owner::issue_send_tx);
-
-    if owner_api_include_foreign.is_some() && owner_api_include_foreign.unwrap() == true {
-        build_foreign_api(route);
-    }
-}*/
-
-/*pub fn build_owner_api_router(
-    wallet: Arc<Mutex<Wallet>>,
-    grinbox_broker: Option<(GrinboxPublisher, GrinboxSubscriber)>,
-    keybase_broker: Option<(KeybasePublisher, KeybaseSubscriber)>,
-    owner_api_secret: Option<String>,
-    owner_api_include_foreign: Option<bool>,
-) -> Router {
-    let grinbox_publisher = grinbox_broker.map(|(p, _)| p);
-    let keybase_publisher = keybase_broker.map(|(p, _)| p);
-
-    let (chain, pipelines) = single_pipeline(
-        new_pipeline()
-            .add(BasicAuthMiddleware::new(owner_api_secret))
-            .add(StateMiddleware::new(WalletContainer::new(
-                wallet,
-                grinbox_publisher,
-                keybase_publisher,
-            )))
-            .build(),
-    );
-
-    build_router(chain, pipelines, |route| {
-        build_owner_api(route, owner_api_include_foreign);
-    })
-}*/
-
 pub fn build_foreign_api_router<W, C, K>(
     container: Arc<Mutex<Container<W, C, K>>>,
     foreign_api_secret: Option<String>,
@@ -214,7 +138,7 @@ fn foreign_api_handler_inner<W, C, K>(state: &State, body: &Chunk) -> Result<Res
 {
     trace_state_and_body(state, body);
 
-    let val: serde_json::Value = serde_json::from_reader(&body.to_vec()[..])?;
+    let val: Value = serde_json::from_reader(&body.to_vec()[..])?;
     let api = Foreign::<W, C, K>::borrow_from(&state);
 
     let foreign_api = api as &dyn ForeignRpc;
@@ -223,11 +147,11 @@ fn foreign_api_handler_inner<W, C, K>(state: &State, body: &Chunk) -> Result<Res
         MaybeReply::DontReply => {
             // Since it's http, we need to return something. We return [] because jsonrpc
             // clients will parse it as an empty batch response.
-            serde_json::json!([])
+            json!([])
         }
     };
 
-    Ok(create_response(
+    Ok(trace_create_response(
         state,
         StatusCode::OK,
         mime::APPLICATION_JSON,
@@ -235,27 +159,82 @@ fn foreign_api_handler_inner<W, C, K>(state: &State, body: &Chunk) -> Result<Res
     ))
 }
 
-/*pub fn trace_state(state: &State) {
-    let method = Method::borrow_from(state);
-    let uri = Uri::borrow_from(state);
-    let http_version = Version::borrow_from(state);
-    let headers = HeaderMap::borrow_from(state);
-    trace!(
-        "REQUEST Method: {} URI: {} HTTP Version: {:?} Headers: {:?}",
-        method,
-        uri,
-        http_version,
-        headers
+pub fn build_owner_api_router<W, C, K>(
+    container: Arc<Mutex<Container<W, C, K>>>,
+    owner_api_secret: Option<String>,
+) -> Router
+    where
+        W: WalletBackend<C, K>,
+        C: NodeClient,
+        K: Keychain,
+{
+    let (chain, pipelines) = single_pipeline(
+        new_pipeline()
+            .add(BasicAuthMiddleware::new(owner_api_secret))
+            .add(ApiMiddleware::new(container))
+            .build(),
     );
-}*/
 
-pub fn trace_state_and_body(state: &State, body: &Chunk) {
+    build_router(chain, pipelines, |route| {
+        route.request(vec![Method::POST], "/v2/owner").to(owner_api_handler::<W, C, K>);
+    })
+}
+
+fn owner_api_handler<W, C, K>(mut state: State) -> Box<HandlerFuture>
+    where
+        W: WalletBackend<C, K>,
+        C: NodeClient,
+        K: Keychain,
+{
+    let future = Body::take_from(&mut state)
+        .concat2()
+        .then(|body| match body {
+            Ok(body) => match owner_api_handler_inner::<W, C, K>(&state, &body) {
+                Ok(res) => future::ok((state, res)),
+                Err(e) => future::err((state, ApiError::new(e).into_handler_error())),
+            },
+            Err(e) => future::err((state, e.into_handler_error())),
+        });
+
+    Box::new(future)
+}
+
+fn owner_api_handler_inner<W, C, K>(state: &State, body: &Chunk) -> Result<Response<Body>, Error>
+    where
+        W: WalletBackend<C, K>,
+        C: NodeClient,
+        K: Keychain,
+{
+    trace_state_and_body(state, body);
+
+    let val: Value = serde_json::from_reader(&body.to_vec()[..])?;
+    let api = Owner::<W, C, K>::borrow_from(&state);
+
+    let owner_api = api as &dyn OwnerRpc;
+    let res = match owner_api.handle_request(val) {
+        MaybeReply::Reply(r) => r,
+        MaybeReply::DontReply => {
+            // Since it's http, we need to return something. We return [] because jsonrpc
+            // clients will parse it as an empty batch response.
+            json!([])
+        }
+    };
+
+    Ok(trace_create_response(
+        state,
+        StatusCode::OK,
+        mime::APPLICATION_JSON,
+        res.to_string()
+    ))
+}
+
+fn trace_state_and_body(state: &State, body: &Chunk) {
     let method = Method::borrow_from(state);
     let uri = Uri::borrow_from(state);
     let http_version = Version::borrow_from(state);
     let headers = HeaderMap::borrow_from(state);
     let body = String::from_utf8(body.to_vec()).unwrap();
-    println!(
+    trace!(
         "REQUEST Method: {} URI: {} HTTP Version: {:?} Headers: {:?} Body: {}",
         method,
         uri,
@@ -265,7 +244,7 @@ pub fn trace_state_and_body(state: &State, body: &Chunk) {
     );
 }
 
-/*pub fn trace_create_response(
+fn trace_create_response(
     state: &State,
     status: StatusCode,
     mime: Mime,
@@ -279,4 +258,4 @@ pub fn trace_state_and_body(state: &State, body: &Chunk) {
         body
     );
     create_response(state, status, mime, body)
-}*/
+}

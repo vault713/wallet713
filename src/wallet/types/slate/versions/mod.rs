@@ -17,7 +17,7 @@ pub enum SlateVersion {
 
 impl Default for SlateVersion {
 	fn default() -> Self {
-		SlateVersion::V2
+		SlateVersion::try_from(CURRENT_SLATE_VERSION).unwrap()
 	}
 }
 

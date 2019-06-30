@@ -14,12 +14,12 @@
 
 mod grinbox;
 mod http;
-//mod keybase;
+mod keybase;
 //mod null;
 
 pub use self::grinbox::GrinboxAdapter;
 pub use self::http::HTTPAdapter;
-//pub use self::keybase::KeybaseAdapter;
+pub use self::keybase::KeybaseAdapter;
 //pub use self::null::NullAdapter;
 
 use failure::Error;
@@ -38,7 +38,4 @@ pub trait Adapter {
 
 	/// Send a transaction asynchronously (result will be returned via the listener)
 	fn send_tx_async(&self, addr: &str, slate: &VersionedSlate) -> Result<(), Error>;
-
-	/// Receive a transaction async. (Actually just read it from wherever and return the slate)
-	fn receive_tx_async(&self, params: &str) -> Result<VersionedSlate, Error>;
 }

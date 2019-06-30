@@ -11,6 +11,9 @@ use rustyline::{CompletionType, Config, EditMode, Editor, Helper, OutputStreamTy
 use std::borrow::Cow::{self, Borrowed, Owned};
 use std::fs::File;
 use std::io::{Read, Write};
+use std::path::Path;
+use crate::api::listener::ListenerInterface;
+use crate::common::motd::get_motd;
 use crate::common::{Arc, ErrorKind, Keychain, Mutex};
 use crate::wallet::api::{Foreign, Owner};
 use crate::wallet::types::{NodeClient, Slate, TxProof, VersionedSlate, WalletBackend};
@@ -20,6 +23,7 @@ use super::display::{self, InitialPromptOption};
 
 const COLORED_PROMPT: &'static str = "\x1b[36mwallet713>\x1b[0m ";
 const PROMPT: &'static str = "wallet713> ";
+const HISTORY_PATH: &str = ".history";
 
 pub struct CLI<W, C, K>
 where
@@ -56,14 +60,22 @@ where
 
         if has_seed {
             self.api.set_password(display::password_prompt()?)?;
+            println!("{}", format!("\nWelcome to wallet713 v{}\n", crate_version!()).bright_yellow().bold());
             self.api.connect()?;
         }
         else if self.initial_prompt()? {
             return Ok(());
         }
 
-        self.start_listeners()?;
+        if self.api.config().check_updates() {
+            let _ = get_motd();
+        }
 
+        println!("Use `help` to see available commands");
+        println!();
+
+        self.start_listeners()?;
+        cli_message!();
         self.command_loop();
         Ok(())
     }
@@ -112,14 +124,26 @@ where
     }
 
     fn start_listeners(&self) -> Result<(), Error> {
-        let config = self.api.get_config();
+        let config = self.api.config();
         if config.grinbox_listener_auto_start() {
-            self.api.start_grinbox_listener()?;
+            if let Err(e) = self.api.start_listener(ListenerInterface::Grinbox) {
+                display::error(e);
+            }
         }
-
+        if config.keybase_listener_auto_start() {
+            if let Err(e) = self.api.start_listener(ListenerInterface::Keybase) {
+                display::error(e);
+            }
+        }
         if config.foreign_api() {
-            let address = self.api.start_foreign_http_listener()?;
-            println!("Foreign api listening on {}", address);
+            if let Err(e) = self.api.start_listener(ListenerInterface::ForeignHttp) {
+                display::error(e);
+            }
+        }
+        if config.owner_api() {
+            if let Err(e) = self.api.start_listener(ListenerInterface::OwnerHttp) {
+                display::error(e);
+            }
         }
 
         Ok(())
@@ -139,29 +163,33 @@ where
             MatchingBracketHighlighter::new(),
         )));
 
+        let history_file = self.api.config().get_data_path().unwrap().parent().unwrap().join(HISTORY_PATH);
+        if history_file.exists() {
+            let _ = reader.load_history(&history_file);
+        }
+
         let yml = load_yaml!("commands.yml");
         let mut app = App::from_yaml(yml);
 
-        for command in reader.iter(PROMPT) {
-            match command {
+        loop {
+            match reader.readline(PROMPT) {
                 Ok(command) => {
                     if command.is_empty() {
                         continue;
                     }
 
                     let args = app.get_matches_from_safe_borrow(command.trim().split_whitespace());
-                    match args {
+                    let done = match args {
                         Ok(args) => {
                             match self.command(args) {
                                 Ok(done) => {
-                                    if done {
-                                        break;
-                                    }
+                                    done
                                 },
                                 Err(err) => {
                                     cli_message!("{} {}", "Error:".bright_red(), err);
+                                    false
                                 }
-                            };
+                            }
                         },
                         Err(err) => {
                             match err.kind {
@@ -172,8 +200,15 @@ where
                                     cli_message!("{} {}", "Error:".bright_red(), err);
                                 }
                             }
+                            false
                         }
                     };
+                    reader.add_history_entry(command);
+                    if done {
+                        println!();
+                        break;
+                    }
+                    cli_message!();
                 },
                 Err(err) => {
                     println!("Unable to read line: {}", err);
@@ -181,6 +216,8 @@ where
                 }
             }
         }
+
+        let _ = reader.save_history(&history_file);
     }
 
     fn command(&self, args: ArgMatches) -> Result<bool, Error> {
@@ -193,11 +230,11 @@ where
                 match args::account_command(m)? {
                     AccountArgs::Create(name) => {
                         self.api.create_account_path(name)?;
-                        cli_message!("Account '{}' created", name);
+                        println!("Account '{}' created", name);
                     },
                     AccountArgs::Switch(name) => {
                         self.api.set_active_account(name)?;
-                        cli_message!("Switched to account '{}'", name);
+                        println!("Switched to account '{}'", name);
                     }
                 }
             }
@@ -207,15 +244,16 @@ where
             ("cancel", Some(m)) => {
                 let index = args::cancel_command(m)?;
                 self.api.cancel_tx(Some(index), None)?;
-                cli_message!("Transaction cancelled successfully");
+                println!("Transaction cancelled successfully");
             }
             ("check", Some(m)) => {
                 let delete_unconfirmed = args::repair_command(m)?;
                 println!("Checking and repairing wallet..");
                 self.api.check_repair(delete_unconfirmed)?;
-                cli_message!("Wallet repaired successfully");
+                println!("Wallet repaired successfully");
             }
             ("exit", _) => {
+                let _ = self.api.stop_listeners();
                 return Ok(true);
             }
             ("finalize", Some(m)) => {
@@ -227,7 +265,7 @@ where
                     .map_err(|_| ErrorKind::ParseSlate)?;
                 let slate = self.api.finalize_tx(&slate.into(), None)?;
                 self.api.post_tx(&slate.tx, fluff)?;
-                cli_message!("Transaction finalized and posted successfully");
+                println!("Transaction finalized and posted successfully");
             }
             ("info", _) => {
                 let account = self.api.active_account()?;
@@ -236,26 +274,23 @@ where
 
             }
             ("listen", Some(m)) => {
-                let t = args::listen_command(m)?;
-                match t {
-                    "grinbox" | "" => {
-                        self.api.start_grinbox_listener()?;
-                    },
-                    "http" => {
-                        let address = self.api.start_foreign_http_listener()?;
-                        println!("Foreign api listening on {}", address);
-                    }
+                let interface = match args::listen_command(m)? {
+                    ("grinbox", _) | ("", _) => ListenerInterface::Grinbox,
+                    ("keybase", _) => ListenerInterface::Keybase,
+                    ("http", true) => ListenerInterface::OwnerHttp,
+                    ("http", false) => ListenerInterface::ForeignHttp,
                     _ => {
-                        return Err(ErrorKind::UnknownListenerType(t.to_owned()).into());
+                        return Err(ErrorKind::IncorrectListenerInterface.into());
                     }
-                }
+                };
+                let address = self.api.start_listener(interface)?;
             }
             ("outputs", Some(m)) => {
                 let account = self.api.active_account()?;
                 let (validated, height, outputs) = self.api.retrieve_outputs(m.is_present("spent"), true, None)?;
                 let height = match height {
                     Some(h) => h,
-                    None => self.api.node_height()?.1
+                    None => self.api.node_height()?.height
                 };
                 display::outputs(&account, height, validated, outputs, true);
             },
@@ -283,7 +318,7 @@ where
             ("repost", Some(m)) => {
                 let (index, fluff) = args::repost_command(m)?;
                 self.api.repost_tx(Some(index), None, fluff)?;
-                cli_message!("Transaction '{}' reposted successfully", index);
+                println!("Transaction '{}' reposted successfully", index);
             }
             ("receive", Some(m)) => {
                 let (file_name, message) = args::receive_command(m)?;
@@ -295,16 +330,16 @@ where
                 let version = slate.version().clone();
                 let slate = slate.into();
                 let slate = self.foreign.receive_tx(&slate, None, message.map(|m| m.to_owned()))?;
-                cli_message!("Slate '{}' received", file_name);
+                println!("Slate '{}' received", file_name);
                 let mut file_out = File::create(&format!("{}.response", file_name.replace("~", &home_dir)))?;
                 let slate = VersionedSlate::into_version(slate, version);
                 file_out.write_all(serde_json::to_string(&slate)?.as_bytes())?;
-                cli_message!("Response slate file '{}'.response created successfully", file_name);
+                println!("Response slate file '{}'.response created successfully", file_name);
             }
             ("restore", _) => {
-                cli_message!("Restoring wallet..");
+                println!("Restoring wallet..");
                 self.api.restore()?;
-                cli_message!("Wallet restored successfully");
+                println!("Wallet restored successfully");
             }
             ("send", Some(m)) => {
                 let (cmd_type, args) = args::send_command(m)?;
@@ -326,7 +361,7 @@ where
                         file.write_all(serde_json::to_string_pretty(&slate)?.as_bytes())?;
                         self.api.tx_lock_outputs(&slate, 0, Some("file".to_owned()))?;
 
-                        cli_message!(
+                        println!(
                             "Slate {} for {} grin saved to {}",
                             slate.id.to_string().bright_green(),
                             amount_to_hr_string(slate.amount, false).bright_green(),
@@ -348,25 +383,23 @@ where
                 }
             }
             ("stop", Some(m)) => {
-                let t = args::listen_command(m)?;
-                match t {
-                    "grinbox" | "" => {
-                        self.api.stop_grinbox_listener()?;
-                    },
-                    "http" => {
-                        self.api.stop_foreign_http_listener()?;
-                    }
+                let interface = match args::listen_command(m)? {
+                    ("grinbox", _) | ("", _) => ListenerInterface::Grinbox,
+                    ("keybase", _) => ListenerInterface::Keybase,
+                    ("http", true) => ListenerInterface::OwnerHttp,
+                    ("http", false) => ListenerInterface::ForeignHttp,
                     _ => {
-                        return Err(ErrorKind::UnknownListenerType(t.to_owned()).into());
+                        return Err(ErrorKind::IncorrectListenerInterface.into());
                     }
-                }
+                };
+                self.api.stop_listener(interface)?;
             }
             ("txs", _) => {
                 let account = self.api.active_account()?;
                 let (validated, height, txs, contacts, proofs) = self.api.retrieve_txs(true, true, true, None, None)?;
                 let height = match height {
                     Some(h) => h,
-                    None => self.api.node_height()?.1
+                    None => self.api.node_height()?.height
                 };
                 display::txs(&account, height, validated, &txs, proofs, contacts, true, true);
             }

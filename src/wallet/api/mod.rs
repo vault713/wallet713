@@ -20,7 +20,7 @@ pub fn check_middleware(
 		// allow coinbases to be built regardless
 		ForeignCheckMiddlewareFn::BuildCoinbase => Ok(()),
 		_ => {
-			let mut bhv = 1;
+			/*let mut bhv = 1;
 			if let Some(n) = node_version_info {
 				bhv = n.block_header_version;
 			}
@@ -31,7 +31,7 @@ pub fn check_middleware(
 				{
 					return Err(ErrorKind::Compatibility.into());
 				}
-			}
+			}*/
 			Ok(())
 		}
 	}

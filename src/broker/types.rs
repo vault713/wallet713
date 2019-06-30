@@ -98,7 +98,7 @@ impl<W, C, K, P> SubscriptionHandler for Controller<W, C, K, P>
         P: Publisher,
 {
     fn on_open(&self) {
-        cli_message!("listener started for [{}]", self.name.bright_green());
+//        cli_message!("Listener for {} started", self.name.bright_green());
     }
 
     fn on_slate(&self, from: &Address, slate: &VersionedSlate, tx_proof: Option<&mut TxProof>) {
@@ -170,7 +170,9 @@ impl<W, C, K, P> SubscriptionHandler for Controller<W, C, K, P>
 
     fn on_close(&self, reason: CloseReason) {
         match reason {
-            CloseReason::Normal => cli_message!("listener [{}] stopped", self.name.bright_green()),
+            CloseReason::Normal => {
+                //println!("Listener for {} stopped", self.name.bright_green())
+            },
             CloseReason::Abnormal(_) => cli_message!(
                 "{}: listener [{}] stopped unexpectedly",
                 "ERROR".bright_red(),

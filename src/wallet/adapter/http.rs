@@ -29,8 +29,8 @@ pub struct HTTPAdapter {}
 
 impl HTTPAdapter {
 	/// Create
-	pub fn new() -> Self {
-		Self {}
+	pub fn new() -> Box<Self> {
+		Box::new(Self {})
 	}
 
 	/// Check version of the other wallet
@@ -140,10 +140,6 @@ impl Adapter for HTTPAdapter {
 	}
 
 	fn send_tx_async(&self, _dest: &str, _slate: &VersionedSlate) -> Result<(), Error> {
-		unimplemented!();
-	}
-
-	fn receive_tx_async(&self, _params: &str) -> Result<VersionedSlate, Error> {
 		unimplemented!();
 	}
 }
