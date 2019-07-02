@@ -1,16 +1,14 @@
 use std::fmt;
 use std::fs::File;
-use std::io;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use grin_core::global::ChainTypes;
 use grin_util::LoggingConfig;
 
-use super::crypto::{public_key_from_secret_key, PublicKey, SecretKey};
-use super::{ErrorKind, Result};
+use super::Result;
 use super::is_cli;
-use crate::contacts::{GrinboxAddress, DEFAULT_GRINBOX_PORT};
+use crate::contacts::DEFAULT_GRINBOX_PORT;
 
 const WALLET713_HOME: &str = ".wallet713";
 const WALLET713_DEFAULT_CONFIG_FILENAME: &str = "wallet713.toml";
@@ -45,8 +43,6 @@ pub struct Wallet713Config {
     pub check_updates: Option<bool>,
     #[serde(skip)]
     pub config_home: Option<String>,
-    #[serde(skip)]
-    pub grinbox_address_key: Option<SecretKey>,
 }
 
 impl Wallet713Config {
@@ -99,15 +95,19 @@ impl Wallet713Config {
         Ok(config)
     }
 
-    pub fn to_file(&mut self, config_path: Option<&str>) -> Result<()> {
+    pub fn to_file(&mut self, config_path: Option<String>) -> Result<()> {
         let default_path_buf = Wallet713Config::default_config_path(&self.chain)?;
         let default_path = default_path_buf.to_str().unwrap();
-        let config_path = config_path.unwrap_or(default_path);
+        let config_path = config_path.unwrap_or(default_path.to_owned());
         let toml_str = toml::to_string(&self)?;
-        let mut f = File::create(config_path)?;
+        let mut f = File::create(config_path.clone())?;
         f.write_all(toml_str.as_bytes())?;
-        self.config_home = Some(config_path.to_string());
+        self.config_home = Some(config_path);
         Ok(())
+    }
+
+    pub fn save(&mut self) -> Result<()> {
+        self.to_file(self.config_home.clone())
     }
 
     pub fn as_wallet_config(&self) -> Result<WalletConfig> {
@@ -126,24 +126,6 @@ impl Wallet713Config {
 
     pub fn grinbox_address_index(&self) -> u32 {
         self.grinbox_address_index.unwrap_or(0)
-    }
-
-    pub fn get_grinbox_address(&self) -> Result<GrinboxAddress> {
-        let public_key = self.get_grinbox_public_key()?;
-        Ok(GrinboxAddress::new(
-            public_key,
-            Some(self.grinbox_domain.clone()),
-            self.grinbox_port,
-        ))
-    }
-
-    pub fn get_grinbox_public_key(&self) -> Result<PublicKey> {
-        public_key_from_secret_key(&self.get_grinbox_secret_key()?)
-    }
-
-    pub fn get_grinbox_secret_key(&self) -> Result<SecretKey> {
-        self.grinbox_address_key.clone()
-            .ok_or_else(|| ErrorKind::NoWallet.into())
     }
 
     pub fn get_data_path(&self) -> Result<PathBuf> {
@@ -282,7 +264,7 @@ impl Default for WalletConfig {
 			chain_type: Some(ChainTypes::Mainnet),
 			api_listen_interface: "127.0.0.1".to_string(),
 			api_listen_port: 3415,
-			owner_api_listen_port: Some(WalletConfig::default_owner_api_listen_port()),
+			owner_api_listen_port: Some(3420),
 			api_secret_path: Some(".api_secret".to_string()),
 			node_api_secret_path: Some(".api_secret".to_string()),
 			check_node_api_http_addr: "http://127.0.0.1:3413".to_string(),
@@ -294,74 +276,6 @@ impl Default for WalletConfig {
 			dark_background_color_scheme: Some(true),
 			keybase_notify_ttl: Some(1440),
 		}
-	}
-}
-
-impl WalletConfig {
-	/// API Listen address
-	pub fn api_listen_addr(&self) -> String {
-		format!("{}:{}", self.api_listen_interface, self.api_listen_port)
-	}
-
-	/// Default listener port
-	pub fn default_owner_api_listen_port() -> u16 {
-		3420
-	}
-
-	/// Use value from config file, defaulting to sensible value if missing.
-	pub fn owner_api_listen_port(&self) -> u16 {
-		self.owner_api_listen_port
-			.unwrap_or(WalletConfig::default_owner_api_listen_port())
-	}
-
-	/// Owner API listen address
-	pub fn owner_api_listen_addr(&self) -> String {
-		format!("127.0.0.1:{}", self.owner_api_listen_port())
-	}
-}
-/// Error type wrapping config errors.
-#[derive(Debug)]
-pub enum ConfigError {
-	/// Error with parsing of config file
-	ParseError(String, String),
-
-	/// Error with fileIO while reading config file
-	FileIOError(String, String),
-
-	/// No file found
-	FileNotFoundError(String),
-
-	/// Error serializing config values
-	SerializationError(String),
-}
-
-impl fmt::Display for ConfigError {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match *self {
-			ConfigError::ParseError(ref file_name, ref message) => write!(
-				f,
-				"Error parsing configuration file at {} - {}",
-				file_name, message
-			),
-			ConfigError::FileIOError(ref file_name, ref message) => {
-				write!(f, "{} {}", message, file_name)
-			}
-			ConfigError::FileNotFoundError(ref file_name) => {
-				write!(f, "Configuration file not found: {}", file_name)
-			}
-			ConfigError::SerializationError(ref message) => {
-				write!(f, "Error serializing configuration: {}", message)
-			}
-		}
-	}
-}
-
-impl From<io::Error> for ConfigError {
-	fn from(error: io::Error) -> ConfigError {
-		ConfigError::FileIOError(
-			String::from(""),
-			String::from(format!("Error loading config file: {}", error)),
-		)
 	}
 }
 

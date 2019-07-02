@@ -26,7 +26,7 @@ use std::fmt::Display;
 use std::io::{self, Write};
 use std::ops::Deref;
 use crate::common::ErrorKind;
-use crate::contacts::{AddressBook, Contact, GrinboxAddress};
+use crate::contacts::{Contact, GrinboxAddress};
 use crate::wallet::types::{AcctPathMapping, OutputCommitMapping, OutputStatus, TxLogEntry, WalletInfo};
 
 pub enum InitialPromptOption {
@@ -482,7 +482,7 @@ pub fn proof(
 	let excess = to_hex(excess.0.to_vec());
 
 	println!(
-        "This file proves that [{}] grins was sent to [{}] from [{}]",
+        "This file proves that {} grin was sent to {} from {}",
         amount_to_hr_string(amount, false).bright_green(),
         format!("{}", receiver).bright_green(),
 		format!("{}", sender).bright_green()

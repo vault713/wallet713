@@ -1,5 +1,5 @@
 use blake2_rfc::blake2b::Blake2b;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use failure::ResultExt;
 use std::cell::RefCell;
 use std::fs::{self, File};
@@ -18,9 +18,8 @@ use crate::common::config::WalletConfig;
 use crate::common::{ErrorKind, Keychain};
 use crate::internal::restore;
 use super::types::{
-    AcctPathMapping, ChildNumber, Context, ExtKeychain, Identifier,
-    NodeClient, OutputData, Result, Transaction, TxLogEntry, TxProof, WalletBackend,
-    WalletBackendBatch, WalletSeed,
+    AcctPathMapping, ChildNumber, Context, Identifier, NodeClient, OutputData,
+    Result, Transaction, TxLogEntry, TxProof, WalletBackend, WalletBackendBatch, WalletSeed,
 };
 
 pub const DB_DIR: &'static str = "db";

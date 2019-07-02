@@ -22,7 +22,9 @@ extern crate failure;
 extern crate futures;
 extern crate gotham;
 extern crate hmac;
+extern crate http;
 extern crate hyper;
+extern crate hyper_rustls;
 extern crate mime;
 extern crate parking_lot;
 extern crate rand;
@@ -47,20 +49,12 @@ extern crate grin_keychain;
 extern crate grin_store;
 extern crate grin_util;
 
-use std::fs::File;
-use std::io;
-use std::io::{Read, Write};
-use std::path::Path;
-
 use clap::{App, Arg, ArgMatches};
 use colored::*;
-use grin_core::core;
-use grin_core::global::{is_mainnet, set_mining_mode, ChainTypes};
-use url::Url;
+use grin_core::global::{set_mining_mode, ChainTypes};
 
 mod api;
 mod broker;
-mod cli;
 #[macro_use]
 mod common;
 mod contacts;
@@ -68,16 +62,11 @@ mod controller;
 mod internal;
 mod wallet;
 
-//use api::router::{build_foreign_api_router, build_owner_api_router};
-use cli::Parser;
 use common::config::Wallet713Config;
-use common::{ErrorKind, Result, RuntimeMode, COLORED_PROMPT, PROMPT, post};
-use wallet::Wallet;
-
-use crate::wallet::types::{Arc, Mutex, Slate, TxProof};
-use crate::common::motd::get_motd;
-
-use contacts::{Address, AddressBook, AddressType, Backend, Contact, GrinboxAddress};
+use common::{ErrorKind, Result, RuntimeMode};
+use controller::cli::CLI;
+use contacts::{AddressBook, Backend};
+use wallet::create_container;
 
 fn do_config(
     args: &ArgMatches,
@@ -126,7 +115,7 @@ fn do_config(
         any_matches = true;
     }
 
-    config.to_file(config_path)?;
+    config.to_file(config_path.map(|p| p.to_owned()))?;
 
     if !any_matches && !silent {
         cli_message!("{}", config);
@@ -134,46 +123,6 @@ fn do_config(
 
     Ok(config)
 }
-
-/*fn do_contacts(args: &ArgMatches, address_book: Arc<Mutex<AddressBook>>) -> Result<()> {
-    let mut address_book = address_book.lock();
-    if let Some(add_args) = args.subcommand_matches("add") {
-        let name = add_args.value_of("name").expect("missing argument: name");
-        let address = add_args
-            .value_of("address")
-            .expect("missing argument: address");
-
-        // try parse as a general address and fallback to grinbox address
-        let contact_address = Address::parse(address);
-        let contact_address: Result<Box<Address>> = match contact_address {
-            Ok(address) => Ok(address),
-            Err(e) => {
-                Ok(Box::new(GrinboxAddress::from_str(address).map_err(|_| e)?) as Box<Address>)
-            }
-        };
-
-        let contact = Contact::new(name, contact_address?)?;
-        address_book.add_contact(&contact)?;
-    } else if let Some(add_args) = args.subcommand_matches("remove") {
-        let name = add_args.value_of("name").unwrap();
-        address_book.remove_contact(name)?;
-    } else {
-        let contacts: Vec<()> = address_book
-            .contacts()
-            .map(|contact| {
-                cli_message!("@{} = {}", contact.name, contact.address);
-                ()
-            })
-            .collect();
-
-        if contacts.len() == 0 {
-            cli_message!(
-                "your contact list is empty. consider using `contacts add` to add a new contact."
-            );
-        }
-    }
-    Ok(())
-}*/
 
 fn welcome(args: &ArgMatches, runtime_mode: &RuntimeMode) -> Result<Wallet713Config> {
     let chain: Option<ChainTypes> = match args.is_present("floonet") {
@@ -190,12 +139,6 @@ fn welcome(args: &ArgMatches, runtime_mode: &RuntimeMode) -> Result<Wallet713Con
 
     Ok(config)
 }
-
-use broker::{
-    CloseReason, GrinboxPublisher, GrinboxSubscriber, KeybasePublisher, KeybaseSubscriber,
-    Publisher, Subscriber, SubscriptionHandler,
-};
-use std::borrow::Borrow;
 
 fn main() {
     enable_ansi_support();
@@ -214,7 +157,7 @@ fn main() {
         false => RuntimeMode::Cli,
     };
 
-    let mut config: Wallet713Config = welcome(&matches, &runtime_mode).unwrap_or_else(|e| {
+    let config: Wallet713Config = welcome(&matches, &runtime_mode).unwrap_or_else(|e| {
         panic!(
             "{}: could not read or create config! {}",
             "ERROR".bright_red(),
@@ -234,16 +177,8 @@ fn main() {
     let address_book = AddressBook::new(Box::new(address_book_backend))
         .expect("could not create an address book!");
 
-    // TODO: clean this up
-    use grin_keychain::ExtKeychain;
-    use wallet::{Container, create_container};
-    use wallet::types::{HTTPNodeClient, WalletSeed};
-
-
-//    let backend = wallet::Backend::<HTTPNodeClient, ExtKeychain>::new(&wallet_config, "", node_client).unwrap();
     let container = create_container(config, address_book).unwrap();
 
-    use controller::cli::CLI;
     let cli = CLI::new(container);
     cli.start();
 
@@ -303,89 +238,7 @@ fn main() {
             _ => None,
         };
     };*/
-
-    /*let wallet713_home_path_buf = Wallet713Config::default_home_path(&config.chain).unwrap();
-    let wallet713_home_path = wallet713_home_path_buf.to_str().unwrap();
-
-    if let Some(path) = Path::new(wallet713_home_path)
-        .join(CLI_HISTORY_PATH)
-        .to_str()
-    {
-        rl.load_history(path).is_ok();
-    }*/
-
-    /*loop {
-        let command = rl.readline(PROMPT);
-        match command {
-            Ok(command) => {
-                let command = command.trim();
-
-                if command == "exit" {
-                    break;
-                }
-
-                let mut out_is_safe = false;
-                let result = do_command(
-                    &command,
-                    &mut config,
-                    wallet.clone(),
-                    address_book.clone(),
-                    &mut keybase_broker,
-                    &mut grinbox_broker,
-                    &mut out_is_safe,
-                );
-
-                if let Err(err) = result {
-                    cli_message!("{}", err);
-                }
-
-                if out_is_safe {
-                    rl.add_history_entry(command);
-                }
-            }
-            Err(_) => {
-                break;
-            }
-        }
-    }*/
-
-    /*if let Some(path) = Path::new(wallet713_home_path)
-        .join(CLI_HISTORY_PATH)
-        .to_str()
-    {
-        rl.save_history(path).is_ok();
-    }*/
 }
-
-/*fn derive_address_key(
-    config: &mut Wallet713Config,
-    wallet: Arc<Mutex<Wallet>>,
-    grinbox_broker: &mut Option<(GrinboxPublisher, GrinboxSubscriber)>,
-) -> Result<()> {
-    if grinbox_broker.is_some() {
-        return Err(ErrorKind::HasListener.into());
-    }
-    let index = config.grinbox_address_index();
-    let key = wallet.lock().derive_address_key(index)?;
-    config.grinbox_address_key = Some(key);
-    show_address(config, false)?;
-    Ok(())
-}
-
-fn show_address(config: &Wallet713Config, include_index: bool) -> Result<()> {
-    println!(
-        "{}: {}",
-        "Your grinbox address".bright_yellow(),
-        config.get_grinbox_address()?.stripped().bright_green()
-    );
-    if include_index {
-        println!(
-            "Derived with index [{}]",
-            config.grinbox_address_index().to_string().bright_blue()
-        );
-    }
-    Ok(())
-}*/
 
 /*fn do_command(
     command: &str,

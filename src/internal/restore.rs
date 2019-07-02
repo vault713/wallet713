@@ -22,6 +22,7 @@ use grin_keychain::{Identifier, Keychain, SwitchCommitmentType};
 use grin_util::secp::pedersen::{Commitment, RangeProof};
 use std::collections::HashMap;
 use std::time::Instant;
+use crate::common::ErrorKind;
 use crate::wallet::types::{
     NodeClient, OutputCommitMapping, OutputData, OutputStatus, TxLogEntry, TxLogEntryType, WalletBackend
 };
@@ -421,7 +422,7 @@ where
 	// Don't proceed if wallet_data has anything in it
 	if wallet.outputs()?.next().is_some() {
 		error!("Not restoring. Please back up and remove existing db directory first.");
-		return Ok(());
+		return Err(ErrorKind::WalletShouldBeEmpty.into());
 	}
 
 	let now = Instant::now();

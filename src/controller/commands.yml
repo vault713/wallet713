@@ -24,6 +24,20 @@ subcommands:
                   required: true
   - accounts:
       about: Display available accounts
+  - address:
+      about: Display current Grinbox address or switch to a different one
+      subcommands:
+        - next:
+            about: Switch to next address index
+        - prev:
+            about: Switch to previous address index
+        - index:
+            about: Switch to a specific address index
+            args:
+              - i:
+                  help: The new index
+                  index: 1
+                  required: true
   - cancel:
       about: Cancel a transaction and unlock its inputs
       args:

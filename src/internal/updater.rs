@@ -13,10 +13,10 @@
 // limitations under the License.
 
 use failure::Error;
-use grin_core::core::{HeaderVersion, Output, TxKernel};
-use grin_core::consensus::{reward, valid_header_version};
+use grin_core::core::{Output, TxKernel};
+use grin_core::consensus::reward;
 use grin_core::global::coinbase_maturity;
-use grin_core::libtx::proof::{LegacyProofBuilder, ProofBuilder};
+use grin_core::libtx::proof::ProofBuilder;
 use grin_core::libtx::reward;
 use grin_keychain::{Identifier, Keychain, SwitchCommitmentType};
 use grin_util::secp::pedersen::Commitment;
@@ -212,7 +212,7 @@ pub fn cancel_tx_and_outputs<T: ?Sized, C, K>(
 	wallet: &mut T,
 	tx: TxLogEntry,
 	outputs: Vec<OutputData>,
-	parent_key_id: &Identifier,
+	_parent_key_id: &Identifier,
 ) -> Result<(), Error>
 where
 	T: WalletBackend<C, K>,
@@ -516,13 +516,13 @@ where
 	debug!("receive_coinbase: {:?}", block_fees);
 
 	let keychain = wallet.keychain();
-	let (out, kern) = if valid_header_version(height, HeaderVersion(1)) {
-		let builder = LegacyProofBuilder::new(keychain);
-		reward::output(keychain, &builder, &key_id, block_fees.fees, false)?
-	} else {
-		let builder = ProofBuilder::new(keychain);
-		reward::output(keychain, &builder, &key_id, block_fees.fees, false)?
-	};
+	let (out, kern) = reward::output(
+		keychain,
+		&ProofBuilder::new(keychain),
+		&key_id,
+		block_fees.fees,
+		false
+	)?;
 	Ok((out, kern, block_fees))
 }
 

@@ -2,7 +2,6 @@ use failure::Error;
 use futures::Future;
 use futures::sync::oneshot;
 use grin_util::secp::key::PublicKey;
-use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::thread::{JoinHandle, spawn};
 use crate::api::router::{build_foreign_api_router, build_owner_api_router};
@@ -11,7 +10,7 @@ use crate::broker::{
     KeybaseSubscriber, Publisher, Subscriber,
 };
 use crate::common::hasher::derive_address_key;
-use crate::common::{Arc, ErrorKind, Keychain, Mutex, MutexGuard};
+use crate::common::{Arc, Keychain, Mutex, MutexGuard};
 use crate::contacts::{Address, GrinboxAddress, KeybaseAddress};
 use crate::wallet::types::{NodeClient, VersionedSlate, WalletBackend};
 use crate::wallet::Container;
@@ -40,16 +39,6 @@ impl fmt::Display for ListenerInterface {
            ListenerInterface::OwnerHttp => write!(f, "Owner HTTP"),
        }
     }
-}
-
-pub struct Listeners<W, C, K>
-    where
-        W: WalletBackend<C, K>,
-        C: NodeClient,
-        K: Keychain,
-{
-    inner: HashMap<ListenerInterface, Box<dyn Listener>>,
-    pub container: Option<Arc<Mutex<Container<W, C, K>>>>,
 }
 
 pub struct GrinboxListener {
@@ -132,7 +121,7 @@ impl Listener for ForeignHttpListener {
     fn stop(self: Box<Self>) -> Result<(), Error> {
         let s = *self;
         let _ = s.stop.send(());
-//        let _ = s.handle.join();
+        let _ = s.handle;
         Ok(())
     }
 }
@@ -159,7 +148,7 @@ impl Listener for OwnerHttpListener {
     fn stop(self: Box<Self>) -> Result<(), Error> {
         let s = *self;
         let _ = s.stop.send(());
-//        let _ = s.handle.join();
+        let _ = s.handle;
         Ok(())
     }
 }

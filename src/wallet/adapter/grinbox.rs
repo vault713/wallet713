@@ -1,17 +1,10 @@
 /// Grinbox 'plugin' implementation
 
 use failure::Error;
-use grin_api::client;
-use grin_api::Error as APIError;
-use serde::Serialize;
-use serde_json::Value;
-
 use crate::api::listener::ListenerInterface;
-use crate::broker::{GrinboxPublisher, Publisher};
-use crate::contacts::{Address, GrinboxAddress};
 use crate::common::{Arc, Keychain, Mutex};
 use crate::wallet::types::{NodeClient, VersionedSlate, WalletBackend};
-use crate::wallet::{Container, ErrorKind};
+use crate::wallet::Container;
 use super::Adapter;
 
 #[derive(Clone)]

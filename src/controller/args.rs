@@ -1,9 +1,7 @@
 use clap::ArgMatches;
-use failure::Error;
 use grin_core::core::amount_from_hr_string;
 use std::str::FromStr;
 use crate::common::ErrorKind;
-use crate::contacts::AddressBook;
 use crate::wallet::types::{InitTxArgs, InitTxSendArgs};
 
 macro_rules! usage {
@@ -35,6 +33,14 @@ pub enum ProofArgs<'a> {
 pub enum ContactArgs<'a> {
     Add(&'a str, &'a str),
     Remove(&'a str),
+}
+
+#[derive(Clone, Debug)]
+pub enum AddressArgs {
+    Display,
+    Next,
+    Prev,
+    Index(u32),
 }
 
 fn required<'a>(args: &'a ArgMatches, name: &str) -> Result<&'a str, ErrorKind> {
@@ -164,4 +170,19 @@ pub fn contact_command<'a>(args: &'a ArgMatches) -> Result<ContactArgs<'a>, Erro
         }
     };
     Ok(contact_args)
+}
+
+pub fn address_command(args: Option<&ArgMatches>) -> Result<AddressArgs, ErrorKind> {
+    let address_args = match args {
+        Some(a) => match a.subcommand() {
+            ("next", _) => AddressArgs::Next,
+            ("prev", _) => AddressArgs::Prev,
+            ("index", Some(args)) => AddressArgs::Index(parse(required(args, "i")?)?),
+            (_, _) => {
+                usage!(a);
+            }
+        },
+        None => AddressArgs::Display,
+    };
+    Ok(address_args)
 }

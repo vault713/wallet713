@@ -16,7 +16,7 @@
 //! around during an interactive wallet exchange
 
 use blake2_rfc::blake2b::blake2b;
-use failure::{Error, ResultExt};
+use failure::Error;
 use grin_core::core::amount_to_hr_string;
 use grin_core::core::committed::Committed;
 use grin_core::core::transaction::{
@@ -31,7 +31,6 @@ use grin_util::secp::key::{PublicKey, SecretKey};
 use grin_util::secp::pedersen::Commitment;
 use grin_util::secp::{self, Signature};
 use grin_util::RwLock;
-use rand::rngs::mock::StepRng;
 use rand::thread_rng;
 use serde::{Serialize, Serializer};
 use std::sync::Arc;
@@ -97,7 +96,7 @@ pub struct ParticipantMessageData {
 	pub message_sig: Option<Signature>,
 }
 
-impl ParticipantMessageData {
+/*impl ParticipantMessageData {
 	/// extract relevant message data from participant data
 	pub fn from_participant_data(p: &ParticipantData) -> ParticipantMessageData {
 		ParticipantMessageData {
@@ -107,7 +106,7 @@ impl ParticipantMessageData {
 			message_sig: p.message_sig.clone(),
 		}
 	}
-}
+}*/
 
 /// A 'Slate' is passed around to all parties to build up all of the public
 /// transaction data needed to create a finalized transaction. Callers can pass
@@ -358,7 +357,7 @@ impl Slate {
 		Ok(())
 	}
 
-	/// helper to return all participant messages
+	/*/// helper to return all participant messages
 	pub fn participant_messages(&self) -> ParticipantMessages {
 		let mut ret = ParticipantMessages { messages: vec![] };
 		for ref m in self.participant_data.iter() {
@@ -366,7 +365,7 @@ impl Slate {
 				.push(ParticipantMessageData::from_participant_data(m));
 		}
 		ret
-	}
+	}*/
 
 	/// Somebody involved needs to generate an offset with their private key
 	/// For now, we'll have the transaction initiator be responsible for it

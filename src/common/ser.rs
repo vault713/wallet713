@@ -14,14 +14,14 @@
 
 //! Sane serialization & deserialization of cryptographic structs into hex
 
-use grin_keychain::BlindingFactor;
-use grin_util::secp::key::PublicKey;
-use grin_util::secp::pedersen::{Commitment, RangeProof};
-use grin_util::secp::Signature;
-use grin_util::{from_hex, static_secp_instance, to_hex};
-use serde::{Deserialize, Deserializer, Serializer};
+//use grin_keychain::BlindingFactor;
+//use grin_util::secp::key::PublicKey;
+//use grin_util::secp::pedersen::{Commitment, RangeProof};
+//use grin_util::secp::Signature;
+//use grin_util::{from_hex, static_secp_instance, to_hex};
+//use serde::{Deserialize, Deserializer, Serializer};
 
-/// Serializes a secp PublicKey to and from hex
+/*/// Serializes a secp PublicKey to and from hex
 pub mod pubkey_serde {
     use super::*;
 
@@ -50,9 +50,9 @@ pub mod pubkey_serde {
                     .map_err(|err| Error::custom(err.to_string()))
             })
     }
-}
+}*/
 
-/// Serializes an Option<secp::Signature> to and from hex
+/*/// Serializes an Option<secp::Signature> to and from hex
 pub mod option_sig_serde {
     use serde::de::Error;
     use super::*;
@@ -93,9 +93,9 @@ pub mod option_sig_serde {
         })
     }
 
-}
+}*/
 
-/// Serializes a secp::Signature to and from hex
+/*/// Serializes a secp::Signature to and from hex
 pub mod sig_serde {
     use serde::de::Error;
     use super::*;
@@ -126,9 +126,9 @@ pub mod sig_serde {
                     .map_err(|err| Error::custom(err.to_string()))
             })
     }
-}
+}*/
 
-/// Creates a BlindingFactor from a hex string
+/*/// Creates a BlindingFactor from a hex string
 pub fn blind_from_hex<'de, D>(deserializer: D) -> Result<BlindingFactor, D::Error>
     where
         D: Deserializer<'de>,
@@ -137,9 +137,9 @@ pub fn blind_from_hex<'de, D>(deserializer: D) -> Result<BlindingFactor, D::Erro
     String::deserialize(deserializer).and_then(|string| {
         BlindingFactor::from_hex(&string).map_err(|err| Error::custom(err.to_string()))
     })
-}
+}*/
 
-/// Creates a RangeProof from a hex string
+/*/// Creates a RangeProof from a hex string
 pub fn rangeproof_from_hex<'de, D>(deserializer: D) -> Result<RangeProof, D::Error>
     where
         D: Deserializer<'de>,
@@ -149,9 +149,9 @@ pub fn rangeproof_from_hex<'de, D>(deserializer: D) -> Result<RangeProof, D::Err
     let val = String::deserialize(deserializer)
         .and_then(|string| from_hex(string).map_err(|err| Error::custom(err.to_string())))?;
     RangeProof::deserialize(val.into_deserializer())
-}
+}*/
 
-/// Creates a Pedersen Commitment from a hex string
+/*/// Creates a Pedersen Commitment from a hex string
 pub fn commitment_from_hex<'de, D>(deserializer: D) -> Result<Commitment, D::Error>
     where
         D: Deserializer<'de>,
@@ -160,16 +160,16 @@ pub fn commitment_from_hex<'de, D>(deserializer: D) -> Result<Commitment, D::Err
     String::deserialize(deserializer)
         .and_then(|string| from_hex(string).map_err(|err| Error::custom(err.to_string())))
         .and_then(|bytes: Vec<u8>| Ok(Commitment::from_vec(bytes.to_vec())))
-}
+}*/
 
-/// Seralizes a byte string into hex
+/*/// Seralizes a byte string into hex
 pub fn as_hex<T, S>(bytes: T, serializer: S) -> Result<S::Ok, S::Error>
     where
         T: AsRef<[u8]>,
         S: Serializer,
 {
     serializer.serialize_str(&to_hex(bytes.as_ref().to_vec()))
-}
+}*/
 
 /// Used to ensure u64s are serialised in json
 /// as strings by default, since it can't be guaranteed that consumers
@@ -218,7 +218,7 @@ pub mod string_or_u64 {
     }
 }
 
-/// As above, for Options
+/*/// As above, for Options
 pub mod opt_string_or_u64 {
     use serde::{de, Deserializer, Serializer};
     use std::fmt;
@@ -265,65 +265,4 @@ pub mod opt_string_or_u64 {
         }
         deserializer.deserialize_any(Visitor)
     }
-}
-
-// Test serialization methods of components that are being used
-#[cfg(test)]
-mod test {
-    use grin_core::libtx::aggsig;
-    use grin_util::secp::key::SecretKey;
-    use grin_util::secp::{Message, Signature};
-
-    use super::*;
-
-    use serde_json;
-
-    use rand::{thread_rng, Rng};
-
-    #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
-    struct SerTest {
-        #[serde(with = "pubkey_serde")]
-        pub pub_key: PublicKey,
-        #[serde(with = "option_sig_serde")]
-        pub opt_sig: Option<Signature>,
-        #[serde(with = "sig_serde")]
-        pub sig: Signature,
-        #[serde(with = "string_or_u64")]
-        pub num: u64,
-        #[serde(with = "opt_string_or_u64")]
-        pub opt_num: Option<u64>,
-    }
-
-    impl SerTest {
-        pub fn random() -> SerTest {
-            let static_secp = static_secp_instance();
-            let secp = static_secp.lock();
-            let sk = SecretKey::new(&secp, &mut thread_rng());
-            let mut msg = [0u8; 32];
-            thread_rng().fill(&mut msg);
-            let msg = Message::from_slice(&msg).unwrap();
-            let sig = aggsig::sign_single(&secp, &msg, &sk, None, None).unwrap();
-            SerTest {
-                pub_key: PublicKey::from_secret_key(&secp, &sk).unwrap(),
-                opt_sig: Some(sig.clone()),
-                sig: sig.clone(),
-                num: 30,
-                opt_num: Some(33),
-            }
-        }
-    }
-
-    #[test]
-    fn ser_secp_primitives() {
-        for _ in 0..10 {
-            let s = SerTest::random();
-            println!("Before Serialization: {:?}", s);
-            let serialized = serde_json::to_string_pretty(&s).unwrap();
-            println!("JSON: {}", serialized);
-            let deserialized: SerTest = serde_json::from_str(&serialized).unwrap();
-            println!("After Serialization: {:?}", deserialized);
-            println!();
-            assert_eq!(s, deserialized);
-        }
-    }
-}
+}*/
