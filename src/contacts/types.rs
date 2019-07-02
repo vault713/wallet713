@@ -77,8 +77,8 @@ impl AddressBook {
     }
 
     pub fn add_contact(&mut self, contact: &Contact) -> Result<()> {
-        let result = self.get_contact(&contact.name);
-        if result.is_ok() {
+        let result = self.get_contact(&contact.name)?;
+        if result.is_some() {
             return Err(ErrorKind::ContactAlreadyExists(contact.name.clone()))?;
         }
         let mut batch = self.backend.batch()?;
@@ -98,13 +98,13 @@ impl AddressBook {
         self.backend.get_contact(name.as_bytes())
     }
 
-    pub fn get_contact_by_address(&mut self, address: &str) -> Result<Contact> {
+    pub fn get_contact_by_address(&mut self, address: &str) -> Result<Option<Contact>> {
         for contact in self.contacts() {
             if contact.address == address {
-                return Ok(contact);
+                return Ok(Some(contact));
             }
         }
-        Err(ErrorKind::ContactNotFound(address.to_string()))?
+        Ok(None)
     }
 
     pub fn contacts(&self) -> Box<Iterator<Item = Contact>> {

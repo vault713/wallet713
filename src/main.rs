@@ -241,7 +241,7 @@ fn main() {
 
 
 //    let backend = wallet::Backend::<HTTPNodeClient, ExtKeychain>::new(&wallet_config, "", node_client).unwrap();
-    let container = create_container(config, Some(address_book)).unwrap();
+    let container = create_container(config, address_book).unwrap();
 
     use controller::cli::CLI;
     let cli = CLI::new(container);

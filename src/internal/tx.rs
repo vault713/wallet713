@@ -247,6 +247,7 @@ pub fn add_output_to_slate<T: ?Sized, C, K>(
 	slate: &mut Slate,
 	parent_key_id: &Identifier,
 	participant_id: usize,
+	address: Option<String>,
 	message: Option<String>,
 	is_initiator: bool,
 ) -> Result<Context, Error>
@@ -257,7 +258,7 @@ where
 {
 	// create an output using the amount in the slate
 	let (_, mut context) =
-		selection::build_recipient_output(wallet, slate, parent_key_id.clone())?;
+		selection::build_recipient_output(wallet, slate, parent_key_id.clone(), address)?;
 
 	// fill public keys
 	let _ = slate.fill_round_1(
@@ -276,6 +277,7 @@ where
 			&context.sec_nonce,
 			participant_id,
 		)?;
+		update_stored_excess(wallet, slate, false)?;
 	}
 
 	Ok(context)
@@ -382,6 +384,49 @@ where
 	Ok(())
 }
 
+pub fn update_stored_excess<T: ?Sized, C, K>(
+	wallet: &mut T,
+	slate: &Slate,
+	is_sender: bool,
+) -> Result<(), Error>
+where
+	T: WalletBackend<C, K>,
+	C: NodeClient,
+	K: Keychain,
+{
+	let (tx_vec, _) = updater::retrieve_txs(wallet, None, Some(slate.id), None, false, false)?;
+	let mut tx = None;
+	// don't want to assume this is the right tx, in case of self-sending
+	for t in tx_vec {
+		if t.tx_type == TxLogEntryType::TxSent && is_sender {
+			tx = Some(t.clone());
+			break;
+		}
+		if t.tx_type == TxLogEntryType::TxReceived && !is_sender {
+			tx = Some(t.clone());
+			break;
+		}
+	}
+	let mut tx = match tx {
+		Some(t) => t,
+		None => return Err(ErrorKind::TransactionDoesntExist(slate.id.to_string()))?,
+	};
+
+	if tx.excess.is_some() {
+		return Ok(());
+	}
+
+	let kernel = &slate.tx.kernels()[0];
+	tx.excess = Some(slate.sum_excess(wallet.keychain())?);
+	{
+		let mut batch = wallet.batch()?;
+		batch.save_tx_log_entry(&tx)?;
+		batch.commit()?;
+	}
+
+	Ok(())
+}
+
 /// Lock sender outputs
 pub fn tx_lock_outputs<T: ?Sized, C, K>(
 	wallet: &mut T,
@@ -421,6 +466,7 @@ where
 	});
 
 	complete_tx(wallet, &mut s, 0, &context)?;
+	update_stored_excess(wallet, &s, true)?;
 	update_stored_tx(wallet, &mut s, tx_proof, false)?;
 	{
 		let mut batch = wallet.batch()?;
@@ -435,6 +481,7 @@ pub fn receive_tx<T: ?Sized, C, K>(
 	w: &mut T,
 	slate: &Slate,
 	dest_acct_name: Option<&str>,
+	address: Option<String>,
 	message: Option<String>,
 ) -> Result<Slate, Error>
 where
@@ -481,6 +528,7 @@ where
 		&mut ret_slate,
 		&parent_key_id,
 		1,
+		address,
 		message,
 		false,
 	)?;

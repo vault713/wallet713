@@ -153,9 +153,9 @@ impl NodeClient for HTTPNodeClient {
 		let url;
 		let dest = self.node_url();
 		if fluff {
-			url = format!("{}/v1/pool/push?fluff", dest);
+			url = format!("{}/v1/pool/push_tx?fluff", dest);
 		} else {
-			url = format!("{}/v1/pool/push", dest);
+			url = format!("{}/v1/pool/push_tx", dest);
 		}
 		let res = client::post_no_ret(url.as_str(), self.node_api_secret(), tx);
 		if let Err(e) = res {

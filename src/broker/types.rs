@@ -80,7 +80,7 @@ impl<W, C, K, P> Controller<W, C, K, P>
             if slate.tx.inputs().len() == 0 {
                 // TODO: invoicing
             } else {
-                *slate = self.foreign.receive_tx(slate, None, None)?;
+                *slate = self.foreign.receive_tx(slate, None, address, None)?;
             }
             Ok(false)
         } else {
@@ -114,7 +114,7 @@ impl<W, C, K, P> SubscriptionHandler for Controller<W, C, K, P>
         let version = slate.version();
         let mut slate: Slate = slate.clone().into();
 
-        if slate.num_participants > slate.participant_data.len() {
+        /*if slate.num_participants > slate.participant_data.len() {
             cli_message!(
                 "Slate [{}] received from [{}] for [{}] grins",
                 slate.id.to_string().bright_green(),
@@ -128,7 +128,7 @@ impl<W, C, K, P> SubscriptionHandler for Controller<W, C, K, P>
                 display_from.bright_green(),
                 amount_to_hr_string(slate.amount, false).bright_green()
             );
-        };
+        };*/
 
         if from.address_type() == AddressType::Grinbox {
             GrinboxAddress::from_str(&from.to_string()).expect("invalid grinbox address");
@@ -149,16 +149,17 @@ impl<W, C, K, P> SubscriptionHandler for Controller<W, C, K, P>
                         })
                         .expect("failed posting slate!");
                     cli_message!(
-                        "slate [{}] sent back to [{}] successfully",
+                        "Slate [{}] sent back to [{}] successfully",
                         id.to_string().bright_green(),
                         display_from.bright_green()
                     );
-                } else {
+                }
+                /*else {
                     cli_message!(
-                        "slate [{}] finalized successfully",
+                        "Slate [{}] finalized successfully",
                         slate.id.to_string().bright_green()
                     );
-                }
+                }*/
                 Ok(())
             });
 

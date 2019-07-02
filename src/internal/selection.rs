@@ -171,6 +171,7 @@ pub fn build_recipient_output<T: ?Sized, C, K>(
 	wallet: &mut T,
 	slate: &mut Slate,
 	parent_key_id: Identifier,
+	address: Option<String>,
 ) -> Result<(Identifier, Context), Error>
 where
 	T: WalletBackend<C, K>,
@@ -208,6 +209,7 @@ where
 	let log_id = batch.next_tx_log_id(&parent_key_id)?;
 	let mut t = TxLogEntry::new(parent_key_id.clone(), TxLogEntryType::TxReceived, log_id);
 	t.tx_slate_id = Some(slate_id);
+	t.address = address;
 	t.amount_credited = amount;
 	t.num_outputs = 1;
 //	t.messages = messages;

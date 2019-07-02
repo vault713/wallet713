@@ -27,9 +27,9 @@ use grin_core::core::verifier_cache::LruVerifierCache;
 use grin_core::libtx::{aggsig, build, secp_ser, tx_fee};
 use grin_core::libtx::proof::ProofBuild;
 use grin_keychain::{BlindSum, BlindingFactor, Keychain};
-use grin_util::secp;
 use grin_util::secp::key::{PublicKey, SecretKey};
-use grin_util::secp::Signature;
+use grin_util::secp::pedersen::Commitment;
+use grin_util::secp::{self, Signature};
 use grin_util::RwLock;
 use rand::rngs::mock::StepRng;
 use rand::thread_rng;
@@ -482,6 +482,28 @@ impl Slate {
 			}
 		}
 		Ok(())
+	}
+
+	/// Calculate the total public excess
+	pub fn sum_excess<K>(
+		&self,
+		keychain: &K,
+	) -> Result<Commitment, Error>
+	where
+		K: Keychain,
+	{
+		// sum the input/output commitments on the final tx
+		let overage = self.tx.fee() as i64;
+		let tx_excess = self.tx.sum_commitments(overage)?;
+
+		// subtract the kernel_excess (built from kernel_offset)
+		let offset_excess = keychain
+			.secp()
+			.commit(0, self.tx.offset.secret_key(keychain.secp())?)?;
+		let excess = keychain
+			.secp()
+			.commit_sum(vec![tx_excess], vec![offset_excess])?;
+		Ok(excess)
 	}
 
 	/// This should be callable by either the sender or receiver

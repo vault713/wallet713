@@ -18,7 +18,7 @@ use crate::common::{Arc, ErrorKind, Keychain, Mutex};
 use crate::wallet::api::{Foreign, Owner};
 use crate::wallet::types::{NodeClient, Slate, TxProof, VersionedSlate, WalletBackend};
 use crate::wallet::Container;
-use super::args::{self, AccountArgs, ProofArgs, SendCommandType};
+use super::args::{self, AccountArgs, ContactArgs, ProofArgs, SendCommandType};
 use super::display::{self, InitialPromptOption};
 
 const COLORED_PROMPT: &'static str = "\x1b[36mwallet713>\x1b[0m ";
@@ -252,6 +252,21 @@ where
                 self.api.check_repair(delete_unconfirmed)?;
                 println!("Wallet repaired successfully");
             }
+            ("contact", Some(m)) => {
+                match args::contact_command(m)? {
+                    ContactArgs::Add(name, address) => {
+                        self.api.add_contact(name, address)?;
+                        println!("Contact {} added", name.bright_green());
+                    },
+                    ContactArgs::Remove(name) => {
+                        self.api.remove_contact(name)?;
+                        println!("Contact {} removed", name.bright_green());
+                    }
+                }
+            }
+            ("contacts", _) => {
+                display::contacts(self.api.contacts()?);
+            }
             ("exit", _) => {
                 let _ = self.api.stop_listeners();
                 return Ok(true);
@@ -317,8 +332,8 @@ where
             }
             ("repost", Some(m)) => {
                 let (index, fluff) = args::repost_command(m)?;
-                self.api.repost_tx(Some(index), None, fluff)?;
-                println!("Transaction '{}' reposted successfully", index);
+                let slate_id = self.api.repost_tx(Some(index), None, fluff)?;
+                println!("Transaction {} reposted successfully", slate_id.to_string().bright_green());
             }
             ("receive", Some(m)) => {
                 let (file_name, message) = args::receive_command(m)?;
@@ -329,12 +344,11 @@ where
                     .map_err(|_| ErrorKind::ParseSlate)?;
                 let version = slate.version().clone();
                 let slate = slate.into();
-                let slate = self.foreign.receive_tx(&slate, None, message.map(|m| m.to_owned()))?;
-                println!("Slate '{}' received", file_name);
+                let slate = self.foreign.receive_tx(&slate, None, Some("file".to_owned()), message.map(|m| m.to_owned()))?;
                 let mut file_out = File::create(&format!("{}.response", file_name.replace("~", &home_dir)))?;
                 let slate = VersionedSlate::into_version(slate, version);
                 file_out.write_all(serde_json::to_string(&slate)?.as_bytes())?;
-                println!("Response slate file '{}'.response created successfully", file_name);
+                cli_message!("Response slate file {} created successfully", format!("{}.response", file_name.bright_green()));
             }
             ("restore", _) => {
                 println!("Restoring wallet..");
@@ -348,12 +362,6 @@ where
                     SendCommandType::Address => {
                         let dest = args.send_args.as_ref().unwrap().dest.clone();
                         let slate = self.api.init_send_tx(args)?;
-                        cli_message!(
-                            "Slate {} for {} grin sent successfully to {}",
-                            slate.id.to_string().bright_green(),
-                            amount_to_hr_string(slate.amount, false).bright_green(),
-                            dest.bright_green()
-                        );
                     }
                     SendCommandType::File(file_name) => {
                         let slate = self.api.init_send_tx(args)?;

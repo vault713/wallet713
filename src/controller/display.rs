@@ -19,13 +19,14 @@ use grin_core::global::{coinbase_maturity, is_mainnet};
 use grin_util::secp::pedersen::Commitment;
 use grin_util::{ZeroingString, to_hex};
 use uuid::Uuid;
+use prettytable::format::consts::{FORMAT_NO_BORDER_LINE_SEPARATOR, FORMAT_NO_COLSEP};
 use rpassword::prompt_password_stdout;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::io::{self, Write};
 use std::ops::Deref;
 use crate::common::ErrorKind;
-use crate::contacts::{AddressBook, GrinboxAddress};
+use crate::contacts::{AddressBook, Contact, GrinboxAddress};
 use crate::wallet::types::{AcctPathMapping, OutputCommitMapping, OutputStatus, TxLogEntry, WalletInfo};
 
 pub enum InitialPromptOption {
@@ -147,7 +148,7 @@ pub fn estimate(
 			]);
 		}
 	}
-	table.set_format(*prettytable::format::consts::FORMAT_NO_COLSEP);
+	table.set_format(*FORMAT_NO_COLSEP);
 	table.printstd();
 	println!();
 }
@@ -167,7 +168,7 @@ pub fn accounts(acct_mappings: Vec<AcctPathMapping>) {
             bGC->m.path.to_bip_32_string(),
         ]);
     }
-    table.set_format(*prettytable::format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR);
+    table.set_format(*FORMAT_NO_BORDER_LINE_SEPARATOR);
     table.printstd();
     println!();
 }
@@ -250,7 +251,7 @@ pub fn outputs(
 		}
 	}
 
-	table.set_format(*prettytable::format::consts::FORMAT_NO_COLSEP);
+	table.set_format(*FORMAT_NO_COLSEP);
 	table.printstd();
 	println!();
 
@@ -368,7 +369,7 @@ pub fn txs(
 		}
 	}
 
-	table.set_format(*prettytable::format::consts::FORMAT_NO_COLSEP);
+	table.set_format(*FORMAT_NO_COLSEP);
 	table.printstd();
 	println!();
 
@@ -458,7 +459,7 @@ pub fn info(
 			FG->amount_to_hr_string(wallet_info.amount_currently_spendable, false)
 		]);
 	};
-	table.set_format(*prettytable::format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR);
+	table.set_format(*FORMAT_NO_BORDER_LINE_SEPARATOR);
 	table.printstd();
 	println!();
 	if !validated {
@@ -500,4 +501,24 @@ pub fn proof(
         false => "floonet.",
     };
     cli_message!("   https://{}grinscan.net/kernel/{}", prefix, excess);
+}
+
+/// Display list of contacts in a pretty way
+pub fn contacts(contacts: Vec<Contact>) {
+    println!("\n____ Contacts ____\n",);
+    let mut table = table!();
+
+    table.set_titles(row![
+        mMG->"Name",
+        bMG->"Address",
+    ]);
+    for c in contacts {
+		table.add_row(row![
+            bFC->c.name,
+            bGC->c.address,
+        ]);
+    }
+    table.set_format(*FORMAT_NO_BORDER_LINE_SEPARATOR);
+    table.printstd();
+    println!();
 }

@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use colored::Colorize;
 use failure::Error;
 use gotham::state::StateData;
+use grin_core::core::amount_to_hr_string;
 use std::marker::PhantomData;
 use crate::common::{Arc, Keychain, Mutex, MutexGuard};
 use crate::internal::{tx, updater};
@@ -143,6 +145,7 @@ where
 		&self,
 		slate: &Slate,
 		dest_acct_name: Option<&str>,
+		address: Option<String>,
 		message: Option<String>,
 	) -> Result<Slate, Error> {
         self.open_and_close(|c| {
@@ -156,7 +159,21 @@ where
 			    )?;
 		    }
 
-            tx::receive_tx(w, slate, dest_acct_name, message)
+            let slate = tx::receive_tx(w, slate, dest_acct_name, address.clone(), message)?;
+
+			let from = match address {
+				Some(a) => format!(" from {}", a.bright_green()),
+				None => String::new(),
+			};
+
+			cli_message!(
+				"Slate {} for {} grin received{}",
+				slate.id.to_string().bright_green(),
+				amount_to_hr_string(slate.amount, false).bright_green(),
+				from
+			);
+
+			Ok(slate)
         })
 	}
 

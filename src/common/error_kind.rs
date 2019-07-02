@@ -103,10 +103,7 @@ pub enum ErrorKind {
         0
     )]
     AlreadyListening(String),
-    #[fail(
-        display = "\x1b[31;1merror:\x1b[0m contact named `{}` already exists!",
-        0
-    )]
+    #[fail(display = "Contact named '{}' already exists!", 0)]
     ContactAlreadyExists(String),
     #[fail(
         display = "\x1b[31;1merror:\x1b[0m could not find contact named `{}`!",

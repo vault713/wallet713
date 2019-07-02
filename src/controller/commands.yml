@@ -37,6 +37,29 @@ subcommands:
         - delete_unconfirmed:
             help: Delete unconfirmed outputs
             short: d
+  - contact:
+      about: Add or remove a contact
+      subcommands:
+        - add:
+            about: Add a contact
+            args:
+              - name:
+                  help: The contact name
+                  index: 1
+                  required: true
+              - address:
+                  help: The contact address
+                  index: 2
+                  required: true
+        - remove:
+            about: Remove a contact
+            args:
+              - name:
+                  help: The contact name
+                  index: 1
+                  required: true
+  - contacts:
+      about: Display contacts
   - exit:
       about: Exit out of wallet713 CLI
   - finalize:

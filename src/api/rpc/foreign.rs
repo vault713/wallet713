@@ -73,6 +73,7 @@ where
 			self,
 			&slate,
 			dest_acct_name.as_ref().map(String::as_str),
+			Some("http".to_owned()),
 			message,
 		)
 		.map_err(|e| ErrorKind::GenericError(e.to_string()))?;

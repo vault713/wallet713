@@ -21,13 +21,9 @@ pub struct Container<W, C, K>
 {
     pub config: Wallet713Config,
     backend: W,
-    pub address_book: Option<AddressBook>,
+    pub address_book: AddressBook,
     pub account: String,
     pub listeners: HashMap<ListenerInterface, Box<dyn Listener>>,
-    /*pub grinbox: Option<(GrinboxAddress, GrinboxPublisher, GrinboxSubscriber, JoinHandle<()>)>,
-    pub keybase: Option<(KeybasePublisher, KeybaseSubscriber, JoinHandle<()>)>,
-    pub foreign_http: Option<(oneshot::Sender<()>, JoinHandle<()>)>,
-    pub owner_http: Option<(oneshot::Sender<()>, JoinHandle<()>)>,*/
     phantom_c: PhantomData<C>,
     phantom_k: PhantomData<K>,
 }
@@ -38,17 +34,13 @@ impl<W, C, K> Container<W, C, K>
         C: NodeClient,
         K: Keychain,
 {
-    pub fn new(config: Wallet713Config, backend: W, address_book: Option<AddressBook>) -> Arc<Mutex<Self>> {
+    pub fn new(config: Wallet713Config, backend: W, address_book: AddressBook) -> Arc<Mutex<Self>> {
         let mut container = Self {
             config,
             backend,
             address_book,
             account: String::from("default"),
             listeners: HashMap::with_capacity(4),
-            /*grinbox: None,
-            keybase: None,
-            foreign_http: None,
-            owner_http: None,*/
             phantom_c: PhantomData,
             phantom_k: PhantomData,
         };
@@ -72,7 +64,7 @@ impl<W, C, K> Container<W, C, K>
     }
 }
 
-pub fn create_container(config: Wallet713Config, address_book: Option<AddressBook>) -> Result<Arc<Mutex<Container<Backend<HTTPNodeClient, ExtKeychain>, HTTPNodeClient, ExtKeychain>>>, Error> {
+pub fn create_container(config: Wallet713Config, address_book: AddressBook) -> Result<Arc<Mutex<Container<Backend<HTTPNodeClient, ExtKeychain>, HTTPNodeClient, ExtKeychain>>>, Error> {
     let wallet_config = config.as_wallet_config()?;
     let client = HTTPNodeClient::new(
         &wallet_config.check_node_api_http_addr,

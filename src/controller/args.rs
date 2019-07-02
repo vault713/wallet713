@@ -31,6 +31,12 @@ pub enum ProofArgs<'a> {
     Verify(&'a str),
 }
 
+#[derive(Clone, Debug)]
+pub enum ContactArgs<'a> {
+    Add(&'a str, &'a str),
+    Remove(&'a str),
+}
+
 fn required<'a>(args: &'a ArgMatches, name: &str) -> Result<&'a str, ErrorKind> {
     args
         .value_of(name)
@@ -143,4 +149,19 @@ pub fn proof_command<'a>(args: &'a ArgMatches) -> Result<ProofArgs<'a>, ErrorKin
         }
     };
     Ok(proof_args)
+}
+
+pub fn contact_command<'a>(args: &'a ArgMatches) -> Result<ContactArgs<'a>, ErrorKind> {
+    let contact_args = match args.subcommand() {
+        ("add", Some(args)) => {
+            ContactArgs::Add(required(args, "name")?, required(args, "address")?)
+        },
+        ("remove", Some(args)) => {
+            ContactArgs::Remove(required(args, "name")?)
+        },
+        (_, _) => {
+            usage!(args);
+        }
+    };
+    Ok(contact_args)
 }

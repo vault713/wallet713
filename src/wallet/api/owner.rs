@@ -17,7 +17,7 @@ use failure::Error;
 use futures::sync::oneshot;
 use futures::Future;
 use grin_core::core::hash::Hashed;
-use grin_core::core::Transaction;
+use grin_core::core::{Transaction, amount_to_hr_string};
 use grin_core::ser::ser_vec;
 use grin_keychain::Identifier;
 use grin_util::secp::key::PublicKey;
@@ -35,7 +35,7 @@ use crate::broker::{Controller, GrinboxPublisher, GrinboxSubscriber, KeybasePubl
 use crate::common::config::Wallet713Config;
 use crate::common::hasher::derive_address_key;
 use crate::common::{Arc, Keychain, Mutex, MutexGuard};
-use crate::contacts::{Address, AddressType, GrinboxAddress, parse_address};
+use crate::contacts::{Address, AddressType, Contact, GrinboxAddress, parse_address};
 use crate::wallet::adapter::{Adapter, GrinboxAdapter, HTTPAdapter};
 use crate::wallet::{Container, ErrorKind};
 use crate::internal::*;
@@ -186,6 +186,30 @@ where
 		Ok(())
 	}
 
+	pub fn contacts(&self) -> Result<Vec<Contact>, Error> {
+		let mut c = self.container.lock();
+		let contacts: Vec<_> = c.address_book.contacts().collect();
+		Ok(contacts)
+	}
+
+	pub fn add_contact(&self, name: &str, address: &str) -> Result<(), Error> {
+		let address = parse_address(address)?;
+		let mut c = self.container.lock();
+		let contact = Contact::new(name, address)?;
+		c.address_book.add_contact(&contact)?;
+		Ok(())
+	}
+
+	pub fn remove_contact(&self, name: &str) -> Result<(), Error> {
+		let mut c = self.container.lock();
+		let contacts = &mut c.address_book;
+		if contacts.get_contact(name)?.is_none() {
+			return Err(ErrorKind::ContactNotFound(name.to_owned()).into());
+		}
+		c.address_book.remove_contact(name)?;
+		Ok(())
+	}
+
     pub fn retrieve_outputs(
 		&self,
 		include_spent: bool,
@@ -237,18 +261,17 @@ where
 			let (txs, proofs) = updater::retrieve_txs(w, tx_id, tx_slate_id, Some(&parent_key_id), false, check_proofs)?;
 
 			let mut contacts = HashMap::new();
-			match (check_contacts, &c.address_book) {
-				(true, Some(book)) => for tx in &txs {
+			if check_contacts {
+				for tx in &txs {
 					if let Some(a) = &tx.address {
-						match book.get_contact(a) {
+						match c.address_book.get_contact_by_address(a) {
 							Ok(Some(con)) => {
 								contacts.insert(a.clone(), con.name.clone());
 							},
 							_ => {}
 						}
 					}
-				},
-				_ => {},
+				}
 			}
 
 			Ok((validated, height, txs, contacts, proofs))
@@ -300,15 +323,10 @@ where
 			if sa.dest.starts_with("@") {
 				// Look up contact by address
 				let c = self.container.lock();
-				if let Some(contacts) = &c.address_book {
-					let contact = contacts.get_contact(&sa.dest[1..])?;
-					sa.dest = contact
-						.ok_or(ErrorKind::ContactNotFound(sa.dest.clone()))?
-						.address;
-				}
-				else {
-					return Err(ErrorKind::NoAddressBook.into());
-				}
+				let contact = c.address_book.get_contact(&sa.dest[1..])?;
+				sa.dest = contact
+					.ok_or(ErrorKind::ContactNotFound(sa.dest.clone()))?
+					.address;
 			}
 
 			if sa.method.is_none() {
@@ -367,6 +385,13 @@ where
 				}
 				self.tx_lock_outputs(&slate, 0, Some(sa.dest.clone()))?;
 
+				cli_message!(
+					"Slate {} for {} grin sent successfully to {}",
+					slate.id.to_string().bright_green(),
+					amount_to_hr_string(slate.amount, false).bright_green(),
+					sa.dest.bright_green()
+				);
+
 				if adapter.supports_sync() {
 					if sa.finalize {
 						slate = self.finalize_tx(&slate, None)?;
@@ -411,6 +436,10 @@ where
 			let w = c.backend()?;
 			let mut slate = slate.clone();
 			slate = tx::finalize_tx(w, &slate, tx_proof)?;
+			cli_message!(
+				"Slate {} finalized successfully",
+				slate.id.to_string().bright_green()
+			);
 			Ok(slate)
 		})
 	}
@@ -452,16 +481,19 @@ where
 		w.get_stored_tx(&slate_id.to_string())
 	}
 
-	pub fn repost_tx(&self, tx_id: Option<u32>, tx_slate_id: Option<Uuid>, fluff: bool) -> Result<(), Error> {
+	pub fn repost_tx(&self, tx_id: Option<u32>, tx_slate_id: Option<Uuid>, fluff: bool) -> Result<Uuid, Error> {
 		let tx_entry = self.retrieve_tx(tx_id, tx_slate_id)?;
 		if tx_entry.confirmed {
 			return Err(ErrorKind::TransactionAlreadyConfirmed.into());
 		}
 		let slate_id = tx_entry.tx_slate_id.ok_or(ErrorKind::TransactionProofNotStored)?;
-		let mut c = self.container.lock();
-		let w = c.backend()?;
-		let tx = w.get_stored_tx(&slate_id.to_string())?.ok_or(ErrorKind::TransactionNotStored)?;
-		self.post_tx(&tx, fluff)
+		let tx = {
+			let mut c = self.container.lock();
+			let w = c.backend()?;
+			w.get_stored_tx(&slate_id.to_string())?.ok_or(ErrorKind::TransactionNotStored)?
+		};
+		self.post_tx(&tx, fluff)?;
+		Ok(slate_id)
 	}
 
 	pub fn verify_slate_messages(&self, slate: &Slate) -> Result<(), Error> {
