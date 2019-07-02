@@ -1,16 +1,15 @@
+use serde::Serialize;
+use serde_json::{json, Value};
 use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use serde::Serialize;
-use serde_json::{json, Value};
-
-use crate::wallet::types::Slate;
-use super::types::{CloseReason, Publisher, Subscriber, SubscriptionHandler};
-use common::{Arc, ErrorKind, Mutex, Result};
-use contacts::{Address, KeybaseAddress};
+use crate::common::{Arc, ErrorKind, Keychain, Mutex, Result};
+use crate::contacts::{Address, KeybaseAddress};
+use crate::wallet::types::{NodeClient, Slate, VersionedSlate, WalletBackend};
+use super::types::{CloseReason, Controller, Publisher, Subscriber, SubscriptionHandler};
 
 pub const TOPIC_SLATE_NEW: &str = "grin_slate_new";
 pub const TOPIC_WALLET713_SLATES: &str = "wallet713_grin_slate";
@@ -43,7 +42,7 @@ impl KeybaseSubscriber {
 }
 
 impl Publisher for KeybasePublisher {
-    fn post_slate(&self, slate: &Slate, to: &Address) -> Result<()> {
+    fn post_slate(&self, slate: &VersionedSlate, to: &Address) -> Result<()> {
         let keybase_address = KeybaseAddress::from_str(&to.to_string())?;
 
         // make sure we don't send message with ttl to wallet713 as keybase oneshot does not support exploding lifetimes
@@ -64,7 +63,13 @@ impl Publisher for KeybasePublisher {
 }
 
 impl Subscriber for KeybaseSubscriber {
-    fn start(&mut self, handler: Box<SubscriptionHandler + Send>) -> Result<()> {
+    fn start<W, C, K, P>(&mut self, handler: Controller<W, C, K, P>) -> Result<()>
+        where
+            W: WalletBackend<C, K>,
+            C: NodeClient,
+            K: Keychain,
+            P: Publisher,
+    {
         {
             let mut guard = self.stop_signal.lock();
             *guard = false;
@@ -95,12 +100,15 @@ impl Subscriber for KeybaseSubscriber {
                         TOPIC_SLATE_NEW => TOPIC_SLATE_SIGNED.to_string(),
                         _ => TOPIC_WALLET713_SLATES.to_string(),
                     };
-                    let mut slate = Slate::deserialize_upgrade(&msg)?;
+
+                    let slate: VersionedSlate = serde_json::from_str(&msg)
+                        .map_err(|_| ErrorKind::ParseSlate)?;
+
                     let address = KeybaseAddress {
                         username: sender.to_string(),
                         topic: Some(reply_topic),
                     };
-                    handler.on_slate(address.borrow(), &mut slate, None);
+                    handler.on_slate(address.borrow(), &slate, None);
                 }
             } else {
                 if !dropped {

@@ -12,24 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use blake2_rfc as blake2;
+use failure::{Error, ResultExt};
+use grin_keychain::{mnemonic, Keychain};
+use grin_util::{ZeroingString, from_hex, to_hex};
+use rand::{Rng, thread_rng};
+use ring::{aead, digest, pbkdf2};
+use serde_json;
 use std::fs::{self, File};
 use std::io::{Read, Write};
-use std::path::Path;
-use std::path::MAIN_SEPARATOR;
-
-use blake2_rfc as blake2;
-use rand::{thread_rng, Rng};
-use serde_json;
-
-use ring::aead;
-use ring::{digest, pbkdf2};
-
-use grin_keychain::{mnemonic, Keychain};
-use grin_util::{from_hex, to_hex};
-use grin_util::ZeroingString;
-use super::error::{Error, ErrorKind};
+use std::path::{Path, MAIN_SEPARATOR};
 use crate::common::config::WalletConfig;
-use failure::ResultExt;
+use super::ErrorKind;
 
 pub const SEED_FILE: &'static str = "wallet.seed";
 
@@ -65,11 +59,6 @@ impl WalletSeed {
 			Ok(r) => Ok(r),
 			Err(_) => Err(ErrorKind::Mnemonic.into()),
 		}
-	}
-
-	pub fn derive_keychain_old(old_wallet_seed: [u8; 32], password: &str) -> Vec<u8> {
-		let seed = blake2::blake2b::blake2b(64, password.as_bytes(), &old_wallet_seed);
-		seed.as_bytes().to_vec()
 	}
 
 	pub fn derive_keychain<K: Keychain>(&self, is_floonet: bool) -> Result<K, Error> {
@@ -185,7 +174,6 @@ impl WalletSeed {
 		let mut file = File::create(seed_file_path).context(ErrorKind::IO)?;
 		file.write_all(&enc_seed_json.as_bytes())
 			.context(ErrorKind::IO)?;
-		seed.show_recovery_phrase()?;
 		Ok(seed)
 	}
 

@@ -1,4 +1,4 @@
-use futures::future;
+/*use futures::future;
 use futures::{Future, Stream};
 use gotham::handler::{HandlerFuture, IntoHandlerError};
 use gotham::state::{FromState, State};
@@ -7,10 +7,10 @@ use hyper::{Body, Response, StatusCode};
 
 use crate::api::error::ApiError;
 use crate::api::router::{trace_create_response, trace_state_and_body, WalletContainer};
-use common::Result;
-use wallet::types::{BlockFees, Slate};
+use crate::common::Result;
+use crate::wallet::types::{BlockFees, Slate};*/
 
-pub fn receive_tx(mut state: State) -> Box<HandlerFuture> {
+/*pub fn receive_tx(mut state: State) -> Box<HandlerFuture> {
     let future = Body::take_from(&mut state)
         .concat2()
         .then(|body| match body {
@@ -89,4 +89,4 @@ fn handle_receive_invoice(state: &State, body: &Chunk) -> Result<Response<Body>>
         mime::APPLICATION_JSON,
         serde_json::to_string(&slate)?,
     ))
-}
+}*/

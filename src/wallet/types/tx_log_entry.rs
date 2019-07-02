@@ -1,5 +1,6 @@
 use chrono::prelude::*;
 use grin_core::ser;
+use grin_util::secp::pedersen::Commitment;
 use uuid::Uuid;
 
 use super::{Identifier, TxLogEntryType};
@@ -40,6 +41,10 @@ pub struct TxLogEntry {
     pub amount_debited: u64,
     /// Fee
     pub fee: Option<u64>,
+    /// Public kernel excess
+    pub excess: Option<Commitment>,
+    /// Location of the store transaction, (reference or resending)
+	pub stored_tx: Option<String>,
 }
 
 impl TxLogEntry {
@@ -59,6 +64,8 @@ impl TxLogEntry {
             num_inputs: 0,
             num_outputs: 0,
             fee: None,
+            excess: None,
+            stored_tx: None,
         }
     }
 

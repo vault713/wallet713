@@ -16,7 +16,7 @@
 //! around during an interactive wallet exchange
 
 use blake2_rfc::blake2b::blake2b;
-use failure::ResultExt;
+use failure::{Error, ResultExt};
 use grin_core::core::amount_to_hr_string;
 use grin_core::core::committed::Committed;
 use grin_core::core::transaction::{
@@ -25,20 +25,21 @@ use grin_core::core::transaction::{
 };
 use grin_core::core::verifier_cache::LruVerifierCache;
 use grin_core::libtx::{aggsig, build, secp_ser, tx_fee};
+use grin_core::libtx::proof::ProofBuild;
 use grin_keychain::{BlindSum, BlindingFactor, Keychain};
-use grin_util::secp;
 use grin_util::secp::key::{PublicKey, SecretKey};
-use grin_util::secp::Signature;
+use grin_util::secp::pedersen::Commitment;
+use grin_util::secp::{self, Signature};
 use grin_util::RwLock;
 use rand::rngs::mock::StepRng;
 use rand::thread_rng;
+use serde::{Serialize, Serializer};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::wallet::error::{Error, ErrorKind};
-use super::versions::{v0::SlateV0, v1::SlateV1, v2::*};
-use super::versions::CURRENT_SLATE_VERSION;
-use serde::{Serialize, Serializer};
+use crate::wallet::ErrorKind;
+use super::versions::v2::*;
+use super::versions::{CURRENT_SLATE_VERSION, GRIN_BLOCK_HEADER_VERSION};
 
 
 /// Public data for each participant in the slate
@@ -149,8 +150,8 @@ pub struct VersionCompatInfo {
 	pub version: u16,
 	/// Original version this slate was converted from
 	pub orig_version: u16,
-	/// Minimum version this slate is compatible with
-	pub min_compat_version: u16,
+	/// The grin block header version this slate is intended for
+	pub block_header_version: u16,
 }
 
 /// Helper just to facilitate serialization
@@ -160,55 +161,7 @@ pub struct ParticipantMessages {
 	pub messages: Vec<ParticipantMessageData>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SlateVersionProbe {
-	#[serde(default)]
-	version: Option<u64>,
-	#[serde(default)]
-	version_info: Option<VersionCompatInfo>,
-}
-
-impl SlateVersionProbe {
-	pub fn version(&self) -> u16 {
-		match &self.version_info {
-			Some(v) => v.version,
-			None => match self.version {
-				Some(_) => 1,
-				None => 0,
-			},
-		}
-	}
-}
-
 impl Slate {
-	pub fn parse_slate_version(slate_json: &str) -> Result<u16, Error> {
-		let probe: SlateVersionProbe = serde_json::from_str(slate_json)
-			.map_err(|_| ErrorKind::SlateVersionParse)?;
-		Ok(probe.version())
-	}
-
-	/// Recieve a slate, upgrade it to the latest version internally
-	pub fn deserialize_upgrade(slate_json: &str) -> Result<Slate, Error> {
-		let version = Slate::parse_slate_version(slate_json)?;
-		let v2 = match version {
-			2 => serde_json::from_str(slate_json).context(ErrorKind::SlateDeser)?,
-			1 => {
-				let mut v1: SlateV1 =
-					serde_json::from_str(slate_json).context(ErrorKind::SlateDeser)?;
-				v1.orig_version = 1;
-				SlateV2::from(v1)
-			}
-			0 => {
-				let v0: SlateV0 =
-					serde_json::from_str(slate_json).context(ErrorKind::SlateDeser)?;
-				let v1 = SlateV1::from(v0);
-				SlateV2::from(v1)
-			}
-			_ => return Err(ErrorKind::SlateVersion(version).into()),
-		};
-		Ok(v2.into())
-	}
-
 	/// Create a new slate
 	pub fn blank(num_participants: usize) -> Slate {
 		Slate {
@@ -223,26 +176,28 @@ impl Slate {
 			version_info: VersionCompatInfo {
 				version: CURRENT_SLATE_VERSION,
 				orig_version: CURRENT_SLATE_VERSION,
-				min_compat_version: 0,
+				block_header_version: GRIN_BLOCK_HEADER_VERSION,
 			},
 		}
 	}
 
 	/// Adds selected inputs and outputs to the slate's transaction
 	/// Returns blinding factor
-	pub fn add_transaction_elements<K>(
+	pub fn add_transaction_elements<K, B>(
 		&mut self,
 		keychain: &K,
-		mut elems: Vec<Box<build::Append<K>>>,
+		builder: &B,
+		mut elems: Vec<Box<build::Append<K, B>>>,
 	) -> Result<BlindingFactor, Error>
 	where
 		K: Keychain,
+		B: ProofBuild,
 	{
 		// Append to the exiting transaction
 		if self.tx.kernels().len() != 0 {
 			elems.insert(0, build::initial_tx(self.tx.clone()));
 		}
-		let (tx, blind) = build::partial_transaction(elems, keychain)?;
+		let (tx, blind) = build::partial_transaction(elems, keychain, builder)?;
 		self.tx = tx;
 		Ok(blind)
 	}
@@ -256,14 +211,13 @@ impl Slate {
 		sec_nonce: &SecretKey,
 		participant_id: usize,
 		message: Option<String>,
-		use_test_rng: bool,
 	) -> Result<(), Error>
 	where
 		K: Keychain,
 	{
 		// Whoever does this first generates the offset
 		if self.tx.offset == BlindingFactor::zero() {
-			self.generate_offset(keychain, sec_key, use_test_rng)?;
+			self.generate_offset(keychain, sec_key)?;
 		}
 		self.add_participant_info(
 			keychain,
@@ -272,7 +226,6 @@ impl Slate {
 			participant_id,
 			None,
 			message,
-			use_test_rng,
 		)?;
 		Ok(())
 	}
@@ -369,7 +322,6 @@ impl Slate {
 		id: usize,
 		part_sig: Option<Signature>,
 		message: Option<String>,
-		use_test_rng: bool,
 	) -> Result<(), Error>
 	where
 		K: Keychain,
@@ -377,12 +329,6 @@ impl Slate {
 		// Add our public key and nonce to the slate
 		let pub_key = PublicKey::from_secret_key(keychain.secp(), &sec_key)?;
 		let pub_nonce = PublicKey::from_secret_key(keychain.secp(), &sec_nonce)?;
-
-		let test_message_nonce = SecretKey::from_slice(&keychain.secp(), &[1; 32]).unwrap();
-		let message_nonce = match use_test_rng {
-			false => None,
-			true => Some(&test_message_nonce),
-		};
 
 		// Sign the provided message
 		let message_sig = {
@@ -393,7 +339,7 @@ impl Slate {
 					&keychain.secp(),
 					&m,
 					&sec_key,
-					message_nonce,
+					None,
 					Some(&pub_key),
 				)?;
 				Some(res)
@@ -405,9 +351,9 @@ impl Slate {
 			id: id as u64,
 			public_blind_excess: pub_key,
 			public_nonce: pub_nonce,
-			part_sig: part_sig,
-			message: message,
-			message_sig: message_sig,
+			part_sig,
+			message,
+			message_sig,
 		});
 		Ok(())
 	}
@@ -430,7 +376,6 @@ impl Slate {
 		&mut self,
 		keychain: &K,
 		sec_key: &mut SecretKey,
-		use_test_rng: bool,
 	) -> Result<(), Error>
 	where
 		K: Keychain,
@@ -438,21 +383,12 @@ impl Slate {
 		// Generate a random kernel offset here
 		// and subtract it from the blind_sum so we create
 		// the aggsig context with the "split" key
-		self.tx.offset = match use_test_rng {
-			false => {
-				BlindingFactor::from_secret_key(SecretKey::new(&keychain.secp(), &mut thread_rng()))
-			}
-			true => {
-				// allow for consistent test results
-				let mut test_rng = StepRng::new(1234567890u64, 1);
-				BlindingFactor::from_secret_key(SecretKey::new(&keychain.secp(), &mut test_rng))
-			}
-		};
+		self.tx.offset = BlindingFactor::from_secret_key(SecretKey::new(&keychain.secp(), &mut thread_rng()));
 
 		let blind_offset = keychain.blind_sum(
 			&BlindSum::new()
 				.add_blinding_factor(BlindingFactor::from_secret_key(sec_key.clone()))
-				.sub_blinding_factor(self.tx.offset),
+				.sub_blinding_factor(self.tx.offset.clone()),
 		)?;
 		*sec_key = blind_offset.secret_key(&keychain.secp())?;
 		Ok(())
@@ -548,6 +484,28 @@ impl Slate {
 		Ok(())
 	}
 
+	/// Calculate the total public excess
+	pub fn sum_excess<K>(
+		&self,
+		keychain: &K,
+	) -> Result<Commitment, Error>
+	where
+		K: Keychain,
+	{
+		// sum the input/output commitments on the final tx
+		let overage = self.tx.fee() as i64;
+		let tx_excess = self.tx.sum_commitments(overage)?;
+
+		// subtract the kernel_excess (built from kernel_offset)
+		let offset_excess = keychain
+			.secp()
+			.commit(0, self.tx.offset.secret_key(keychain.secp())?)?;
+		let excess = keychain
+			.secp()
+			.commit_sum(vec![tx_excess], vec![offset_excess])?;
+		Ok(excess)
+	}
+
 	/// This should be callable by either the sender or receiver
 	/// once phase 3 is done
 	///
@@ -600,7 +558,7 @@ impl Slate {
 	where
 		K: Keychain,
 	{
-		let kernel_offset = self.tx.offset;
+		let kernel_offset = self.tx.offset.clone();
 
 		self.check_fees()?;
 
@@ -649,15 +607,6 @@ impl Serialize for Slate {
 		match self.version_info.orig_version {
 			2 => {
 				v2.serialize(serializer)
-			},
-			1 => {
-				let v1 = SlateV1::from(v2);
-				v1.serialize(serializer)
-			},
-			0 => {
-				let v1 = SlateV1::from(v2);
-				let v0 = SlateV0::from(v1);
-				v0.serialize(serializer)
 			},
 			v => Err(S::Error::custom(format!("Unknown slate version {}", v))),
 		}
@@ -765,15 +714,15 @@ impl From<&VersionCompatInfo> for VersionCompatInfoV2 {
 		let VersionCompatInfo {
 			version,
 			orig_version,
-			min_compat_version,
+			block_header_version,
 		} = data;
 		let version = *version;
 		let orig_version = *orig_version;
-		let min_compat_version = *min_compat_version;
+		let block_header_version = *block_header_version;
 		VersionCompatInfoV2 {
 			version,
 			orig_version,
-			min_compat_version,
+			block_header_version,
 		}
 	}
 }
@@ -789,7 +738,7 @@ impl From<Transaction> for TransactionV2 {
 impl From<&Transaction> for TransactionV2 {
 	fn from(tx: &Transaction) -> TransactionV2 {
 		let Transaction { offset, body } = tx;
-		let offset = *offset;
+		let offset = offset.clone();
 		let body = TransactionBodyV2::from(body);
 		TransactionV2 { offset, body }
 	}
@@ -886,6 +835,43 @@ impl From<SlateV2> for Slate {
 	}
 }
 
+impl From<&SlateV2> for Slate {
+	fn from(slate: &SlateV2) -> Slate {
+		let SlateV2 {
+			num_participants,
+			id,
+			tx,
+			amount,
+			fee,
+			height,
+			lock_height,
+			participant_data,
+			version_info,
+		} = slate;
+        let num_participants = *num_participants;
+        let id = id.clone();
+        let tx = Transaction::from(tx);
+        let amount = *amount;
+        let fee = *fee;
+        let height = *height;
+        let lock_height = *lock_height;
+		let participant_data = map_vec!(participant_data, |data| ParticipantData::from(data));
+		let version_info = VersionCompatInfo::from(version_info);
+
+		Slate {
+			num_participants,
+			id,
+			tx,
+			amount,
+			fee,
+			height,
+			lock_height,
+			participant_data,
+			version_info,
+		}
+	}
+}
+
 impl From<&ParticipantDataV2> for ParticipantData {
 	fn from(data: &ParticipantDataV2) -> ParticipantData {
 		let ParticipantDataV2 {
@@ -918,15 +904,15 @@ impl From<&VersionCompatInfoV2> for VersionCompatInfo {
 		let VersionCompatInfoV2 {
 			version,
 			orig_version,
-			min_compat_version,
+			block_header_version,
 		} = data;
 		let version = *version;
 		let orig_version = *orig_version;
-		let min_compat_version = *min_compat_version;
+		let block_header_version = *block_header_version;
 		VersionCompatInfo {
 			version,
 			orig_version,
-			min_compat_version,
+			block_header_version,
 		}
 	}
 }
@@ -935,6 +921,15 @@ impl From<TransactionV2> for Transaction {
 	fn from(tx: TransactionV2) -> Transaction {
 		let TransactionV2 { offset, body } = tx;
 		let body = TransactionBody::from(&body);
+		Transaction { offset, body }
+	}
+}
+
+impl From<&TransactionV2> for Transaction {
+	fn from(tx: &TransactionV2) -> Transaction {
+		let TransactionV2 { offset, body } = tx;
+        let offset = offset.clone();
+		let body = TransactionBody::from(body);
 		Transaction { offset, body }
 	}
 }

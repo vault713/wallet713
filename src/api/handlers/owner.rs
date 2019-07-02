@@ -1,4 +1,4 @@
-use failure::Error;
+/*use failure::Error;
 use futures::future;
 use futures::{Future, Stream};
 use gotham::handler::{HandlerFuture, IntoHandlerError, IntoResponse};
@@ -20,9 +20,9 @@ use crate::broker::Publisher;
 use crate::common::ErrorKind;
 use crate::common::post;
 use crate::contacts::{Address, GrinboxAddress, KeybaseAddress};
-use crate::wallet::types::Slate;
+use crate::wallet::types::Slate;*/
 
-pub fn retrieve_outputs(state: State) -> (State, Response<Body>) {
+/*pub fn retrieve_outputs(state: State) -> (State, Response<Body>) {
     let res = match handle_retrieve_outputs(&state) {
         Ok(res) => res,
         Err(e) => ApiError::new(e).into_handler_error().into_response(&state),
@@ -405,4 +405,4 @@ pub fn handle_issue_send_tx(state: &State, body: &Chunk) -> Result<Response<Body
         mime::APPLICATION_JSON,
         res,
     ))
-}
+}*/

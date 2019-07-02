@@ -142,7 +142,7 @@ impl Wallet713Config {
     }
 
     pub fn get_grinbox_secret_key(&self) -> Result<SecretKey> {
-        self.grinbox_address_key
+        self.grinbox_address_key.clone()
             .ok_or_else(|| ErrorKind::NoWallet.into())
     }
 

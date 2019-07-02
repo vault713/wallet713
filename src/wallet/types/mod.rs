@@ -1,3 +1,4 @@
+mod args;
 mod acct_path_mapping;
 mod block_fees;
 mod block_identifier;
@@ -5,6 +6,7 @@ mod cb_data;
 mod context;
 mod context_type;
 mod node_client;
+mod output_commit_mapping;
 mod output_data;
 mod output_status;
 mod slate;
@@ -23,18 +25,20 @@ pub use grin_keychain::{ChildNumber, ExtKeychain, Identifier, Keychain};
 pub use grin_util::secp::key::{PublicKey, SecretKey};
 pub use super::seed::{EncryptedWalletSeed, WalletSeed};
 
-pub use common::{Arc, Error, ErrorKind, Mutex, MutexGuard, Result};
+pub use crate::common::{Arc, Mutex, MutexGuard, Result};
 
+pub use self::args::*;
 pub use self::acct_path_mapping::AcctPathMapping;
 pub use self::block_fees::BlockFees;
 pub use self::block_identifier::BlockIdentifier;
 pub use self::cb_data::CbData;
 pub use self::context::Context;
 pub use self::context_type::ContextType;
-pub use self::node_client::{HTTPNodeClient, NodeClient};
+pub use self::node_client::{HTTPNodeClient, NodeClient, NodeVersionInfo};
+pub use self::output_commit_mapping::OutputCommitMapping;
 pub use self::output_data::OutputData;
 pub use self::output_status::OutputStatus;
-pub use self::slate::Slate;
+pub use self::slate::{Slate, SlateVersion, VersionedSlate, CURRENT_SLATE_VERSION, GRIN_BLOCK_HEADER_VERSION};
 pub use self::tx_log_entry::TxLogEntry;
 pub use self::tx_log_entry_type::TxLogEntryType;
 pub use self::tx_proof::ErrorKind as TxProofErrorKind;

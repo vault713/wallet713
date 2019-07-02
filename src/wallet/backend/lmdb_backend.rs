@@ -1,23 +1,24 @@
 use blake2_rfc::blake2b::Blake2b;
+use chrono::{DateTime, Utc};
 use failure::ResultExt;
 use std::cell::RefCell;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{Read, Write};
+use std::ops::Deref;
 use std::path::Path;
-use std::{fs, path};
 
 use grin_core::{global, ser};
+use grin_keychain::SwitchCommitmentType;
 use grin_store::{self, option_to_not_found, to_key, to_key_u64};
 use grin_store::Store;
 use grin_util::secp::constants::SECRET_KEY_SIZE;
-use grin_util::ZeroingString;
-use grin_util::{from_hex, to_hex};
+use grin_util::{ZeroingString, from_hex, to_hex};
 
 use crate::common::config::WalletConfig;
-
-use super::api::restore;
+use crate::common::{ErrorKind, Keychain};
+use crate::internal::restore;
 use super::types::{
-    AcctPathMapping, ChildNumber, Context, ErrorKind, ExtKeychain, Identifier, Keychain,
+    AcctPathMapping, ChildNumber, Context, ExtKeychain, Identifier,
     NodeClient, OutputData, Result, Transaction, TxLogEntry, TxProof, WalletBackend,
     WalletBackendBatch, WalletSeed,
 };
@@ -41,7 +42,7 @@ fn private_ctx_xor_keys<K>(
 where
     K: Keychain,
 {
-    let root_key = keychain.derive_key(0, &K::root_key_id())?;
+    let root_key = keychain.derive_key(0, &K::root_key_id(), &SwitchCommitmentType::None)?;
 
     // derive XOR values for storing secret values in DB
     // h(root_key|slate_id|"blind")
@@ -65,59 +66,51 @@ where
     Ok((ret_blind, ret_nonce))
 }
 
-pub struct Backend<C, K> {
-    db: Store,
-    passphrase: ZeroingString,
+pub struct Backend<C, K>
+    where
+        C: NodeClient,
+        K: Keychain,
+{
+    db: Option<Store>,
+    password: Option<ZeroingString>,
     pub keychain: Option<K>,
     parent_key_id: Identifier,
     config: WalletConfig,
     w2n_client: C,
 }
 
-impl<C, K> Backend<C, K> {
-    pub fn new(config: &WalletConfig, passphrase: &str, n_client: C) -> Result<Self> {
-        let db_path = path::Path::new(&config.data_file_dir).join(DB_DIR);
-        fs::create_dir_all(&db_path).expect("Couldn't create wallet backend directory!");
+impl<C, K> Backend<C, K>
+    where
+        C: NodeClient,
+        K: Keychain,
+{
+    fn db(&self) -> Result<&Store> {
+        self.db.as_ref().ok_or(ErrorKind::NoWallet.into())
+    }
 
-        let stored_tx_path = path::Path::new(&config.data_file_dir).join(TX_SAVE_DIR);
-        fs::create_dir_all(&stored_tx_path)
-            .expect("Couldn't create wallet backend tx storage directory!");
-
-        let stored_tx_proof_path = path::Path::new(&config.data_file_dir).join(TX_PROOF_SAVE_DIR);
-        fs::create_dir_all(&stored_tx_proof_path)
-            .expect("Couldn't create wallet backend tx proof storage directory!");
-
-        let store = Store::new(db_path.to_str().unwrap(), None, Some(DB_DIR), None)?;
-
-        let default_account = AcctPathMapping {
-            label: "default".to_string(),
-            path: Backend::<C, K>::default_path(),
-        };
-        let acct_key = to_key(
-            ACCOUNT_PATH_MAPPING_PREFIX,
-            &mut default_account.label.as_bytes().to_vec(),
-        );
-
-        {
-            let batch = store.batch()?;
-            batch.put_ser(&acct_key, &default_account)?;
-            batch.commit()?;
-        }
-
-        let res = Backend {
-            db: store,
-            passphrase: ZeroingString::from(passphrase),
+    /// Create `Backend` instance
+    pub fn new(config: &WalletConfig, client: C) -> Result<Self> {
+        Ok(Self {
+            db: None,
+            password: None,
             keychain: None,
-            parent_key_id: Backend::<C, K>::default_path(),
+            parent_key_id: K::derive_key_id(2, 0, 0, 0, 0),
+            config: config.clone(),
+            w2n_client: client,
+        })
+    }
+
+    /*pub fn new(config: &WalletConfig, password: &str, n_client: C) -> Result<Self> {
+        let res = Backend {
+            db: None,
+            password: Some(ZeroingString::from(password)),
+            keychain: None,
+            parent_key_id: K::derive_key_id(2, 0, 0, 0, 0),
             config: config.clone(),
             w2n_client: n_client,
         };
         Ok(res)
-    }
-
-    fn default_path() -> Identifier {
-        ExtKeychain::derive_key_id(2, 0, 0, 0, 0)
-    }
+    }*/
 }
 
 impl<C, K> WalletBackend<C, K> for Backend<C, K>
@@ -125,14 +118,134 @@ where
     C: NodeClient,
     K: Keychain,
 {
+    /// Check whether the backend has a seed or not
+    fn has_seed(&self) -> Result<bool> {
+        Ok(WalletSeed::seed_file_exists(&self.config).is_err())
+    }
+
+    /// Get the seed
+    fn get_seed(&self) -> Result<ZeroingString> {
+        match &self.password {
+            Some(p) => {
+                let seed = WalletSeed::from_file(&self.config, p)?;
+                seed.to_mnemonic()
+                    .map(|s| s.into())
+            }
+            None => {
+                Err(ErrorKind::NoWallet.into())
+            }
+        }
+    }
+
+    /// Set a new seed, encrypt with `password`
+    /// Should fail if backend already has a seed,
+    /// unless `overwrite` is set to `true
+    fn set_seed(&mut self, mnemonic: Option<ZeroingString>, password: ZeroingString, overwrite: bool) -> Result<()> {
+        if self.has_seed()? && !overwrite {
+            return Err(ErrorKind::WalletHasSeed.into());
+        }
+        self.password = Some(password.clone());
+        let _ = WalletSeed::init_file(&self.config, 24, mnemonic, &password)?;
+        Ok(())
+    }
+
+    /// Check if the backend connection is established
+    fn connected(&self) -> Result<bool> {
+        Ok(self.db.is_some())
+    }
+
+    /// Connect to the backend
+    fn connect(&mut self) -> Result<()> {
+        if !self.has_seed()? {
+            return Err(ErrorKind::WalletNoSeed.into());
+        }
+        if self.connected()? {
+            return Err(ErrorKind::WalletConnected.into());
+        }
+
+        let root_path = Path::new(&self.config.data_file_dir);
+
+        let db_path = root_path.join(DB_DIR);
+        fs::create_dir_all(&db_path)?;
+
+        let stored_tx_path = root_path.join(TX_SAVE_DIR);
+        fs::create_dir_all(&stored_tx_path)?;
+
+        let stored_tx_proof_path = root_path.join(TX_PROOF_SAVE_DIR);
+        fs::create_dir_all(&stored_tx_proof_path)?;
+
+        let store = Store::new(db_path.to_str().unwrap(), None, Some(DB_DIR), None)?;
+
+        let default_account = AcctPathMapping {
+            label: "default".to_string(),
+            path: K::derive_key_id(2, 0, 0, 0, 0),
+        };
+        let acct_key = to_key(
+            ACCOUNT_PATH_MAPPING_PREFIX,
+            &mut default_account.label.as_bytes().to_vec(),
+        );
+
+        if !store.exists(&acct_key)? {
+            let batch = store.batch()?;
+            batch.put_ser(&acct_key, &default_account)?;
+            batch.commit()?;
+        }
+
+        self.db = Some(store);
+        Ok(())
+    }
+
+    /// Disconnect from backend
+    fn disconnect(&mut self) -> Result<()> {
+        self.db = None;
+        Ok(())
+    }
+
+    /// Set password
+    fn set_password(&mut self, password: ZeroingString) -> Result<()> {
+        let _ = WalletSeed::from_file(&self.config, password.deref())?;
+        self.password = Some(password);
+        Ok(())
+    }
+
+    /// Clear out backend
+    fn clear(&mut self) -> Result<()> {
+        self.disconnect()?;
+
+        let root_path = Path::new(&self.config.data_file_dir);
+        if !root_path.exists() {
+            return Ok(());
+        }
+
+        let backup_dir = Utc::now().format("%Y%m%d-%H%M%S").to_string();
+        let backup_path = root_path.join("backups").join(backup_dir);
+        fs::create_dir_all(&backup_path)?;
+        let db_path = root_path.join(DB_DIR);
+        if db_path.exists() {
+            fs::rename(&db_path, &backup_path.join(DB_DIR))?;
+        }
+        let txs_path = root_path.join(TX_SAVE_DIR);
+        if txs_path.exists() {
+            fs::rename(&txs_path, &backup_path.join(TX_SAVE_DIR))?;
+        }
+        let proofs_path = root_path.join(TX_PROOF_SAVE_DIR);
+        if proofs_path.exists() {
+            fs::rename(&proofs_path, &backup_path.join(TX_PROOF_SAVE_DIR))?;
+        }
+
+        self.connect()?;
+
+        Ok(())
+    }
+
     /// Initialise with whatever stored credentials we have
     fn open_with_credentials(&mut self) -> Result<()> {
-        let wallet_seed = WalletSeed::from_file(&self.config, &self.passphrase)
-            .context(ErrorKind::OpenWalletError)?;
+        let wallet_seed = WalletSeed::from_file(&self.config, &self.password.clone().ok_or(ErrorKind::OpenWalletError)?)
+            .map_err(|_| ErrorKind::OpenWalletError)?;
         self.keychain = Some(
             wallet_seed
                 .derive_keychain(global::is_floonet())
-                .context(ErrorKind::DeriveKeychainError)?,
+                .map_err(|_| ErrorKind::DeriveKeychainError)?,
         );
         Ok(())
     }
@@ -156,7 +269,7 @@ where
     /// Set parent path by account name
     fn set_parent_key_id_by_name(&mut self, label: &str) -> Result<()> {
         let label = label.to_owned();
-        let res = self.accounts().find(|l| l.label == label);
+        let res = self.accounts()?.find(|l| l.label == label);
         if let Some(a) = res {
             self.set_parent_key_id(&a.path);
             Ok(())
@@ -179,29 +292,33 @@ where
             Some(i) => to_key_u64(OUTPUT_PREFIX, &mut id.to_bytes().to_vec(), *i),
             None => to_key(OUTPUT_PREFIX, &mut id.to_bytes().to_vec()),
         };
-        option_to_not_found(self.db.get_ser(&key), &format!("Key Id: {}", id)).map_err(|e| e.into())
+        option_to_not_found(self.db()?.get_ser(&key), &format!("Key Id: {}", id)).map_err(|e| e.into())
     }
 
-    fn outputs<'a>(&'a self) -> Box<dyn Iterator<Item = OutputData> + 'a> {
-        Box::new(self.db.iter(&[OUTPUT_PREFIX]).unwrap().map(|x| x.1))
+    fn outputs<'a>(&'a self) -> Result<Box<dyn Iterator<Item = OutputData> + 'a>> {
+        Ok(Box::new(self.db()?.iter(&[OUTPUT_PREFIX]).unwrap().map(|x| x.1)))
     }
 
     fn get_tx_log_by_slate_id(&self, slate_id: &str) -> Result<Option<TxLogEntry>> {
         let key = to_key(TX_LOG_ENTRY_PREFIX, &mut slate_id.as_bytes().to_vec());
-        self.db.get_ser(&key).map_err(|e| e.into())
+        self.db()?.get_ser(&key).map_err(|e| e.into())
     }
 
-    fn tx_logs<'a>(&'a self) -> Box<dyn Iterator<Item = TxLogEntry> + 'a> {
-        Box::new(self.db.iter(&[TX_LOG_ENTRY_PREFIX]).unwrap().map(|x| x.1))
+    fn tx_logs<'a>(&'a self) -> Result<Box<dyn Iterator<Item = TxLogEntry> + 'a>> {
+        Ok(Box::new(self.db()?.iter(&[TX_LOG_ENTRY_PREFIX]).unwrap().map(|x| x.1)))
     }
 
-    fn get_private_context(&mut self, uuid: &str) -> Result<Context> {
-        let ctx_key = to_key(PRIVATE_TX_CONTEXT_PREFIX, &mut uuid.as_bytes().to_vec());
+    fn get_private_context(&mut self, slate_id: &[u8], participant_id: usize) -> Result<Context> {
+        let ctx_key = to_key_u64(
+			PRIVATE_TX_CONTEXT_PREFIX,
+			&mut slate_id.to_vec(),
+			participant_id as u64,
+		);
         let (blind_xor_key, nonce_xor_key) =
-            private_ctx_xor_keys(self.keychain(), uuid.as_bytes())?;
+            private_ctx_xor_keys(self.keychain(), slate_id)?;
 
         let mut ctx: Context =
-            option_to_not_found(self.db.get_ser(&ctx_key), &format!("Slate id: {}", uuid))?;
+            option_to_not_found(self.db()?.get_ser(&ctx_key), &format!("Slate id: {:x?}", slate_id.to_vec()))?;
 
         for i in 0..SECRET_KEY_SIZE {
             ctx.sec_key.0[i] = ctx.sec_key.0[i] ^ blind_xor_key[i];
@@ -211,65 +328,67 @@ where
         Ok(ctx)
     }
 
-    fn accounts<'a>(&'a self) -> Box<dyn Iterator<Item = AcctPathMapping> + 'a> {
-        Box::new(self.db.iter(&[ACCOUNT_PATH_MAPPING_PREFIX]).unwrap().map(|x| x.1))
+    fn accounts<'a>(&'a self) -> Result<Box<dyn Iterator<Item = AcctPathMapping> + 'a>> {
+        Ok(Box::new(self.db()?.iter(&[ACCOUNT_PATH_MAPPING_PREFIX]).unwrap().map(|x| x.1)))
     }
 
-    fn get_acct_path(&self, label: &str) -> Result<AcctPathMapping> {
+    fn get_acct_path(&self, label: &str) -> Result<Option<AcctPathMapping>> {
         let acct_key = to_key(ACCOUNT_PATH_MAPPING_PREFIX, &mut label.as_bytes().to_vec());
-        self.db
-            .get_ser(&acct_key)?
-            .ok_or(ErrorKind::ModelNotFound.into())
+        let ser = self.db()?.get_ser(&acct_key)?;
+        Ok(ser)
     }
 
-    fn get_stored_tx(&self, uuid: &str) -> Result<Transaction> {
+    fn get_stored_tx(&self, uuid: &str) -> Result<Option<Transaction>> {
         let filename = format!("{}.grintx", uuid);
-        let path = path::Path::new(&self.config.data_file_dir)
+        let path = Path::new(&self.config.data_file_dir)
             .join(TX_SAVE_DIR)
             .join(filename);
+        if !path.exists() {
+            return Ok(None);
+        }
         let tx_file = Path::new(&path).to_path_buf();
         let mut tx_f = File::open(tx_file)?;
         let mut content = String::new();
         tx_f.read_to_string(&mut content)?;
         let tx_bin = from_hex(content).unwrap();
-        Ok(ser::deserialize::<Transaction>(&mut &tx_bin[..]).unwrap())
+        Ok(Some(ser::deserialize::<Transaction>(&mut &tx_bin[..]).unwrap()))
     }
 
     fn has_stored_tx_proof(&self, uuid: &str) -> Result<bool> {
         let filename = format!("{}.proof", uuid);
-        let path = path::Path::new(&self.config.data_file_dir)
+        let path = Path::new(&self.config.data_file_dir)
             .join(TX_PROOF_SAVE_DIR)
             .join(filename);
         let tx_proof_file = Path::new(&path).to_path_buf();
         Ok(tx_proof_file.exists())
     }
 
-    fn get_stored_tx_proof(&self, uuid: &str) -> Result<TxProof> {
+    fn get_stored_tx_proof(&self, uuid: &str) -> Result<Option<TxProof>> {
         let filename = format!("{}.proof", uuid);
-        let path = path::Path::new(&self.config.data_file_dir)
+        let path = Path::new(&self.config.data_file_dir)
             .join(TX_PROOF_SAVE_DIR)
             .join(filename);
         let tx_proof_file = Path::new(&path).to_path_buf();
         if !tx_proof_file.exists() {
-            return Err(ErrorKind::TransactionHasNoProof.into());
+            return Ok(None);
         }
         let mut tx_proof_f = File::open(tx_proof_file)?;
         let mut content = String::new();
         tx_proof_f.read_to_string(&mut content)?;
-        Ok(serde_json::from_str(&content)?)
+        Ok(Some(serde_json::from_str(&content)?))
     }
 
     fn batch<'a>(&'a self) -> Result<Box<dyn WalletBackendBatch<K> + 'a>> {
         Ok(Box::new(Batch {
             _store: self,
-            db: RefCell::new(Some(self.db.batch()?)),
+            db: RefCell::new(Some(self.db()?.batch()?)),
             keychain: self.keychain.clone(),
         }))
     }
 
-    fn derive_next<'a>(&mut self) -> Result<Identifier> {
+    fn next_child<'a>(&mut self) -> Result<Identifier> {
         let mut deriv_idx = {
-            let batch = self.db.batch()?;
+            let batch = self.db()?.batch()?;
             let deriv_key = to_key(DERIV_PREFIX, &mut self.parent_key_id.to_bytes().to_vec());
             match batch.get_ser(&deriv_key)? {
                 Some(idx) => idx,
@@ -287,7 +406,7 @@ where
     }
 
     fn get_last_confirmed_height<'a>(&self) -> Result<u64> {
-        let batch = self.db.batch()?;
+        let batch = self.db()?.batch()?;
         let height_key = to_key(
             CONFIRMED_HEIGHT_PREFIX,
             &mut self.parent_key_id.to_bytes().to_vec(),
@@ -304,8 +423,8 @@ where
         Ok(())
     }
 
-    fn check_repair(&mut self) -> Result<()> {
-        restore::check_repair(self).context(ErrorKind::Restore)?;
+    fn check_repair(&mut self, delete_unconfirmed: bool) -> Result<()> {
+        restore::check_repair(self, delete_unconfirmed).context(ErrorKind::Restore)?;
         Ok(())
     }
 
@@ -314,7 +433,7 @@ where
             Ok(None)
         } else {
             Ok(Some(grin_util::to_hex(
-                self.keychain().commit(amount, &id)?.0.to_vec(),
+                self.keychain().commit(amount, id, &SwitchCommitmentType::Regular)?.0.to_vec(),
             )))
         }
     }
@@ -371,7 +490,7 @@ where
 
     fn store_tx(&self, uuid: &str, tx: &Transaction) -> Result<()> {
         let filename = format!("{}.grintx", uuid);
-        let path = path::Path::new(&self._store.config.data_file_dir)
+        let path = Path::new(&self._store.config.data_file_dir)
             .join(TX_SAVE_DIR)
             .join(filename);
         let path_buf = Path::new(&path).to_path_buf();
@@ -384,7 +503,7 @@ where
 
     fn store_tx_proof(&self, uuid: &str, tx_proof: &TxProof) -> Result<()> {
         let filename = format!("{}.proof", uuid);
-        let path = path::Path::new(&self._store.config.data_file_dir)
+        let path = Path::new(&self._store.config.data_file_dir)
             .join(TX_PROOF_SAVE_DIR)
             .join(filename);
         let path_buf = Path::new(&path).to_path_buf();
@@ -464,10 +583,14 @@ where
         self.save_output(out)
     }
 
-    fn save_private_context(&mut self, uuid: &str, ctx: &Context) -> Result<()> {
-        let ctx_key = to_key(PRIVATE_TX_CONTEXT_PREFIX, &mut uuid.as_bytes().to_vec());
+    fn save_private_context(&mut self, slate_id: &[u8], participant_id: usize, ctx: &Context) -> Result<()> {
+        let ctx_key = to_key_u64(
+			PRIVATE_TX_CONTEXT_PREFIX,
+			&mut slate_id.to_vec(),
+			participant_id as u64,
+		);
         let (blind_xor_key, nonce_xor_key) =
-            private_ctx_xor_keys(self.keychain(), uuid.as_bytes())?;
+            private_ctx_xor_keys(self.keychain(), slate_id)?;
 
         let mut s_ctx = ctx.clone();
         for i in 0..SECRET_KEY_SIZE {
@@ -483,8 +606,12 @@ where
         Ok(())
     }
 
-    fn delete_private_context(&mut self, uuid: &str) -> Result<()> {
-        let ctx_key = to_key(PRIVATE_TX_CONTEXT_PREFIX, &mut uuid.as_bytes().to_vec());
+    fn delete_private_context(&mut self, slate_id: &[u8], participant_id: usize) -> Result<()> {
+        let ctx_key = to_key_u64(
+			PRIVATE_TX_CONTEXT_PREFIX,
+			&mut slate_id.to_vec(),
+			participant_id as u64,
+		);
         self.db
             .borrow()
             .as_ref()

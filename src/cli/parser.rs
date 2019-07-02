@@ -1,5 +1,5 @@
 use clap::{App, AppSettings, Arg, ArgGroup, ArgMatches, SubCommand};
-use common::Result;
+use crate::common::Result;
 
 #[derive(Clone)]
 pub struct Parser {}
@@ -71,35 +71,6 @@ impl<'a, 'b> Parser {
                     )
             )
             .subcommand(
-                SubCommand::with_name("account")
-                    .about("create a new account or switch to an existing account")
-                    .subcommand(
-                        SubCommand::with_name("create")
-                            .about("creates a new account")
-                            .arg(
-                                Arg::from_usage("<name> 'the account name'")
-                            )
-                    )
-                    .subcommand(
-                        SubCommand::with_name("switch")
-                            .about("switches to the given account")
-                            .arg(
-                                Arg::from_usage("<name> 'the account name'")
-                            )
-                            .arg(
-                                Arg::from_usage("[account] -a, --account=<account> 'the account to use'")
-                            )
-                            .arg(
-                                Arg::from_usage("[passphrase] -p, --passphrase=<passphrase> 'the passphrase to use'")
-                                    .min_values(0)
-                            )
-                    )
-            )
-            .subcommand(
-                SubCommand::with_name("accounts")
-                    .about("lists available accounts")
-            )
-            .subcommand(
                 SubCommand::with_name("info")
                     .about("displays wallet info")
             )
@@ -122,17 +93,6 @@ impl<'a, 'b> Parser {
                             .arg(
                                 Arg::from_usage("<name> 'the contact name'")
                             )
-                    )
-            )
-            .subcommand(
-                SubCommand::with_name("txs")
-                    .about("displays transactions")
-            )
-            .subcommand(
-                SubCommand::with_name("outputs")
-                    .about("displays outputs")
-                    .arg(
-                        Arg::from_usage("[show-spent] -s, --show-spent 'show spent outputs'")
                     )
             )
             .subcommand(

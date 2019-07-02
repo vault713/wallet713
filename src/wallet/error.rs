@@ -24,12 +24,6 @@ use std::env;
 use std::fmt::{self, Display};
 use std::io;
 
-/// Error definition
-#[derive(Debug, Fail)]
-pub struct Error {
-	inner: Context<ErrorKind>,
-}
-
 /// Wallet errors, mostly wrappers around underlying crypto or I/O errors.
 #[derive(Clone, Eq, PartialEq, Debug, Fail, Serialize, Deserialize)]
 pub enum ErrorKind {
@@ -158,7 +152,7 @@ pub enum ErrorKind {
 	TransactionDumpError(&'static str),
 
 	/// Attempt to repost a transaction that's already confirmed
-	#[fail(display = "Transaction already confirmed error")]
+	#[fail(display = "Transaction already confirmed")]
 	TransactionAlreadyConfirmed,
 
 	/// Transaction has already been received
@@ -197,131 +191,46 @@ pub enum ErrorKind {
 	#[fail(display = "Unknown Slate Version: {}", _0)]
 	SlateVersion(u16),
 
+	/// No seed
+	#[fail(display = "No seed")]
+	NoSeed,
+
+	/// No backend opened
+	#[fail(display = "No backend opened")]
+	NoBackend,
+
+	/// No address book found
+	#[fail(display = "No address book found")]
+	NoAddressBook,
+
+	/// Contact not found
+	#[fail(display = "Contact '{}' not found", 0)]
+	ContactNotFound(String),
+
+	#[fail(display = "Already listening on {}", 0)]
+	AlreadyListening(String),
+
+	#[fail(display = "No listener on {}", 0)]
+	NoListener(String),
+
+	#[fail(display = "Invalid listener interface")]
+	InvalidListenerInterface,
+
+	/// No transaction stored
+	#[fail(display = "No transaction stored")]
+	TransactionNotStored,
+
+	/// No transaction proof stored
+	#[fail(display = "No transaction proof stored")]
+	TransactionProofNotStored,
+
+	#[fail(display = "Incoming slate is not compatible with this wallet. Please upgrade the node or use a different one")]
+	Compatibility,
+
+	#[fail(display = "Unable to verify proof")]
+	VerifyProof,
+
 	/// Other
 	#[fail(display = "Generic error: {}", _0)]
 	GenericError(String),
-}
-
-impl Display for Error {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		let show_bt = match env::var("RUST_BACKTRACE") {
-			Ok(r) => {
-				if r == "1" {
-					true
-				} else {
-					false
-				}
-			}
-			Err(_) => false,
-		};
-		let backtrace = match self.backtrace() {
-			Some(b) => format!("{}", b),
-			None => String::from("Unknown"),
-		};
-		let inner_output = format!("{}", self.inner,);
-		let backtrace_output = format!("\n Backtrace: {}", backtrace);
-		let mut output = inner_output.clone();
-		if show_bt {
-			output.push_str(&backtrace_output);
-		}
-		Display::fmt(&output, f)
-	}
-}
-
-impl Error {
-	/// get kind
-	pub fn kind(&self) -> ErrorKind {
-		self.inner.get_context().clone()
-	}
-	/// get cause string
-	pub fn cause_string(&self) -> String {
-		match self.cause() {
-			Some(k) => format!("{}", k),
-			None => format!("Unknown"),
-		}
-	}
-	/// get cause
-	pub fn cause(&self) -> Option<&dyn Fail> {
-		self.inner.cause()
-	}
-	/// get backtrace
-	pub fn backtrace(&self) -> Option<&Backtrace> {
-		self.inner.backtrace()
-	}
-}
-
-impl From<ErrorKind> for Error {
-	fn from(kind: ErrorKind) -> Error {
-		Error {
-			inner: Context::new(kind),
-		}
-	}
-}
-
-impl From<Context<ErrorKind>> for Error {
-	fn from(inner: Context<ErrorKind>) -> Error {
-		Error { inner: inner }
-	}
-}
-
-impl From<io::Error> for Error {
-	fn from(_error: io::Error) -> Error {
-		Error {
-			inner: Context::new(ErrorKind::IO),
-		}
-	}
-}
-
-impl From<grin_keychain::Error> for Error {
-	fn from(error: grin_keychain::Error) -> Error {
-		Error {
-			inner: Context::new(ErrorKind::Keychain(error)),
-		}
-	}
-}
-
-impl From<libtx::Error> for Error {
-	fn from(error: crate::grin_core::libtx::Error) -> Error {
-		Error {
-			inner: Context::new(ErrorKind::LibTX(error.kind())),
-		}
-	}
-}
-
-impl From<transaction::Error> for Error {
-	fn from(error: transaction::Error) -> Error {
-		Error {
-			inner: Context::new(ErrorKind::Transaction(error)),
-		}
-	}
-}
-
-impl From<crate::grin_core::ser::Error> for Error {
-	fn from(error: crate::grin_core::ser::Error) -> Error {
-		Error {
-			inner: Context::new(ErrorKind::Deser(error)),
-		}
-	}
-}
-
-impl From<secp::Error> for Error {
-	fn from(error: secp::Error) -> Error {
-		Error {
-			inner: Context::new(ErrorKind::Secp(error)),
-		}
-	}
-}
-
-impl From<committed::Error> for Error {
-	fn from(error: committed::Error) -> Error {
-		Error {
-			inner: Context::new(ErrorKind::Committed(error)),
-		}
-	}
-}
-
-impl From<grin_store::Error> for Error {
-	fn from(error: grin_store::Error) -> Error {
-		Error::from(ErrorKind::Backend(format!("{}", error)))
-	}
 }
