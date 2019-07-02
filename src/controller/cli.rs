@@ -261,7 +261,7 @@ where
             ("accounts", _) => {
                 display::accounts(self.api.accounts()?);
             }
-            ("address", m) => {
+            ("address", Some(m)) => {
                 let mut idx = self.api.config().grinbox_address_index();
                 match args::address_command(m)? {
                     AddressArgs::Display => {
@@ -280,7 +280,7 @@ where
                         self.api.set_grinbox_address_index(idx)?;
                     }
                 };
-                println!("Using grinbox address index {}", idx.to_string().bright_green());
+                cli_message!("Using grinbox address index {}", idx.to_string().bright_green());
             }
             ("cancel", Some(m)) => {
                 let index = args::cancel_command(m)?;

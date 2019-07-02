@@ -172,17 +172,18 @@ pub fn contact_command<'a>(args: &'a ArgMatches) -> Result<ContactArgs<'a>, Erro
     Ok(contact_args)
 }
 
-pub fn address_command(args: Option<&ArgMatches>) -> Result<AddressArgs, ErrorKind> {
-    let address_args = match args {
-        Some(a) => match a.subcommand() {
-            ("next", _) => AddressArgs::Next,
-            ("prev", _) => AddressArgs::Prev,
-            ("index", Some(args)) => AddressArgs::Index(parse(required(args, "i")?)?),
-            (_, _) => {
-                usage!(a);
-            }
-        },
-        None => AddressArgs::Display,
+pub fn address_command(args: &ArgMatches) -> Result<AddressArgs, ErrorKind> {
+    let address_args = if args.is_present("next") {
+        AddressArgs::Next
+    }
+    else if args.is_present("prev") {
+        AddressArgs::Prev
+    }
+    else if let Some(index) = args.value_of("index") {
+        AddressArgs::Index(parse(index)?)
+    }
+    else {
+        AddressArgs::Display
     };
     Ok(address_args)
 }

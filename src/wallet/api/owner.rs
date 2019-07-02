@@ -168,9 +168,11 @@ where
 
 	pub fn set_grinbox_address_index(&self, index: u32) -> Result<GrinboxAddress, Error> {
 		let grinbox = self.stop_listener(ListenerInterface::Grinbox)?;
-		let mut c = self.container.lock();
-		c.config.grinbox_address_index = Some(index);
-		c.config.save()?;
+		{
+			let mut c = self.container.lock();
+			c.config.grinbox_address_index = Some(index);
+			c.config.save()?;
+		}
 
 		if grinbox {
 			self.start_listener(ListenerInterface::Grinbox)?;
