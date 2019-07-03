@@ -4,16 +4,17 @@ use std::path::Path;
 
 use grin_core::ser::Error as CoreError;
 use grin_core::ser::{Readable, Reader, Writeable, Writer};
-use grin_store::{self, option_to_not_found, to_key};
+use grin_store::{self, to_key};
+use grin_store::Store;
 
-use super::types::{Address, AddressBookBackend, AddressBookBatch, Contact};
-use common::{Arc, Error};
+use crate::common::Error;
+use super::types::{AddressBookBackend, AddressBookBatch, Contact, parse_address};
 
 const DB_DIR: &'static str = "contacts";
 const CONTACT_PREFIX: u8 = 'X' as u8;
 
 pub struct Backend {
-    db: grin_store::Store,
+    db: Store,
 }
 
 impl Backend {
@@ -21,8 +22,7 @@ impl Backend {
         let db_path = Path::new(data_path).join(DB_DIR);
         create_dir_all(&db_path)?;
 
-        let lmdb_env = Arc::new(grin_store::new_env(db_path.to_str().unwrap().to_string()));
-        let store = grin_store::Store::open(lmdb_env, DB_DIR);
+        let store = Store::new(db_path.to_str().unwrap(), None, Some(DB_DIR), None)?;
 
         let res = Backend { db: store };
         Ok(res)
@@ -30,17 +30,14 @@ impl Backend {
 }
 
 impl AddressBookBackend for Backend {
-    fn get_contact(&mut self, name: &[u8]) -> Result<Contact, Error> {
+    fn get_contact(&self, name: &[u8]) -> Result<Option<Contact>, Error> {
         let contact_key = to_key(CONTACT_PREFIX, &mut name.to_vec());
-        option_to_not_found(
-            self.db.get_ser(&contact_key),
-            &format!("Contact id: {:x?}", name.to_vec()),
-        )
-        .map_err(|e| e.into())
+        let contact = self.db.get_ser(&contact_key)?;
+        Ok(contact)
     }
 
     fn contacts(&self) -> Box<Iterator<Item = Contact>> {
-        Box::new(self.db.iter(&[CONTACT_PREFIX]).unwrap())
+        Box::new(self.db.iter(&[CONTACT_PREFIX]).unwrap().map(|x| x.1))
     }
 
     fn batch<'a>(&'a self) -> Result<Box<AddressBookBatch + 'a>, Error> {
@@ -60,7 +57,7 @@ pub struct Batch<'a> {
 
 impl<'a> AddressBookBatch for Batch<'a> {
     fn save_contact(&mut self, contact: &Contact) -> Result<(), Error> {
-        let mut key = contact.get_name().to_string().into_bytes();
+        let mut key = contact.name.to_string().into_bytes();
         let contact_key = to_key(CONTACT_PREFIX, &mut key);
         self.db
             .borrow()
@@ -90,8 +87,8 @@ impl<'a> AddressBookBatch for Batch<'a> {
 impl Writeable for Contact {
     fn write<W: Writer>(&self, writer: &mut W) -> Result<(), CoreError> {
         let json = json!({
-            "name": self.get_name(),
-            "address": self.get_address().to_string(),
+            "name": self.name,
+            "address": self.address.to_string(),
         });
         writer.write_bytes(&json.to_string().as_bytes())
     }
@@ -105,7 +102,7 @@ impl Readable for Contact {
         let json: serde_json::Value =
             serde_json::from_str(&data).map_err(|_| CoreError::CorruptedData)?;
 
-        let address = Address::parse(json["address"].as_str().unwrap())
+        let address = parse_address(json["address"].as_str().unwrap())
             .map_err(|_| CoreError::CorruptedData)?;
 
         let contact = Contact::new(json["name"].as_str().unwrap(), address)

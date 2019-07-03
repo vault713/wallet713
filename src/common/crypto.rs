@@ -3,7 +3,7 @@ use grin_util::secp::pedersen::Commitment;
 pub use grin_util::secp::{Message, Secp256k1, Signature};
 
 use super::base58::{FromBase58, ToBase58};
-use common::{ErrorKind, Result};
+use super::{ErrorKind, Result};
 use sha2::{Digest, Sha256};
 use std::fmt::Write;
 
@@ -102,11 +102,6 @@ impl Hex<Commitment> for Commitment {
     fn to_hex(&self) -> String {
         to_hex(self.0.to_vec())
     }
-}
-
-pub fn public_key_from_secret_key(secret_key: &SecretKey) -> Result<PublicKey> {
-    let secp = Secp256k1::new();
-    PublicKey::from_secret_key(&secp, secret_key).map_err(|_| ErrorKind::Secp.into())
 }
 
 pub fn sign_challenge(challenge: &str, secret_key: &SecretKey) -> Result<Signature> {

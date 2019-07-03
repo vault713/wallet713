@@ -1,23 +1,33 @@
+use failure::Fail;
 use grin_util::secp::key::SecretKey;
 use grin_util::secp::pedersen::Commitment;
 use grin_util::secp::Signature;
-use grin_wallet::Slate;
 
 use crate::common::crypto::verify_signature;
 use crate::common::crypto::Hex;
 use crate::common::message::EncryptedMessage;
 use crate::contacts::{Address, GrinboxAddress};
+use super::VersionedSlate;
 
-#[derive(Debug)]
+#[derive(Debug, Fail)]
 pub enum ErrorKind {
+    #[fail(display = "Unable to parse address")]
     ParseAddress,
+    #[fail(display = "Unable to parse public key")]
     ParsePublicKey,
+    #[fail(display = "Unable to parse signature")]
     ParseSignature,
+    #[fail(display = "Unable to verify signature")]
     VerifySignature,
+    #[fail(display = "Unable to parse encrypted message")]
     ParseEncryptedMessage,
+    #[fail(display = "Unable to verify destination")]
     VerifyDestination,
+    #[fail(display = "Unable to determine decryption key")]
     DecryptionKey,
+    #[fail(display = "Unable to decrypt message")]
     DecryptMessage,
+    #[fail(display = "Unable to parse slate")]
     ParseSlate,
 }
 
@@ -38,7 +48,7 @@ impl TxProof {
     pub fn verify_extract(
         &self,
         expected_destination: Option<&GrinboxAddress>,
-    ) -> Result<(Option<GrinboxAddress>, Slate), ErrorKind> {
+    ) -> Result<(GrinboxAddress, VersionedSlate), ErrorKind> {
         let mut challenge = String::new();
         challenge.push_str(self.message.as_str());
         challenge.push_str(self.challenge.as_str());
@@ -54,12 +64,8 @@ impl TxProof {
         let encrypted_message: EncryptedMessage =
             serde_json::from_str(&self.message).map_err(|_| ErrorKind::ParseEncryptedMessage)?;
 
-        // TODO: at some point, make this check required
         let destination = encrypted_message.destination.clone();
-
-        if destination.is_some()
-            && expected_destination.is_some()
-            && destination.as_ref().unwrap().public_key != expected_destination.unwrap().public_key
+        if expected_destination.is_some() && destination.public_key != expected_destination.unwrap().public_key
         {
             return Err(ErrorKind::VerifyDestination);
         }
@@ -68,9 +74,10 @@ impl TxProof {
             .decrypt_with_key(&self.key)
             .map_err(|_| ErrorKind::DecryptMessage)?;
 
-        serde_json::from_str(&decrypted_message)
-            .map(|message| (destination, message))
-            .map_err(|_| ErrorKind::ParseSlate)
+        let slate: VersionedSlate = serde_json::from_str(&decrypted_message)
+            .map_err(|_| ErrorKind::ParseSlate)?;
+
+        Ok((destination, slate))
     }
 
     pub fn from_response(
@@ -80,7 +87,7 @@ impl TxProof {
         signature: String,
         secret_key: &SecretKey,
         expected_destination: Option<&GrinboxAddress>,
-    ) -> Result<(Slate, TxProof), ErrorKind> {
+    ) -> Result<(VersionedSlate, TxProof), ErrorKind> {
         let address =
             GrinboxAddress::from_str(from.as_str()).map_err(|_| ErrorKind::ParseAddress)?;
         let signature =

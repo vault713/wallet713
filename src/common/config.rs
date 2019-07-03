@@ -4,12 +4,11 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use grin_core::global::ChainTypes;
-use grin_wallet::WalletConfig;
+use grin_util::LoggingConfig;
 
-use common::crypto::{public_key_from_secret_key, PublicKey, SecretKey};
-use common::{ErrorKind, Result};
-use common::is_cli;
-use contacts::{GrinboxAddress, DEFAULT_GRINBOX_PORT};
+use super::Result;
+use super::is_cli;
+use crate::contacts::DEFAULT_GRINBOX_PORT;
 
 const WALLET713_HOME: &str = ".wallet713";
 const WALLET713_DEFAULT_CONFIG_FILENAME: &str = "wallet713.toml";
@@ -44,8 +43,6 @@ pub struct Wallet713Config {
     pub check_updates: Option<bool>,
     #[serde(skip)]
     pub config_home: Option<String>,
-    #[serde(skip)]
-    pub grinbox_address_key: Option<SecretKey>,
 }
 
 impl Wallet713Config {
@@ -98,15 +95,19 @@ impl Wallet713Config {
         Ok(config)
     }
 
-    pub fn to_file(&mut self, config_path: Option<&str>) -> Result<()> {
+    pub fn to_file(&mut self, config_path: Option<String>) -> Result<()> {
         let default_path_buf = Wallet713Config::default_config_path(&self.chain)?;
         let default_path = default_path_buf.to_str().unwrap();
-        let config_path = config_path.unwrap_or(default_path);
+        let config_path = config_path.unwrap_or(default_path.to_owned());
         let toml_str = toml::to_string(&self)?;
-        let mut f = File::create(config_path)?;
+        let mut f = File::create(config_path.clone())?;
         f.write_all(toml_str.as_bytes())?;
-        self.config_home = Some(config_path.to_string());
+        self.config_home = Some(config_path);
         Ok(())
+    }
+
+    pub fn save(&mut self) -> Result<()> {
+        self.to_file(self.config_home.clone())
     }
 
     pub fn as_wallet_config(&self) -> Result<WalletConfig> {
@@ -125,24 +126,6 @@ impl Wallet713Config {
 
     pub fn grinbox_address_index(&self) -> u32 {
         self.grinbox_address_index.unwrap_or(0)
-    }
-
-    pub fn get_grinbox_address(&self) -> Result<GrinboxAddress> {
-        let public_key = self.get_grinbox_public_key()?;
-        Ok(GrinboxAddress::new(
-            public_key,
-            Some(self.grinbox_domain.clone()),
-            self.grinbox_port,
-        ))
-    }
-
-    pub fn get_grinbox_public_key(&self) -> Result<PublicKey> {
-        public_key_from_secret_key(&self.get_grinbox_secret_key()?)
-    }
-
-    pub fn get_grinbox_secret_key(&self) -> Result<SecretKey> {
-        self.grinbox_address_key
-            .ok_or_else(|| ErrorKind::NoWallet.into())
     }
 
     pub fn get_data_path(&self) -> Result<PathBuf> {
@@ -235,4 +218,82 @@ impl fmt::Display for Wallet713Config {
                "{...}")?;
         Ok(())
     }
+}
+
+
+/// Command-line wallet configuration
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct WalletConfig {
+	/// Chain parameters (default to Mainnet if none at the moment)
+	pub chain_type: Option<ChainTypes>,
+	/// The api interface/ip_address that this api server (i.e. this wallet) will run
+	/// by default this is 127.0.0.1 (and will not accept connections from external clients)
+	pub api_listen_interface: String,
+	/// The port this wallet will run on
+	pub api_listen_port: u16,
+	/// The port this wallet's owner API will run on
+	pub owner_api_listen_port: Option<u16>,
+	/// Location of the secret for basic auth on the Owner API
+	pub api_secret_path: Option<String>,
+	/// Location of the node api secret for basic auth on the Grin API
+	pub node_api_secret_path: Option<String>,
+	/// The api address of a running server node against which transaction inputs
+	/// will be checked during send
+	pub check_node_api_http_addr: String,
+	/// Whether to include foreign API endpoints on the Owner API
+	pub owner_api_include_foreign: Option<bool>,
+	/// The directory in which wallet files are stored
+	pub data_file_dir: String,
+	/// If Some(true), don't cache commits alongside output data
+	/// speed improvement, but your commits are in the database
+	pub no_commit_cache: Option<bool>,
+	/// TLS certificate file
+	pub tls_certificate_file: Option<String>,
+	/// TLS certificate private key file
+	pub tls_certificate_key: Option<String>,
+	/// Whether to use the black background color scheme for command line
+	/// if enabled, wallet command output color will be suitable for black background terminal
+	pub dark_background_color_scheme: Option<bool>,
+	/// The exploding lifetime (minutes) for keybase notification on coins received
+	pub keybase_notify_ttl: Option<u16>,
+}
+
+impl Default for WalletConfig {
+	fn default() -> WalletConfig {
+		WalletConfig {
+			chain_type: Some(ChainTypes::Mainnet),
+			api_listen_interface: "127.0.0.1".to_string(),
+			api_listen_port: 3415,
+			owner_api_listen_port: Some(3420),
+			api_secret_path: Some(".api_secret".to_string()),
+			node_api_secret_path: Some(".api_secret".to_string()),
+			check_node_api_http_addr: "http://127.0.0.1:3413".to_string(),
+			owner_api_include_foreign: Some(false),
+			data_file_dir: ".".to_string(),
+			no_commit_cache: Some(false),
+			tls_certificate_file: None,
+			tls_certificate_key: None,
+			dark_background_color_scheme: Some(true),
+			keybase_notify_ttl: Some(1440),
+		}
+	}
+}
+
+/// Wallet should be split into a separate configuration file
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct GlobalWalletConfig {
+	/// Keep track of the file we've read
+	pub config_file_path: Option<PathBuf>,
+	/// Wallet members
+	pub members: Option<GlobalWalletConfigMembers>,
+}
+
+/// Wallet internal members
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct GlobalWalletConfigMembers {
+	/// Wallet configuration
+	#[serde(default)]
+	pub wallet: WalletConfig,
+	/// Logging config
+	pub logging: Option<LoggingConfig>,
 }
