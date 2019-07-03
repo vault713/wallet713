@@ -4,11 +4,11 @@ use std::path::Path;
 
 use grin_core::ser::Error as CoreError;
 use grin_core::ser::{Readable, Reader, Writeable, Writer};
-use grin_store::{self, option_to_not_found, to_key};
+use grin_store::{self, to_key};
 use grin_store::Store;
 
 use crate::common::Error;
-use super::types::{Address, AddressBookBackend, AddressBookBatch, Contact, parse_address};
+use super::types::{AddressBookBackend, AddressBookBatch, Contact, parse_address};
 
 const DB_DIR: &'static str = "contacts";
 const CONTACT_PREFIX: u8 = 'X' as u8;

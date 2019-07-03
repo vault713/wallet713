@@ -24,6 +24,29 @@ subcommands:
                   required: true
   - accounts:
       about: Display available accounts
+  - address:
+      about: Display current Grinbox address or switch to a different one
+      args:
+        - next:
+            help: Switch to next address index
+            short: n
+            long: next
+        - prev:
+            help: Switch to previous address index
+            short: p
+            long: prev
+        - index:
+            help: Switch to a specific address index
+            short: i
+            long: index
+            takes_value: true
+      groups:
+        - switch:
+            args:
+              - next
+              - prev
+              - index
+            required: false
   - cancel:
       about: Cancel a transaction and unlock its inputs
       args:
@@ -134,6 +157,13 @@ subcommands:
             short: F
   - restore:
       about: Restore wallet contents from the chain
+  - seed:
+      about: Display current seed or recover from a seed
+      subcommands:
+        - display:
+            about: Display current seed
+        - recover:
+            about: Recover from a seed
   - send:
       about: Build a transaction to send coins
       args:

@@ -14,8 +14,6 @@
 
 use colored::Colorize;
 use failure::Error;
-use futures::sync::oneshot;
-use futures::Future;
 use grin_core::core::hash::Hashed;
 use grin_core::core::{Transaction, amount_to_hr_string};
 use grin_core::ser::ser_vec;
@@ -25,21 +23,21 @@ use grin_util::secp::pedersen::Commitment;
 use grin_util::{ZeroingString, to_hex};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
-use std::marker::PhantomData;
-use std::thread::{JoinHandle, spawn};
 use uuid::Uuid;
 
 use crate::api::listener::*;
-use crate::api::router::build_foreign_api_router;
-use crate::broker::{Controller, GrinboxPublisher, GrinboxSubscriber, KeybasePublisher, KeybaseSubscriber, Subscriber};
 use crate::common::config::Wallet713Config;
 use crate::common::hasher::derive_address_key;
 use crate::common::{Arc, Keychain, Mutex, MutexGuard};
-use crate::contacts::{Address, AddressType, Contact, GrinboxAddress, parse_address};
-use crate::wallet::adapter::{Adapter, GrinboxAdapter, HTTPAdapter};
+use crate::contacts::{AddressType, Contact, GrinboxAddress, parse_address};
+use crate::wallet::adapter::{Adapter, GrinboxAdapter, HTTPAdapter, KeybaseAdapter};
 use crate::wallet::{Container, ErrorKind};
 use crate::internal::*;
-use crate::wallet::types::{AcctPathMapping, InitTxArgs, NodeClient, OutputCommitMapping, Slate, SlateVersion, TxLogEntry, TxProof, TxWrapper, VersionedSlate, WalletBackend, WalletInfo, NodeHeightResult};
+use crate::wallet::types::{
+	AcctPathMapping, InitTxArgs, NodeClient, OutputCommitMapping, Slate,
+	SlateVersion, TxLogEntry, TxProof, TxWrapper, VersionedSlate,
+	WalletBackend, WalletInfo, NodeHeightResult, NodeVersionInfo
+};
 use crate::cli_message;
 
 #[derive(StateData)]
@@ -76,10 +74,10 @@ where
 		w.get_seed()
 	}
 
-	pub fn set_seed(&self, mnemonic: Option<ZeroingString>, password: ZeroingString) -> Result<(), Error> {
+	pub fn set_seed(&self, mnemonic: Option<ZeroingString>, password: ZeroingString, overwrite: bool) -> Result<(), Error> {
 		let mut c = self.container.lock();
 		let w = c.raw_backend();
-		w.set_seed(mnemonic, password, false)
+		w.set_seed(mnemonic, password, overwrite)
 	}
 
 	/// Set the password to attempt to decrypt the seed with
@@ -94,6 +92,13 @@ where
 		let mut c = self.container.lock();
 		let w = c.raw_backend();
 		w.connect()
+	}
+
+	/// Connect to the backend
+	pub fn disconnect(&self) -> Result<(), Error> {
+		let mut c = self.container.lock();
+		let w = c.raw_backend();
+		w.disconnect()
 	}
 
 	/// Clear the wallet of its contents
@@ -142,14 +147,6 @@ where
         }
 	}
 
-	/// Batch start listeners
-	pub fn start_listeners(&self, interfaces: HashSet<ListenerInterface>) -> Result<(), Error> {
-		for interface in interfaces {
-			self.start_listener(interface)?;
-		}
-		Ok(())
-	}
-
 	/// Stop all running listeners
 	pub fn stop_listeners(&self) -> Result<HashSet<ListenerInterface>, Error> {
 		let mut c = self.container.lock();
@@ -159,6 +156,36 @@ where
 			interfaces.insert(interface);
 		}
 		Ok(interfaces)
+	}
+
+	pub fn grinbox_address(&self) -> Result<GrinboxAddress, Error> {
+		self.open_and_close(|c| {
+			let index = c.config.grinbox_address_index();
+    		let keychain = c.backend()?.keychain();
+    		let sec_key = derive_address_key(keychain, index)?;
+    		let pub_key = PublicKey::from_secret_key(keychain.secp(), &sec_key)?;
+
+			Ok(GrinboxAddress::new(
+				pub_key,
+				Some(c.config.grinbox_domain.clone()),
+        		c.config.grinbox_port,
+    		))
+		})
+	}
+
+	pub fn set_grinbox_address_index(&self, index: u32) -> Result<GrinboxAddress, Error> {
+		let grinbox = self.stop_listener(ListenerInterface::Grinbox)?;
+		{
+			let mut c = self.container.lock();
+			c.config.grinbox_address_index = Some(index);
+			c.config.save()?;
+		}
+
+		if grinbox {
+			self.start_listener(ListenerInterface::Grinbox)?;
+		}
+
+		self.grinbox_address()
 	}
 
 	pub fn accounts(&self) -> Result<Vec<AcctPathMapping>, Error> {
@@ -187,7 +214,7 @@ where
 	}
 
 	pub fn contacts(&self) -> Result<Vec<Contact>, Error> {
-		let mut c = self.container.lock();
+		let c = self.container.lock();
 		let contacts: Vec<_> = c.address_book.contacts().collect();
 		Ok(contacts)
 	}
@@ -362,13 +389,9 @@ where
 					"grinbox" => {
 						GrinboxAdapter::new(&self.container)
 					}
-					/*"keybase" => {
-						sa.finalize = false;
-						sa.post_tx = false;
-						let c = self.container.lock();
-						let publisher = c.keybase_publisher.as_ref().ok_or(ErrorKind::KeybaseNoListener)?;
-						publisher.post_slate(&slate)?;
-					}*/
+					"keybase" => {
+						KeybaseAdapter::new(&self.container)
+					}
 					_ => {
 						error!("unsupported payment method");
 						return Err(ErrorKind::ClientCallback(
@@ -389,7 +412,7 @@ where
 					"Slate {} for {} grin sent successfully to {}",
 					slate.id.to_string().bright_green(),
 					amount_to_hr_string(slate.amount, false).bright_green(),
-					sa.dest.bright_green()
+					format!("{}", parse_address(&sa.dest)?).bright_green()
 				);
 
 				if adapter.supports_sync() {
@@ -529,10 +552,18 @@ where
 	}
 
 	pub fn restore(&self) -> Result<(), Error> {
+		let grinbox = self.stop_listener(ListenerInterface::Grinbox)?;
+
 		self.open_and_close(|c| {
 			let w = c.backend()?;
 			w.restore()
-		})
+		})?;
+
+		if grinbox {
+			self.start_listener(ListenerInterface::Grinbox)?;
+		}
+
+		Ok(())
 	}
 
 	pub fn check_repair(&self, delete_unconfirmed: bool) -> Result<(), Error> {
@@ -555,7 +586,16 @@ where
 		})
 	}
 
-	/// Internal functions
+	pub fn node_version(&self) -> Option<NodeVersionInfo> {
+		let version = self.open_and_close(|c| {
+			let w = c.backend()?;
+			Ok(w.w2n_client().get_version_info())
+		});
+		match version {
+			Err(_) => None,
+			Ok(v) => v,
+		}
+	}
 
 	/// Convenience function that opens and closes the wallet with the stored credentials
 	fn open_and_close<F, X>(&self, f: F) -> Result<X, Error>

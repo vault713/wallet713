@@ -7,7 +7,7 @@ use crate::common::crypto::verify_signature;
 use crate::common::crypto::Hex;
 use crate::common::message::EncryptedMessage;
 use crate::contacts::{Address, GrinboxAddress};
-use super::{Slate, SlateVersion, VersionedSlate};
+use super::VersionedSlate;
 
 #[derive(Debug, Fail)]
 pub enum ErrorKind {

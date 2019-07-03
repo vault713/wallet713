@@ -111,9 +111,9 @@ where
 		);
 	}
 
-	let tx_entry = {
+	{
 		let lock_inputs = context.get_inputs().clone();
-		let messages = Some(slate.participant_messages());
+//		let messages = Some(slate.participant_messages());
 		let slate_id = slate.id;
 		let height = slate.height;
 		let parent_key_id = context.parent_key_id.clone();
@@ -159,8 +159,7 @@ where
 		batch.save_tx_log_entry(&t)?;
         batch.store_tx(&slate_id.to_string(), &slate.tx)?;
 		batch.commit()?;
-		t
-	};
+	}
 	Ok(())
 }
 
@@ -203,7 +202,7 @@ where
 	);
 
 	context.add_output(&key_id, &None, amount);
-	let messages = Some(slate.participant_messages());
+//	let messages = Some(slate.participant_messages());
 	let commit = wallet.calc_commit_for_cache(amount, &key_id_inner)?;
 	let mut batch = wallet.batch()?;
 	let log_id = batch.next_tx_log_id(&parent_key_id)?;

@@ -20,12 +20,8 @@ mod keybase;
 pub use self::grinbox::GrinboxAdapter;
 pub use self::http::HTTPAdapter;
 pub use self::keybase::KeybaseAdapter;
-//pub use self::null::NullAdapter;
 
 use failure::Error;
-use std::collections::HashMap;
-
-use crate::common::config::WalletConfig;
 use super::types::VersionedSlate;
 
 /// Encapsulate wallet to wallet communication functions

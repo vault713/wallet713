@@ -104,11 +104,6 @@ impl Hex<Commitment> for Commitment {
     }
 }
 
-pub fn public_key_from_secret_key(secret_key: &SecretKey) -> Result<PublicKey> {
-    let secp = Secp256k1::new();
-    PublicKey::from_secret_key(&secp, secret_key).map_err(|_| ErrorKind::Secp.into())
-}
-
 pub fn sign_challenge(challenge: &str, secret_key: &SecretKey) -> Result<Signature> {
     let mut hasher = Sha256::new();
     hasher.input(challenge.as_bytes());

@@ -14,7 +14,6 @@
 
 use colored::Colorize;
 use failure::Error;
-use gotham::state::StateData;
 use grin_core::core::amount_to_hr_string;
 use std::marker::PhantomData;
 use crate::common::{Arc, Keychain, Mutex, MutexGuard};
@@ -40,8 +39,8 @@ pub enum ForeignCheckMiddlewareFn {
 	VerifySlateMessages,
 	/// receive_tx
 	ReceiveTx,
-	/// finalize_invoice_tx
-	FinalizeInvoiceTx,
+	/*/// finalize_invoice_tx
+	FinalizeInvoiceTx,*/
 }
 
 #[derive(StateData)]

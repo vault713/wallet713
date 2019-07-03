@@ -8,7 +8,7 @@ use crate::common::crypto::{Hex, SecretKey, sign_challenge};
 use crate::common::message::EncryptedMessage;
 use crate::common::{Arc, ErrorKind, Keychain, Mutex, Result};
 use crate::contacts::{Address, GrinboxAddress, DEFAULT_GRINBOX_PORT};
-use crate::wallet::types::{NodeClient, Slate, TxProof, TxProofErrorKind, VersionedSlate, WalletBackend};
+use crate::wallet::types::{NodeClient, TxProof, VersionedSlate, WalletBackend};
 use crate::cli_message;
 
 use super::protocol::{ProtocolRequest, ProtocolResponse};
@@ -272,11 +272,6 @@ impl<W, C, K, P> GrinboxClient<W, C, K, P>
         K: Keychain,
         P: Publisher,
 {
-    fn generate_signature(challenge: &str, secret_key: &SecretKey) -> String {
-        let signature = sign_challenge(challenge, secret_key).expect("could not sign challenge!");
-        signature.to_hex()
-    }
-
     fn subscribe(&self, challenge: &str) -> Result<()> {
         let signature = sign_challenge(&challenge, &self.secret_key)?.to_hex();
         let request = ProtocolRequest::Subscribe {

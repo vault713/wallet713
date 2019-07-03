@@ -16,12 +16,11 @@ use failure::Error;
 use futures::Stream;
 use futures::stream;
 use grin_api::{Output, OutputType, OutputListing, Tip};
-use grin_api::client;
 use grin_util::secp::pedersen::{Commitment, RangeProof};
 use grin_util::to_hex;
 use std::collections::HashMap;
 use tokio::runtime::Runtime;
-
+use crate::common::client;
 use crate::wallet::ErrorKind;
 use super::TxWrapper;
 

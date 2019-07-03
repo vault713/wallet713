@@ -1,8 +1,7 @@
 use colored::Colorize;
-use grin_core::core::amount_to_hr_string;
 use std::marker::Send;
 use crate::common::{Arc, Keychain, Mutex, Error};
-use crate::contacts::{Address, AddressBook, AddressType, GrinboxAddress};
+use crate::contacts::{Address, AddressType, GrinboxAddress};
 use crate::wallet::api::{Foreign, Owner};
 use crate::wallet::types::{NodeClient, Slate, VersionedSlate, TxProof, WalletBackend};
 use crate::wallet::Container;
@@ -102,15 +101,6 @@ impl<W, C, K, P> SubscriptionHandler for Controller<W, C, K, P>
     }
 
     fn on_slate(&self, from: &Address, slate: &VersionedSlate, tx_proof: Option<&mut TxProof>) {
-        let mut display_from = from.stripped();
-        /*if let Ok(contact) = self
-            .address_book
-            .lock()
-            .get_contact_by_address(&from.to_string())
-        {
-            display_from = contact.get_name().to_string();
-        }*/
-
         let version = slate.version();
         let mut slate: Slate = slate.clone().into();
 
@@ -149,9 +139,9 @@ impl<W, C, K, P> SubscriptionHandler for Controller<W, C, K, P>
                         })
                         .expect("failed posting slate!");
                     cli_message!(
-                        "Slate [{}] sent back to [{}] successfully",
+                        "Slate {} sent back to {} successfully",
                         id.to_string().bright_green(),
-                        display_from.bright_green()
+                        from.stripped().bright_green()
                     );
                 }
                 /*else {
@@ -175,21 +165,19 @@ impl<W, C, K, P> SubscriptionHandler for Controller<W, C, K, P>
                 //println!("Listener for {} stopped", self.name.bright_green())
             },
             CloseReason::Abnormal(_) => cli_message!(
-                "{}: listener [{}] stopped unexpectedly",
-                "ERROR".bright_red(),
+                "Listener {} stopped unexpectedly",
                 self.name.bright_green()
             ),
         }
     }
 
     fn on_dropped(&self) {
-        cli_message!("{}: listener [{}] lost connection. it will keep trying to restore connection in the background.", "WARNING".bright_yellow(), self.name.bright_green())
+        cli_message!("Listener {} lost connection. it will keep trying to restore connection in the background.", self.name.bright_green())
     }
 
     fn on_reestablished(&self) {
         cli_message!(
-            "{}: listener [{}] reestablished connection.",
-            "INFO".bright_blue(),
+            "Listener {} reestablished connection.",
             self.name.bright_green()
         )
     }

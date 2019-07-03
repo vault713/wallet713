@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use crate::common::{Arc, ErrorKind, Keychain, Mutex, Result};
 use crate::contacts::{Address, KeybaseAddress};
-use crate::wallet::types::{NodeClient, Slate, VersionedSlate, WalletBackend};
+use crate::wallet::types::{NodeClient, VersionedSlate, WalletBackend};
 use super::types::{CloseReason, Controller, Publisher, Subscriber, SubscriptionHandler};
 
 pub const TOPIC_SLATE_NEW: &str = "grin_slate_new";

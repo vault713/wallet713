@@ -416,7 +416,6 @@ where
 		return Ok(());
 	}
 
-	let kernel = &slate.tx.kernels()[0];
 	tx.excess = Some(slate.sum_excess(wallet.keychain())?);
 	{
 		let mut batch = wallet.batch()?;
@@ -548,9 +547,6 @@ pub fn verify_tx_proof(
 	),
 	Error,
 > {
-	let secp = static_secp_instance();
-	let secp = secp.lock();
-
 	// Check signature on the message and decrypt it
 	// The `destination` of the message is the sender of the tx
 	let (destination, slate) = tx_proof
@@ -585,6 +581,9 @@ pub fn verify_tx_proof(
 
 	// Receiver's excess
 	let excess = &slate.participant_data[1].public_blind_excess;
+
+	let secp = static_secp_instance();
+	let secp = secp.lock();
 
 	// Calculate receiver's excess from their inputs and inputs
 	let commit_amount = secp.commit_value(tx_proof.amount)?;

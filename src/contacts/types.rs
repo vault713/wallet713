@@ -227,13 +227,13 @@ impl Address for GrinboxAddress {
     }
 
     fn stripped(&self) -> String {
-        format!("{}", self)[10..].to_string()
+        format!("{}", self)
     }
 }
 
 impl Display for GrinboxAddress {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "grinbox://{}", self.public_key)?;
+        write!(f, "{}", self.public_key)?;
         if self.domain != DEFAULT_GRINBOX_DOMAIN
             || (self.port.is_some() && self.port.unwrap() != DEFAULT_GRINBOX_PORT)
         {

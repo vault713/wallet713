@@ -1,14 +1,11 @@
 use failure::Error;
-use futures::sync::oneshot;
 use grin_keychain::ExtKeychain;
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::thread::JoinHandle;
 use crate::api::listener::{Listener, ListenerInterface};
-use crate::broker::{GrinboxPublisher, KeybasePublisher, GrinboxSubscriber, KeybaseSubscriber};
 use crate::common::config::Wallet713Config;
 use crate::common::{Arc, Keychain, Mutex};
-use crate::contacts::{AddressBook, GrinboxAddress, KeybaseAddress};
+use crate::contacts::AddressBook;
 use crate::wallet::backend::Backend;
 use crate::wallet::types::{HTTPNodeClient, NodeClient, WalletBackend};
 use super::ErrorKind;
@@ -35,7 +32,7 @@ impl<W, C, K> Container<W, C, K>
         K: Keychain,
 {
     pub fn new(config: Wallet713Config, backend: W, address_book: AddressBook) -> Arc<Mutex<Self>> {
-        let mut container = Self {
+        let container = Self {
             config,
             backend,
             address_book,

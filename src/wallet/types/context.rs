@@ -1,4 +1,4 @@
-use super::{ContextType, Identifier, SecretKey};
+use super::{Identifier, SecretKey};
 use grin_core::libtx::aggsig;
 use grin_core::ser;
 use grin_util::secp;

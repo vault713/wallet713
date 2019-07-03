@@ -26,7 +26,7 @@ use std::fmt::Display;
 use std::io::{self, Write};
 use std::ops::Deref;
 use crate::common::ErrorKind;
-use crate::contacts::{AddressBook, Contact, GrinboxAddress};
+use crate::contacts::{Contact, GrinboxAddress};
 use crate::wallet::types::{AcctPathMapping, OutputCommitMapping, OutputStatus, TxLogEntry, WalletInfo};
 
 pub enum InitialPromptOption {
@@ -100,16 +100,18 @@ pub fn mnemonic_prompt() -> Result<ZeroingString, Error> {
 	Ok(line.into())
 }
 
-pub fn mnemonic(mnemonic: ZeroingString) {
+pub fn mnemonic(mnemonic: ZeroingString, confirm: bool) {
 	println!("Your recovery phrase is:");
 	println!();
 	println!("{}", mnemonic.deref());
-	println!();
-	println!("Please back-up these words in a non-digital format.");
-	println!("{}", "Press ENTER when you have done so".bright_green().bold());
-	let mut line = String::new();
-	io::stdout().flush().unwrap();
-	io::stdin().read_line(&mut line).unwrap();
+	if confirm {
+		println!();
+		println!("Please back-up these words in a non-digital format.");
+		println!("{}", "Press ENTER when you have done so".bright_green().bold());
+		let mut line = String::new();
+		io::stdout().flush().unwrap();
+		io::stdin().read_line(&mut line).unwrap();
+	}
 }
 
 /// Display summary info in a pretty way
@@ -482,7 +484,7 @@ pub fn proof(
 	let excess = to_hex(excess.0.to_vec());
 
 	println!(
-        "This file proves that [{}] grins was sent to [{}] from [{}]",
+        "This file proves that {} grin was sent to {} from {}",
         amount_to_hr_string(amount, false).bright_green(),
         format!("{}", receiver).bright_green(),
 		format!("{}", sender).bright_green()

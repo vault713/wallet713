@@ -17,12 +17,8 @@
 use grin_core::core::{committed, transaction};
 use grin_core::libtx;
 use grin_keychain;
-use grin_store;
 use grin_util::secp;
-use failure::{Backtrace, Context, Fail};
-use std::env;
-use std::fmt::{self, Display};
-use std::io;
+use failure::Fail;
 
 /// Wallet errors, mostly wrappers around underlying crypto or I/O errors.
 #[derive(Clone, Eq, PartialEq, Debug, Fail, Serialize, Deserialize)]

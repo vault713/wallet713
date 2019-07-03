@@ -2,23 +2,23 @@ use clap::{App, ArgMatches};
 use colored::Colorize;
 use failure::Error;
 use grin_core::core::amount_to_hr_string;
-use rpassword::prompt_password_stdout;
 use rustyline::completion::{Completer, FilenameCompleter, Pair};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
 use rustyline::hint::Hinter;
 use rustyline::{CompletionType, Config, EditMode, Editor, Helper, OutputStreamType};
+use semver::Version;
 use std::borrow::Cow::{self, Borrowed, Owned};
 use std::fs::File;
 use std::io::{Read, Write};
-use std::path::Path;
 use crate::api::listener::ListenerInterface;
 use crate::common::motd::get_motd;
 use crate::common::{Arc, ErrorKind, Keychain, Mutex};
+use crate::contacts::Address;
 use crate::wallet::api::{Foreign, Owner};
-use crate::wallet::types::{NodeClient, Slate, TxProof, VersionedSlate, WalletBackend};
+use crate::wallet::types::{NodeClient, TxProof, VersionedSlate, WalletBackend};
 use crate::wallet::Container;
-use super::args::{self, AccountArgs, ContactArgs, ProofArgs, SendCommandType};
+use super::args::{self, AccountArgs, AddressArgs, ContactArgs, ProofArgs, SeedArgs, SendCommandType};
 use super::display::{self, InitialPromptOption};
 
 const COLORED_PROMPT: &'static str = "\x1b[36mwallet713>\x1b[0m ";
@@ -71,6 +71,10 @@ where
             let _ = get_motd();
         }
 
+        if !self.check_node_version() {
+            return Ok(());
+        }
+
         println!("Use `help` to see available commands");
         println!();
 
@@ -87,7 +91,7 @@ where
                 Ok(false)
             }
             InitialPromptOption::Recover => {
-                self.recover_wallet()?;
+                self.recover_wallet(false)?;
                 Ok(false)
             }
             InitialPromptOption::Exit => {
@@ -102,25 +106,41 @@ where
         println!("Set an optional password to secure your wallet with. Leave blank for no password.");
         println!();
         let password = display::password_prompt()?;
-        self.api.set_seed(None, password)?;
-        display::mnemonic(self.api.get_seed()?);
+        self.api.set_seed(None, password, false)?;
+        display::mnemonic(self.api.get_seed()?, true);
         self.api.connect()?;
         Ok(())
     }
 
-    fn recover_wallet(&self) -> Result<(), Error> {
+    fn recover_wallet(&self, overwrite: bool) -> Result<(), Error> {
         let mnemonic = display::mnemonic_prompt()?;
         println!();
 	    println!("Set an optional password to secure your wallet with. Leave blank for no password.");
 	    println!();
 	    let password = display::password_prompt()?;
-        self.api.set_seed(Some(mnemonic), password)?;
+        self.api.set_seed(Some(mnemonic), password, overwrite)?;
         self.api.connect()?;
         self.api.clear()?;
-        println!("Restoring wallet..");
+        println!("Recovering wallet..");
         self.api.restore()?;
-        println!("Wallet restored successfully");
+        println!("Wallet recovered successfully");
         Ok(())
+    }
+
+    fn check_node_version(&self) -> bool {
+        if let Some(v) = self.api.node_version() {
+            if Version::parse(&v.node_version) < Version::parse("2.0.0-beta.1") {
+                let version = if v.node_version == "1.0.0" {
+                    "1.x.x series"
+                } else {
+                    &v.node_version
+                };
+                println!("The Grin Node in use (version {}) is outdated and incompatible with this wallet version.", version);
+                println!("Please update the node to version 2.0.0 or later and try again.");
+                return false;
+            }
+	    }
+        true
     }
 
     fn start_listeners(&self) -> Result<(), Error> {
@@ -241,6 +261,27 @@ where
             ("accounts", _) => {
                 display::accounts(self.api.accounts()?);
             }
+            ("address", Some(m)) => {
+                let mut idx = self.api.config().grinbox_address_index();
+                match args::address_command(m)? {
+                    AddressArgs::Display => {
+                        println!("Your grinbox address is {}", self.api.grinbox_address()?.stripped().bright_green());
+                    }
+                    AddressArgs::Next => {
+                        idx = idx.saturating_add(1);
+                        self.api.set_grinbox_address_index(idx)?;
+                    }
+                    AddressArgs::Prev => {
+                        idx = idx.saturating_sub(1);
+                        self.api.set_grinbox_address_index(idx)?;
+                    }
+                    AddressArgs::Index(i) => {
+                        idx = i;
+                        self.api.set_grinbox_address_index(idx)?;
+                    }
+                };
+                cli_message!("Using grinbox address index {}", idx.to_string().bright_green());
+            }
             ("cancel", Some(m)) => {
                 let index = args::cancel_command(m)?;
                 self.api.cancel_tx(Some(index), None)?;
@@ -298,7 +339,7 @@ where
                         return Err(ErrorKind::IncorrectListenerInterface.into());
                     }
                 };
-                let address = self.api.start_listener(interface)?;
+                self.api.start_listener(interface)?;
             }
             ("outputs", Some(m)) => {
                 let account = self.api.active_account()?;
@@ -312,12 +353,15 @@ where
             ("proof", Some(m)) => {
                 let (sender, receiver, amount, outputs, excess) = match args::proof_command(m)? {
                     ProofArgs::Export(index, file_name) => {
+                        println!("A");
                         let tx_proof = self.api.get_stored_tx_proof(Some(index), None)?
                             .ok_or(ErrorKind::TransactionHasNoProof)?;
+                        println!("B");
                         let verify = self.api.verify_tx_proof(&tx_proof)?;
+                        println!("C");
                         let mut file = File::create(file_name.replace("~", &home_dir))?;
                         file.write_all(serde_json::to_string(&tx_proof)?.as_bytes())?;
-                        println!("Proof exported to '{}'", file_name);
+                        println!("Proof exported to {}", file_name.bright_green());
                         verify
                     },
                     ProofArgs::Verify(file_name) => {
@@ -329,11 +373,6 @@ where
                     }
                 };
                 display::proof(sender, receiver, amount, outputs, excess);
-            }
-            ("repost", Some(m)) => {
-                let (index, fluff) = args::repost_command(m)?;
-                let slate_id = self.api.repost_tx(Some(index), None, fluff)?;
-                println!("Transaction {} reposted successfully", slate_id.to_string().bright_green());
             }
             ("receive", Some(m)) => {
                 let (file_name, message) = args::receive_command(m)?;
@@ -350,18 +389,34 @@ where
                 file_out.write_all(serde_json::to_string(&slate)?.as_bytes())?;
                 cli_message!("Response slate file {} created successfully", format!("{}.response", file_name.bright_green()));
             }
+            ("repost", Some(m)) => {
+                let (index, fluff) = args::repost_command(m)?;
+                let slate_id = self.api.repost_tx(Some(index), None, fluff)?;
+                println!("Transaction {} reposted successfully", slate_id.to_string().bright_green());
+            }
             ("restore", _) => {
                 println!("Restoring wallet..");
                 self.api.restore()?;
                 println!("Wallet restored successfully");
+            }
+            ("seed", Some(m)) => {
+                match args::seed_command(m)? {
+                    SeedArgs::Display => {
+                        display::mnemonic(self.api.get_seed()?, false);
+                    }
+                    SeedArgs::Recover => {
+                        self.api.stop_listeners()?;
+                        self.api.disconnect()?;
+                        self.recover_wallet(true)?;
+                    }
+                };
             }
             ("send", Some(m)) => {
                 let (cmd_type, args) = args::send_command(m)?;
 
                 match cmd_type {
                     SendCommandType::Address => {
-                        let dest = args.send_args.as_ref().unwrap().dest.clone();
-                        let slate = self.api.init_send_tx(args)?;
+                        self.api.init_send_tx(args)?;
                     }
                     SendCommandType::File(file_name) => {
                         let slate = self.api.init_send_tx(args)?;

@@ -1,6 +1,4 @@
 use grin_util::ZeroingString;
-use crate::common::config::WalletConfig;
-use crate::wallet::seed::WalletSeed;
 use super::{
     AcctPathMapping, Context, Identifier, Keychain, NodeClient, OutputData, Result, Transaction,
     TxLogEntry, TxProof, WalletBackendBatch,
