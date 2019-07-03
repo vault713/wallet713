@@ -144,7 +144,7 @@ where
             return Err(ErrorKind::WalletHasSeed.into());
         }
         self.password = Some(password.clone());
-        let _ = WalletSeed::init_file(&self.config, 24, mnemonic, &password)?;
+        let _ = WalletSeed::init_file(&self.config, 24, mnemonic, &password, overwrite)?;
         Ok(())
     }
 

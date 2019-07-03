@@ -157,6 +157,13 @@ subcommands:
             short: F
   - restore:
       about: Restore wallet contents from the chain
+  - seed:
+      about: Display current seed or recover from a seed
+      subcommands:
+        - display:
+            about: Display current seed
+        - recover:
+            about: Recover from a seed
   - send:
       about: Build a transaction to send coins
       args:

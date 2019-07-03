@@ -100,16 +100,18 @@ pub fn mnemonic_prompt() -> Result<ZeroingString, Error> {
 	Ok(line.into())
 }
 
-pub fn mnemonic(mnemonic: ZeroingString) {
+pub fn mnemonic(mnemonic: ZeroingString, confirm: bool) {
 	println!("Your recovery phrase is:");
 	println!();
 	println!("{}", mnemonic.deref());
-	println!();
-	println!("Please back-up these words in a non-digital format.");
-	println!("{}", "Press ENTER when you have done so".bright_green().bold());
-	let mut line = String::new();
-	io::stdout().flush().unwrap();
-	io::stdin().read_line(&mut line).unwrap();
+	if confirm {
+		println!();
+		println!("Please back-up these words in a non-digital format.");
+		println!("{}", "Press ENTER when you have done so".bright_green().bold());
+		let mut line = String::new();
+		io::stdout().flush().unwrap();
+		io::stdin().read_line(&mut line).unwrap();
+	}
 }
 
 /// Display summary info in a pretty way

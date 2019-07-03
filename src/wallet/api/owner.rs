@@ -74,10 +74,10 @@ where
 		w.get_seed()
 	}
 
-	pub fn set_seed(&self, mnemonic: Option<ZeroingString>, password: ZeroingString) -> Result<(), Error> {
+	pub fn set_seed(&self, mnemonic: Option<ZeroingString>, password: ZeroingString, overwrite: bool) -> Result<(), Error> {
 		let mut c = self.container.lock();
 		let w = c.raw_backend();
-		w.set_seed(mnemonic, password, false)
+		w.set_seed(mnemonic, password, overwrite)
 	}
 
 	/// Set the password to attempt to decrypt the seed with
@@ -92,6 +92,13 @@ where
 		let mut c = self.container.lock();
 		let w = c.raw_backend();
 		w.connect()
+	}
+
+	/// Connect to the backend
+	pub fn disconnect(&self) -> Result<(), Error> {
+		let mut c = self.container.lock();
+		let w = c.raw_backend();
+		w.disconnect()
 	}
 
 	/// Clear the wallet of its contents

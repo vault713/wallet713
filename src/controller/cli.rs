@@ -18,7 +18,7 @@ use crate::contacts::Address;
 use crate::wallet::api::{Foreign, Owner};
 use crate::wallet::types::{NodeClient, TxProof, VersionedSlate, WalletBackend};
 use crate::wallet::Container;
-use super::args::{self, AccountArgs, AddressArgs, ContactArgs, ProofArgs, SendCommandType};
+use super::args::{self, AccountArgs, AddressArgs, ContactArgs, ProofArgs, SeedArgs, SendCommandType};
 use super::display::{self, InitialPromptOption};
 
 const COLORED_PROMPT: &'static str = "\x1b[36mwallet713>\x1b[0m ";
@@ -91,7 +91,7 @@ where
                 Ok(false)
             }
             InitialPromptOption::Recover => {
-                self.recover_wallet()?;
+                self.recover_wallet(false)?;
                 Ok(false)
             }
             InitialPromptOption::Exit => {
@@ -106,24 +106,24 @@ where
         println!("Set an optional password to secure your wallet with. Leave blank for no password.");
         println!();
         let password = display::password_prompt()?;
-        self.api.set_seed(None, password)?;
-        display::mnemonic(self.api.get_seed()?);
+        self.api.set_seed(None, password, false)?;
+        display::mnemonic(self.api.get_seed()?, true);
         self.api.connect()?;
         Ok(())
     }
 
-    fn recover_wallet(&self) -> Result<(), Error> {
+    fn recover_wallet(&self, overwrite: bool) -> Result<(), Error> {
         let mnemonic = display::mnemonic_prompt()?;
         println!();
 	    println!("Set an optional password to secure your wallet with. Leave blank for no password.");
 	    println!();
 	    let password = display::password_prompt()?;
-        self.api.set_seed(Some(mnemonic), password)?;
+        self.api.set_seed(Some(mnemonic), password, overwrite)?;
         self.api.connect()?;
         self.api.clear()?;
-        println!("Restoring wallet..");
+        println!("Recovering wallet..");
         self.api.restore()?;
-        println!("Wallet restored successfully");
+        println!("Wallet recovered successfully");
         Ok(())
     }
 
@@ -374,11 +374,6 @@ where
                 };
                 display::proof(sender, receiver, amount, outputs, excess);
             }
-            ("repost", Some(m)) => {
-                let (index, fluff) = args::repost_command(m)?;
-                let slate_id = self.api.repost_tx(Some(index), None, fluff)?;
-                println!("Transaction {} reposted successfully", slate_id.to_string().bright_green());
-            }
             ("receive", Some(m)) => {
                 let (file_name, message) = args::receive_command(m)?;
                 let mut file = File::open(file_name.replace("~", &home_dir))?;
@@ -394,10 +389,27 @@ where
                 file_out.write_all(serde_json::to_string(&slate)?.as_bytes())?;
                 cli_message!("Response slate file {} created successfully", format!("{}.response", file_name.bright_green()));
             }
+            ("repost", Some(m)) => {
+                let (index, fluff) = args::repost_command(m)?;
+                let slate_id = self.api.repost_tx(Some(index), None, fluff)?;
+                println!("Transaction {} reposted successfully", slate_id.to_string().bright_green());
+            }
             ("restore", _) => {
                 println!("Restoring wallet..");
                 self.api.restore()?;
                 println!("Wallet restored successfully");
+            }
+            ("seed", Some(m)) => {
+                match args::seed_command(m)? {
+                    SeedArgs::Display => {
+                        display::mnemonic(self.api.get_seed()?, false);
+                    }
+                    SeedArgs::Recover => {
+                        self.api.stop_listeners()?;
+                        self.api.disconnect()?;
+                        self.recover_wallet(true)?;
+                    }
+                };
             }
             ("send", Some(m)) => {
                 let (cmd_type, args) = args::send_command(m)?;

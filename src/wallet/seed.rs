@@ -80,6 +80,7 @@ impl WalletSeed {
 		seed_length: usize,
 		recovery_phrase: Option<ZeroingString>,
 		password: &str,
+		overwrite: bool,
 	) -> Result<WalletSeed, Error> {
 		// create directory if it doesn't exist
 		fs::create_dir_all(&wallet_config.data_file_dir).context(ErrorKind::IO)?;
@@ -90,7 +91,9 @@ impl WalletSeed {
 		);
 
 		warn!("Generating wallet seed file at: {}", seed_file_path);
-		let _ = WalletSeed::seed_file_exists(wallet_config)?;
+		if !overwrite {
+			let _ = WalletSeed::seed_file_exists(wallet_config)?;
+		}
 
 		let seed = match recovery_phrase {
 			Some(p) => WalletSeed::from_mnemonic(&p)?,

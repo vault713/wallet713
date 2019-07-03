@@ -43,6 +43,12 @@ pub enum AddressArgs {
     Index(u32),
 }
 
+#[derive(Clone, Debug)]
+pub enum SeedArgs {
+    Display,
+    Recover,
+}
+
 fn required<'a>(args: &'a ArgMatches, name: &str) -> Result<&'a str, ErrorKind> {
     args
         .value_of(name)
@@ -186,4 +192,19 @@ pub fn address_command(args: &ArgMatches) -> Result<AddressArgs, ErrorKind> {
         AddressArgs::Display
     };
     Ok(address_args)
+}
+
+pub fn seed_command(args: &ArgMatches) -> Result<SeedArgs, ErrorKind> {
+    let seed_args = match args.subcommand() {
+        ("display", _) => {
+            SeedArgs::Display
+        },
+        ("recover", _) => {
+            SeedArgs::Recover
+        },
+        (_, _) => {
+            usage!(args);
+        }
+    };
+    Ok(seed_args)
 }
