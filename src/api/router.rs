@@ -23,7 +23,7 @@ use crate::wallet::types::{Arc, NodeClient, Mutex, WalletBackend};
 use crate::wallet::Container;
 use super::rpc::{ForeignRpc, OwnerRpc};
 
-pub struct ApiMiddleware<W, C, K>
+pub struct ForeignApiMiddleware<W, C, K>
     where
         W: WalletBackend<C, K>,
         C: NodeClient,
@@ -32,14 +32,14 @@ pub struct ApiMiddleware<W, C, K>
     api: Foreign<W, C, K>,
 }
 
-impl<W, C, K> RefUnwindSafe for ApiMiddleware<W, C, K>
+impl<W, C, K> RefUnwindSafe for ForeignApiMiddleware<W, C, K>
     where
         W: WalletBackend<C, K>,
         C: NodeClient,
         K: Keychain,
 {}
 
-impl<W, C, K> ApiMiddleware<W, C, K>
+impl<W, C, K> ForeignApiMiddleware<W, C, K>
     where
         W: WalletBackend<C, K>,
         C: NodeClient,
@@ -55,7 +55,7 @@ impl<W, C, K> ApiMiddleware<W, C, K>
 }
 
 
-impl<W, C, K> Middleware for ApiMiddleware<W, C, K>
+impl<W, C, K> Middleware for ForeignApiMiddleware<W, C, K>
     where
         W: WalletBackend<C, K>,
         C: NodeClient,
@@ -70,7 +70,70 @@ impl<W, C, K> Middleware for ApiMiddleware<W, C, K>
     }
 }
 
-impl<W, C, K> NewMiddleware for ApiMiddleware<W, C, K>
+impl<W, C, K> NewMiddleware for ForeignApiMiddleware<W, C, K>
+    where
+        W: WalletBackend<C, K>,
+        C: NodeClient,
+        K: Keychain,
+{
+    type Instance = Self;
+
+    /// Clones the current middleware to a new instance.
+    fn new_middleware(&self) -> std::io::Result<Self::Instance> {
+        Ok(Self {
+            api: self.api.clone()
+        })
+    }
+}
+
+pub struct OwnerApiMiddleware<W, C, K>
+    where
+        W: WalletBackend<C, K>,
+        C: NodeClient,
+        K: Keychain,
+{
+    api: Owner<W, C, K>,
+}
+
+impl<W, C, K> RefUnwindSafe for OwnerApiMiddleware<W, C, K>
+    where
+        W: WalletBackend<C, K>,
+        C: NodeClient,
+        K: Keychain,
+{}
+
+impl<W, C, K> OwnerApiMiddleware<W, C, K>
+    where
+        W: WalletBackend<C, K>,
+        C: NodeClient,
+        K: Keychain,
+{
+    fn new(
+        container: Arc<Mutex<Container<W, C, K>>>
+    ) -> Self {
+        Self {
+            api: Owner::new(container),
+        }
+    }
+}
+
+
+impl<W, C, K> Middleware for OwnerApiMiddleware<W, C, K>
+    where
+        W: WalletBackend<C, K>,
+        C: NodeClient,
+        K: Keychain,
+{
+    fn call<Chain>(self, mut state: State, chain: Chain) -> Box<HandlerFuture>
+    where
+        Chain: FnOnce(State) -> Box<HandlerFuture>,
+    {
+        state.put(self.api);
+        chain(state)
+    }
+}
+
+impl<W, C, K> NewMiddleware for OwnerApiMiddleware<W, C, K>
     where
         W: WalletBackend<C, K>,
         C: NodeClient,
@@ -98,7 +161,7 @@ pub fn build_foreign_api_router<W, C, K>(
     let (chain, pipelines) = single_pipeline(
         new_pipeline()
             .add(BasicAuthMiddleware::new(foreign_api_secret))
-            .add(ApiMiddleware::new(container))
+            .add(ForeignApiMiddleware::new(container))
             .build(),
     );
 
@@ -167,7 +230,7 @@ pub fn build_owner_api_router<W, C, K>(
     let (chain, pipelines) = single_pipeline(
         new_pipeline()
             .add(BasicAuthMiddleware::new(owner_api_secret))
-            .add(ApiMiddleware::new(container))
+            .add(OwnerApiMiddleware::new(container))
             .build(),
     );
 
