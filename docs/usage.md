@@ -104,7 +104,7 @@ First ensure you are logged into your account on keybase.io via the keybase comm
 
 Start a keybase listener on wallet713:
 ```
-wallet713> $ listen --keybase
+wallet713> $ listen keybase
 ```
 
 You are now ready to receive grins to your keybase @username, by having senders send to `keybase://username`.
@@ -119,7 +119,7 @@ wallet713> $ send 10 --to keybase://ignotus
 
 ##### Sending via https
 
-wallet713 supports sending transactions to listening wallets via https. Only https is enabled for security reasons. 
+wallet713 supports sending transactions to listening wallets via http(s). 
 
 To send 10 grins to https://some.wallet.713.mw:13415:
 ```
@@ -145,14 +145,14 @@ Generates the file `transaction.tx` in the designated path that sends 10 grins t
 ##### Receiving a file-based transaction
 Once `transaction.tx` is received from a sender, the command:
 ```
-wallet713> $ receive --file ~/path/to/transaction.tx
+wallet713> $ receive ~/path/to/transaction.tx
 ```
 ...will process the received `transaction.tx` and generate `transaction.tx.response` in the same directory that should then be returned to the sender wallet.
 
 ##### Finalizing a file-based transaction
 Having received back `transaction.tx.response`, the sender can then issue:
 ```
-wallet713> $ finalize --file ~/path/to/transaction.tx.response
+wallet713> $ finalize ~/path/to/transaction.tx.response
 ```
 ...which will finalize the transaction and broadcast it.
 
@@ -196,18 +196,18 @@ In the below example,
    ```
    The transaction in question should show a `yes` in the `proof` column. Example output:
    ```
-    23  Sent Tx      4b6ede9f  grinbox://xd7sCQ9bQuQXp4yCn8GSELcuSxnpcPrPoEWJzvPBc5vxyXPQz6PJ                 2019-01-27 20:45:01  yes         2019-01-31 01:02:18  -0.234232      yes 
+    23  Sent Tx      4b6ede9f  xd7sCQ9bQuQXp4yCn8GSELcuSxnpcPrPoEWJzvPBc5vxyXPQz6PJ                 2019-01-27 20:45:01  yes         2019-01-31 01:02:18  -0.234232      yes 
    ```
 
-1. Alice now generates a proof for this transaction:
+1. Alice now exports a proof for this transaction:
    ```
-   wallet713> $ export-proof -i <number> -f <filename>
+   wallet713> $ proof export <number> <filename>
    ```
    ...where `<number>` is the ID in question (in our example `23`), and `<filename>` is the file name that the proof should be saved as (such as `proof.txt`).
 
 1. If successful, Alice receives a confirmation message. Example output:
    ```
-   wallet713> $ export-proof -i 23 -f proof.txt
+   wallet713> $ proof export 23 proof.txt
    proof written to proof.txt
    this file proves that [0.233232000] grins was sent to [xd7sCQ9bQuQXp4yCn8GSELcuSxnpcPrPoEWJzvPBc5vxyXPQz6PJ] from [xd7auPddUmmEzSte48a2aZ9tWkjjCppgn41pemUfcVSqjxHHZ6cT]
 
@@ -228,11 +228,11 @@ In the below example,
 
 In the example above, Alice has now sent the proof to Carol, who can then verify that file she received from Alice is indeed an untampered proof by validating it from her own wallet713 instance:
 ```
-wallet713> $ verify-proof -f <filename>
+wallet713> $ proof verify <filename>
 ```
 ...where `<filename>` is the file path to the proof that should be verified (such as `proof.txt`). Example output:
 ```
-wallet713> $ verify-proof -f proof.txt
+wallet713> $ proof verify proof.txt
 this file proves that [0.233232000] grins was sent to [xd7sCQ9bQuQXp4yCn8GSELcuSxnpcPrPoEWJzvPBc5vxyXPQz6PJ] from [xd7auPddUmmEzSte48a2aZ9tWkjjCppgn41pemUfcVSqjxHHZ6cT]
 
 outputs:
@@ -254,7 +254,7 @@ To make it easier to transact with parties without having to deal with their gri
 
 To add the grinbox address `xd6p24toTTDj7sxCCM4WGpBVcegVjGi9q5jquq6VWZA1BJroX514` to your contacts as `faucet`:
 ```
-wallet713> $ contacts add faucet grinbox://xd6p24toTTDj7sxCCM4WGpBVcegVjGi9q5jquq6VWZA1BJroX514
+wallet713> $ contacts add faucet xd6p24toTTDj7sxCCM4WGpBVcegVjGi9q5jquq6VWZA1BJroX514
 ```
 
 Similarly, to add the keybase address `keybase://ignotus` to your contacts as `igno`:
@@ -272,41 +272,9 @@ You can now send 10 grins to either of these contacts by their nicknames, preced
 wallet713> $ send 10 --to @igno
 ```
 
-### Using a passphrase
-
-#### Set a passphrase
-You can set the passphrase `yourpassphrase` when you initiate a new wallet: 
-```
-wallet713> $ init -p yourpassphrase
-```
-
-#### Locking & unlocking the wallet
-Once you have a passphrase set, it will be required to `unlock` when you want to use the wallet after its been locked or when you launch the wallet:
-```
-wallet713> $ unlock -p yourpassphrase
-```
-
 ### Using invoice
 
-The `invoice` command reverses the default transaction flow. This allows you as a recipient to specify an amount you expect to be paid and send this over to a particular sender. Once the sender has returned the slate to you, you can then finalize the transaction and broadcast it to the network. This is very useful for merchant related flows. For a related discussion see [this forum post](https://www.grin-forum.org/t/reverse-transaction-building/482).
-
-#### Issuing invoices
-
-The command works very similar to send. The following command raises a request to be paid 10 grins from @faucet:
-```
-wallet713> $ invoice 10 --to @faucet
-```
-
-#### Paying invoices
-
-Paying inbound payment requests are turned off by default. 
-
-Currently, only blindly auto-accepting any inbound invoice from any user is supported. To enable this for an invoice amount that is 50 grin or less, you add the following line to your `wallet713.toml` configuration file:
-```
-max_auto_accept_invoice = 50000000000
-```
-
-More powerful payment flows will be supported in upcoming versions of wallet713.
+The `invoice` command is temporarily disabled in v2.0.0. It will be back in v2.0.1.
 
 ### Splitting your outputs
 
@@ -337,8 +305,6 @@ The APIs are not exposed by default. You can turn each of them on by setting spe
 ### Foreign API
 
 Wallet713 Foreign API supports the default grin's wallet foreign API, allowing it to receive incoming slates and to build coinbase outputs.
-
-In addition, wallet713 foreign API implementation supports a new route for receiving invoice slates: `/v1/wallet/foreign/receive_invoice`.
 
 In order to turn on foreign API support you need to set the following configuration option:
 
@@ -389,19 +355,21 @@ keybase_listener_auto_start = true
 ```
 wallet713> $ restore
 ```
-Remember to include the `-p yourpassphrase` if your seed is password protected.
+
+Note that this command will scan the chain for your UTXO's so it might take a few minutes to complete.
 
 ### Recovering a wallet using your mnemonic BIP-39 phrase
 ```
-wallet713> $ recover -m word1 word2 ...
+wallet713> $ seed recover
 ```
-If you would like to set a passphrase, remember to include the `-p yourpassphrase` as you run the command.
+This will prompt for your mnemonic and allows you to set an optional password.
+
+Note that this command will scan the chain for your UTXO's so it might take a few minutes to complete. 
 
 ### Displaying existing BIP-39 mnemonic
 ```
-wallet713> $ recover -d
+wallet713> $ seed display
 ```
-Remember to include the `-p yourpassphrase` if your seed is password protected.
 
 ## Supported address formats
 
@@ -409,16 +377,15 @@ The following transaction addresses are currently supported.
 
 ### Grinbox
 Assigned to you when you run the wallet for the first time. The address is derived from your seed. Mainnet grinbox addresses begin with `g`, floonet addresses begin with `x`.
-Typical address format: `grinbox://gVuDBqXYZekdpQ8EeT1bQXSk8KHKTZqFFiQwAecVCyyqZX8UwKZq`
+Typical address format: `gVuDBqXYZekdpQ8EeT1bQXSk8KHKTZqFFiQwAecVCyyqZX8UwKZq`
 
 ####  Address derivation
 Addresses are derived from your wallet seed. A single seed can generate up to `2^32` different addresses. Each of your addresses is specified by an index, which defaults to 0.
 
 #### Switching address
-1. Stop the grinbox listener by using the `stop` command
-1. Run `config -g` to switch to the next address. This will display your new address.
-If instead you would like more control over which address to use, you can specify an index with the `-i` flag. For example, switching to the address with index `10` is done by running `config -g -i 10`.
-1. Start the grinbox listener again by running `listen`.
+Switching address is as simple as running the `address --next` command. This will switch to next index.
+
+It is also possible to switch to the previous one with `address --prev` or to a specific index with `address --index <index>`.
 
 The index will persist in between wallet713 sessions and is stored in your configuration file.
 
