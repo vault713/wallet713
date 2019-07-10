@@ -72,7 +72,7 @@ impl BIP32Hasher for BIP32GrinboxHasher {
 }
 
 pub fn derive_address_key<K: Keychain>(keychain: &K, index: u32) -> Result<SecretKey> {
-    let root = keychain.derive_key(713, &K::root_key_id(), &SwitchCommitmentType::None)?;
+    let root = keychain.derive_key(713, &K::root_key_id(), &SwitchCommitmentType::Regular)?;
     let mut hasher = BIP32GrinboxHasher::new(is_floonet());
     let secp = keychain.secp();
     let master = ExtendedPrivKey::new_master(secp, &mut hasher, &root.0)?;
