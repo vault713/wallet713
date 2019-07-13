@@ -28,7 +28,7 @@ lmdb-zero = "0.4"
 failure = "0.1"
 uuid = { version = "0.6", features = ["serde", "v4"] }
 regex = "1"
-rustyline = "3.0"
+rustyline = "5.0"
 hmac = "0.6"
 ripemd160 = "0.7"
 ring = "0.13"

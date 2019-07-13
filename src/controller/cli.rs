@@ -6,7 +6,7 @@ use rustyline::completion::{Completer, FilenameCompleter, Pair};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
 use rustyline::hint::Hinter;
-use rustyline::{CompletionType, Config, EditMode, Editor, Helper, OutputStreamType};
+use rustyline::{CompletionType, Config, Context, EditMode, Editor, Helper, OutputStreamType};
 use semver::Version;
 use std::borrow::Cow::{self, Borrowed, Owned};
 use std::fs::File;
@@ -484,13 +484,14 @@ impl Completer for EditorHelper {
         &self,
         line: &str,
         pos: usize,
+        ctx: &Context<'_>,
     ) -> std::result::Result<(usize, Vec<Pair>), ReadlineError> {
-        self.0.complete(line, pos)
+        self.0.complete(line, pos, ctx)
     }
 }
 
 impl Hinter for EditorHelper {
-    fn hint(&self, _line: &str, _pos: usize) -> Option<String> {
+    fn hint(&self, _line: &str, _pos: usize, _ctx: &Context<'_>) -> Option<String> {
         None
     }
 }
@@ -500,8 +501,8 @@ impl Highlighter for EditorHelper {
         self.1.highlight(line, pos)
     }
 
-    fn highlight_prompt<'p>(&self, prompt: &'p str) -> Cow<'p, str> {
-        if prompt == PROMPT {
+    fn highlight_prompt<'b, 's: 'b, 'p: 'b>(&'s self, prompt: &'p str, default: bool) -> Cow<'b, str> {
+        if default {
             Borrowed(COLORED_PROMPT)
         } else {
             Borrowed(prompt)
