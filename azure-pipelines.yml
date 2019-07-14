@@ -1,0 +1,45 @@
+trigger:
+  tags:
+    include: ['*']
+
+pr:
+  branches:
+    include: ['*']
+
+variables:
+  RUST_BACKTRACE: '1'
+  RUSTFLAGS: '-C debug-assertions'
+
+jobs:
+- job: linux
+  pool:
+    vmImage: ubuntu-16.04
+  strategy:
+    matrix:
+      release:
+        CI_JOB: release
+        PLATFORM: linux-amd64
+  steps:
+    - template: '.ci/linux-release.yml'
+- job: macos
+  pool:
+    vmImage: macos-10.14
+  strategy:
+    matrix:
+      release:
+        CI_JOB: release
+        PLATFORM: macos
+  steps:
+    - template: '.ci/install.yml'
+    - template: '.ci/macos-release.yml'
+- job: windows
+  pool:
+    vmImage: windows-2019
+  strategy:
+    matrix:
+      release:
+        CI_JOB: release
+        PLATFORM: win-x64
+  steps:
+    - template: '.ci/install.yml'
+    - template: '.ci/windows-release.yml'
