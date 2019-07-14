@@ -1,7 +1,7 @@
 steps:
-  - script: 'OPENSSL_LIB_DIR=./openssl-1.1.0 OPENSSL_INCLUDE_DIR=./openssl-1.1.0/include cargo build --release'
+  - script: 'cargo build --release'
     displayName: Build Release
-    condition:  and(succeeded(), contains(variables['Build.SourceBranch'], 'refs/tags/'), eq(variables['CI_JOB'], 'release' ))
+    condition:  succeeded()
   - script: |
       MY_TAG="$(Build.SourceBranch)"
       MY_TAG=${MY_TAG#refs/tags/}

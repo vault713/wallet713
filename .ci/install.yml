@@ -8,7 +8,3 @@ steps:
       echo "##vso[task.setvariable variable=PATH;]$PATH:$HOME/.cargo/bin"
     displayName: macOS Install Rust
     condition: eq( variables['Agent.OS'], 'Darwin' )
-  - script: |
-      sudo apt-get install openssl
-    displayName: Linux Install OpenSSL
-    condition: eq( variables['Agent.OS'], 'Linux' )
