@@ -1,0 +1,19 @@
+steps:
+  - script: |
+      choco install -y llvm
+    displayName: Windows Install LLVM
+    condition: eq( variables['Agent.OS'], 'Windows_NT' )
+  - script: |
+      curl https://sh.rustup.rs -sSf | sh -s -- -y
+      echo "##vso[task.setvariable variable=PATH;]$PATH:$HOME/.cargo/bin"
+    displayName: macOS Install Rust
+    condition: eq( variables['Agent.OS'], 'Darwin' )
+  - script: |
+      wget https://www.openssl.org/source/openssl-1.1.0j.tar.gz
+      tar -xf openssl-1.1.0j.tar.gz
+      cd openssl-1.1.0j
+      ./config
+      make
+      cd ..
+    displayName: Linux Install OpenSSL
+    condition: eq( variables['Agent.OS'], 'Linux' )
