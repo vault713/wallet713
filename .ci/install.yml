@@ -9,11 +9,6 @@ steps:
     displayName: macOS Install Rust
     condition: eq( variables['Agent.OS'], 'Darwin' )
   - script: |
-      wget https://www.openssl.org/source/openssl-1.1.0j.tar.gz
-      tar -xf openssl-1.1.0j.tar.gz
-      cd openssl-1.1.0j
-      ./config
-      make
-      cd ..
+      sudo apt-get install openssl
     displayName: Linux Install OpenSSL
     condition: eq( variables['Agent.OS'], 'Linux' )
