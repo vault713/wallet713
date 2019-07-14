@@ -17,14 +17,14 @@ steps:
     inputs:
       sourceFolder: '$(Build.SourcesDirectory)\target\release'
       contents: 'wallet713.exe'
-      targetFolder: '$(Build.BinariesDirectory)\wallet713'
+      targetFolder: '$(Build.BinariesDirectory)'
   - task: ArchiveFiles@2
     displayName: Gather assets
     condition:  and(succeeded(), contains(variables['Build.SourceBranch'], 'refs/tags/'), eq(variables['CI_JOB'], 'release' ))
     inputs:
-      rootFolderOrFile: '$(Build.BinariesDirectory)\wallet713'
+      rootFolderOrFile: '$(Build.BinariesDirectory)\wallet713.exe'
       archiveType: 'zip'
-      archiveFile: '$(Build.ArtifactStagingDirectory)\wallet613-$(build.my_tag)-$(build.platform).zip'
+      archiveFile: '$(Build.ArtifactStagingDirectory)\wallet713-$(build.my_tag)-$(build.platform).zip'
   - script: |
       powershell -Command "get-filehash -algorithm sha256 $(Build.ArtifactStagingDirectory)\wallet713-$(build.my_tag)-$(build.platform).zip | Format-List |  Out-String | ForEach-Object { $_.Trim() } > $(Build.ArtifactStagingDirectory)\wallet713-$(build.my_tag)-$(build.platform)-sha256sum.txt"
     displayName: Create Checksum
