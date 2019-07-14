@@ -34,7 +34,7 @@ steps:
     condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'), eq(variables['CI_JOB'], 'release' ))
     inputs:
       gitHubConnection: 'jaspervdm'
-      repositoryName: 'jaspervdm/wallet713'
+      repositoryName: 'vault713/wallet713'
       action: 'edit'
       target: '$(build.sourceVersion)'
       tagSource: 'manual'
@@ -45,3 +45,4 @@ steps:
       title: '$(build.my_tag)'
       assetUploadMode: 'replace'
       addChangeLog: true
+      compareWith: 'lastFullRelease'
