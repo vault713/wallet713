@@ -41,6 +41,7 @@ extern crate url;
 extern crate uuid;
 extern crate ws;
 extern crate semver;
+extern crate dont_disappear;
 
 extern crate grin_api;
 #[macro_use]
@@ -181,6 +182,8 @@ fn main() {
 
     let cli = CLI::new(container);
     cli.start();
+
+    press_any_key();
 }
 
 #[cfg(windows)]
@@ -192,4 +195,14 @@ pub fn enable_ansi_support() {
 
 #[cfg(not(windows))]
 pub fn enable_ansi_support() {
+}
+
+#[cfg(windows)]
+pub fn press_any_key() {
+    dont_disappear::any_key_to_continue::default();
+}
+
+#[cfg(not(windows))]
+pub fn press_any_key() {
+
 }

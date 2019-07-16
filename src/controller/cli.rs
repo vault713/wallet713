@@ -79,7 +79,6 @@ where
         println!();
 
         self.start_listeners()?;
-        cli_message!();
         self.command_loop();
         Ok(())
     }
@@ -228,7 +227,6 @@ where
                         println!();
                         break;
                     }
-                    cli_message!();
                 },
                 Err(err) => {
                     println!("Unable to read line: {}", err);
@@ -327,7 +325,6 @@ where
                 let account = self.api.active_account()?;
                 let (validated, wallet_info) = self.api.retrieve_summary_info(true, 10)?;
                 display::info(&account, &wallet_info, validated, true);
-
             }
             ("listen", Some(m)) => {
                 let interface = match args::listen_command(m)? {

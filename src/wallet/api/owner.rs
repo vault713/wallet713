@@ -128,7 +128,7 @@ where
 			}?;
 
 			let address = listener.address();
-			cli_message!("Listener for {} started", address.bright_green());
+			println!("Listener for {} started", address.bright_green());
 			c.listeners.insert(interface, listener);
 			Ok(address)
 		})
