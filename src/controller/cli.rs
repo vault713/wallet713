@@ -188,7 +188,7 @@ where
         }
 
         let yml = load_yaml!("commands.yml");
-        let mut app = App::from_yaml(yml);
+        let mut app = App::from_yaml(yml).version(crate_version!());
 
         loop {
             match reader.readline(PROMPT) {
