@@ -21,8 +21,8 @@ pub use self::grinbox::GrinboxAdapter;
 pub use self::http::HTTPAdapter;
 pub use self::keybase::KeybaseAdapter;
 
-use failure::Error;
 use super::types::VersionedSlate;
+use failure::Error;
 
 /// Encapsulate wallet to wallet communication functions
 pub trait Adapter {

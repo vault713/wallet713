@@ -14,6 +14,11 @@
 
 //! Selection of inputs for building transactions
 
+use super::keys;
+use crate::wallet::types::{
+	Context, NodeClient, OutputData, OutputStatus, Slate, TxLogEntry, TxLogEntryType, WalletBackend,
+};
+use crate::wallet::ErrorKind;
 use failure::Error;
 use grin_core::core::amount_to_hr_string;
 use grin_core::libtx::build;
@@ -21,11 +26,6 @@ use grin_core::libtx::proof::{ProofBuild, ProofBuilder};
 use grin_core::libtx::tx_fee;
 use grin_keychain::{Identifier, Keychain};
 use std::collections::HashMap;
-use crate::wallet::types::{
-    Context, NodeClient, OutputData, OutputStatus, Slate, TxLogEntry, TxLogEntryType, WalletBackend
-};
-use crate::wallet::ErrorKind;
-use super::keys;
 
 /// Initialize a transaction on the sender side, returns a corresponding
 /// libwallet transaction slate with the appropriate inputs selected,
@@ -67,10 +67,10 @@ where
 		keychain.secp(),
 		blinding.secret_key(&keychain.secp()).unwrap(),
 		&parent_key_id,
-        0,
+		0,
 	);
 
-    context.amount = slate.amount;
+	context.amount = slate.amount;
 	context.fee = fee;
 
 	// Store our private identifiers for each input
@@ -81,7 +81,7 @@ where
 	// Store change output(s) and cached commits
 	for (change_amount, id, mmr_index) in &change_amounts_derivations {
 		context.add_output(&id, &mmr_index, *change_amount);
-    }
+	}
 
 	Ok(context)
 }
@@ -113,7 +113,7 @@ where
 
 	{
 		let lock_inputs = context.get_inputs().clone();
-//		let messages = Some(slate.participant_messages());
+		//		let messages = Some(slate.participant_messages());
 		let slate_id = slate.id;
 		let height = slate.height;
 		let parent_key_id = context.parent_key_id.clone();
@@ -135,7 +135,7 @@ where
 		}
 
 		t.amount_debited = amount_debited;
-//		t.messages = messages;
+		//		t.messages = messages;
 
 		// write the output representing our change
 		for (id, _, _) in &context.get_outputs() {
@@ -157,7 +157,7 @@ where
 			})?;
 		}
 		batch.save_tx_log_entry(&t)?;
-        batch.store_tx(&slate_id.to_string(), &slate.tx)?;
+		batch.store_tx(&slate_id.to_string(), &slate.tx)?;
 		batch.commit()?;
 	}
 	Ok(())
@@ -202,7 +202,7 @@ where
 	);
 
 	context.add_output(&key_id, &None, amount);
-//	let messages = Some(slate.participant_messages());
+	//	let messages = Some(slate.participant_messages());
 	let commit = wallet.calc_commit_for_cache(amount, &key_id_inner)?;
 	let mut batch = wallet.batch()?;
 	let log_id = batch.next_tx_log_id(&parent_key_id)?;
@@ -211,7 +211,7 @@ where
 	t.address = address;
 	t.amount_credited = amount;
 	t.num_outputs = 1;
-//	t.messages = messages;
+	//	t.messages = messages;
 	batch.save_output(&OutputData {
 		root_key_id: parent_key_id.clone(),
 		key_id: key_id_inner.clone(),
@@ -320,7 +320,7 @@ where
 	// recipient should double check the fee calculation and not blindly trust the
 	// sender
 
-    // First attempt to spend without change
+	// First attempt to spend without change
 	let mut fee = tx_fee(coins.len(), 1, 1, None);
 	let mut total: u64 = coins.iter().map(|c| c.value).sum();
 	let mut amount_with_fee = amount + fee;

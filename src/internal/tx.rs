@@ -12,6 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::selection;
+use super::updater;
+use crate::contacts::GrinboxAddress;
+use crate::wallet::types::{
+	Context, InitTxArgs, NodeClient, Slate, TxLogEntryType, TxProof, WalletBackend,
+};
+use crate::wallet::ErrorKind;
 use failure::Error;
 use grin_keychain::{Identifier, Keychain};
 use grin_util::secp::key::PublicKey;
@@ -19,21 +26,11 @@ use grin_util::secp::pedersen::Commitment;
 use grin_util::static_secp_instance;
 use std::collections::HashSet;
 use uuid::Uuid;
-use crate::contacts::GrinboxAddress;
-use crate::wallet::types::{
-	Context, InitTxArgs, NodeClient, Slate, TxLogEntryType, TxProof, WalletBackend
-};
-use crate::wallet::ErrorKind;
-use super::selection;
-use super::updater;
 
 const USER_MESSAGE_MAX_LEN: usize = 256;
 
 /// Initiate tx as sender
-pub fn init_send_tx<T: ?Sized, C, K>(
-	w: &mut T,
-	args: InitTxArgs,
-) -> Result<Slate, Error>
+pub fn init_send_tx<T: ?Sized, C, K>(w: &mut T, args: InitTxArgs) -> Result<Slate, Error>
 where
 	T: WalletBackend<C, K>,
 	C: NodeClient,
@@ -50,11 +47,11 @@ where
 		None => w.get_parent_key_id(),
 	};
 
-    let message = args.message.map(|m| {
-        let mut m = m.clone();
-        m.truncate(USER_MESSAGE_MAX_LEN);
-        m
-    });
+	let message = args.message.map(|m| {
+		let mut m = m.clone();
+		m.truncate(USER_MESSAGE_MAX_LEN);
+		m
+	});
 
 	let mut slate = new_tx_slate(w, args.amount, 2)?;
 
@@ -325,14 +322,23 @@ where
 	} else if let Some(tx_slate_id) = tx_slate_id {
 		tx_id_string = tx_slate_id.to_string();
 	}
-	let (tx_vec, _) = updater::retrieve_txs(wallet, tx_id, tx_slate_id, Some(&parent_key_id), false, false)?;
+	let (tx_vec, _) = updater::retrieve_txs(
+		wallet,
+		tx_id,
+		tx_slate_id,
+		Some(&parent_key_id),
+		false,
+		false,
+	)?;
 	let tx = match tx_vec.into_iter().next() {
 		Some(t) => t,
 		None => {
 			return Err(ErrorKind::TransactionDoesntExist(tx_id_string))?;
 		}
 	};
-	if (tx.tx_type != TxLogEntryType::TxSent && tx.tx_type != TxLogEntryType::TxReceived) || tx.confirmed {
+	if (tx.tx_type != TxLogEntryType::TxSent && tx.tx_type != TxLogEntryType::TxReceived)
+		|| tx.confirmed
+	{
 		return Err(ErrorKind::TransactionNotCancellable(tx_id_string))?;
 	}
 	// get outputs associated with tx
@@ -443,7 +449,11 @@ where
 }
 
 /// Finalize slate
-pub fn finalize_tx<T: ?Sized, C, K>(wallet: &mut T, slate: &Slate, tx_proof: Option<&mut TxProof>) -> Result<Slate, Error>
+pub fn finalize_tx<T: ?Sized, C, K>(
+	wallet: &mut T,
+	slate: &Slate,
+	tx_proof: Option<&mut TxProof>,
+) -> Result<Slate, Error>
 where
 	T: WalletBackend<C, K>,
 	C: NodeClient,
@@ -539,11 +549,11 @@ pub fn verify_tx_proof(
 	tx_proof: &TxProof,
 ) -> Result<
 	(
-		GrinboxAddress,				// sender address
-		GrinboxAddress,				// receiver address
-		u64,						// amount
-		Vec<Commitment>,			// receiver output
-		Commitment,					// kernel excess
+		GrinboxAddress,  // sender address
+		GrinboxAddress,  // receiver address
+		u64,             // amount
+		Vec<Commitment>, // receiver output
+		Commitment,      // kernel excess
 	),
 	Error,
 > {
@@ -606,8 +616,7 @@ pub fn verify_tx_proof(
 	let excess_sum =
 		PublicKey::from_combination(&secp, excess_parts).map_err(|_| ErrorKind::VerifyProof)?;
 
-	let mut input_com: Vec<Commitment> =
-		slate.tx.inputs().iter().map(|i| i.commitment()).collect();
+	let mut input_com: Vec<Commitment> = slate.tx.inputs().iter().map(|i| i.commitment()).collect();
 
 	let mut output_com: Vec<Commitment> =
 		slate.tx.outputs().iter().map(|o| o.commitment()).collect();

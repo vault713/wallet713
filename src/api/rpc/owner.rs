@@ -14,16 +14,15 @@
 
 //! JSON-RPC Stub generation for the Owner API
 
-use easy_jsonrpc;
-use uuid::Uuid;
 use crate::common::Keychain;
 use crate::wallet::api::Owner;
 use crate::wallet::types::{
-    AcctPathMapping, Identifier, InitTxArgs, NodeClient, NodeHeightResult, OutputCommitMapping,
-	Slate, Transaction, TxLogEntry, WalletBackend, WalletInfo
+	AcctPathMapping, Identifier, InitTxArgs, NodeClient, NodeHeightResult, OutputCommitMapping,
+	Slate, Transaction, TxLogEntry, WalletBackend, WalletInfo,
 };
 use crate::wallet::ErrorKind;
-
+use easy_jsonrpc;
+use uuid::Uuid;
 
 /// Public definition used to generate Owner jsonrpc api.
 /// * When running with defaults, the V2 api is available at
@@ -31,7 +30,7 @@ use crate::wallet::ErrorKind;
 /// * The endpoint only supports POST operations, with the json-rpc request as the body
 #[easy_jsonrpc::rpc]
 pub trait OwnerRpc {
-    fn accounts(&self) -> Result<Vec<AcctPathMapping>, ErrorKind>;
+	fn accounts(&self) -> Result<Vec<AcctPathMapping>, ErrorKind>;
 	fn create_account_path(&self, label: &String) -> Result<Identifier, ErrorKind>;
 	fn set_active_account(&self, label: &String) -> Result<(), ErrorKind>;
 	fn retrieve_outputs(
@@ -52,8 +51,8 @@ pub trait OwnerRpc {
 		minimum_confirmations: u64,
 	) -> Result<(bool, WalletInfo), ErrorKind>;
 	fn init_send_tx(&self, args: InitTxArgs) -> Result<Slate, ErrorKind>;
-//	fn issue_invoice_tx(&self, args: IssueInvoiceTxArgs) -> Result<Slate, ErrorKind>;
-//	fn process_invoice_tx(&self, slate: &Slate, args: InitTxArgs) -> Result<Slate, ErrorKind>;
+	//	fn issue_invoice_tx(&self, args: IssueInvoiceTxArgs) -> Result<Slate, ErrorKind>;
+	//	fn process_invoice_tx(&self, slate: &Slate, args: InitTxArgs) -> Result<Slate, ErrorKind>;
 	fn tx_lock_outputs(&self, slate: Slate, participant_id: usize) -> Result<(), ErrorKind>;
 	fn finalize_tx(&self, slate: Slate) -> Result<Slate, ErrorKind>;
 	fn post_tx(&self, tx: &Transaction, fluff: bool) -> Result<(), ErrorKind>;
@@ -72,18 +71,15 @@ where
 	K: Keychain,
 {
 	fn accounts(&self) -> Result<Vec<AcctPathMapping>, ErrorKind> {
-		Owner::accounts(self)
-            .map_err(|e| ErrorKind::GenericError(e.to_string()))
+		Owner::accounts(self).map_err(|e| ErrorKind::GenericError(e.to_string()))
 	}
 
 	fn create_account_path(&self, label: &String) -> Result<Identifier, ErrorKind> {
-		Owner::create_account_path(self, label)
-            .map_err(|e| ErrorKind::GenericError(e.to_string()))
+		Owner::create_account_path(self, label).map_err(|e| ErrorKind::GenericError(e.to_string()))
 	}
 
 	fn set_active_account(&self, label: &String) -> Result<(), ErrorKind> {
-		Owner::set_active_account(self, label)
-            .map_err(|e| ErrorKind::GenericError(e.to_string()))
+		Owner::set_active_account(self, label).map_err(|e| ErrorKind::GenericError(e.to_string()))
 	}
 
 	fn retrieve_outputs(
@@ -93,8 +89,8 @@ where
 		tx_id: Option<u32>,
 	) -> Result<(bool, Vec<OutputCommitMapping>), ErrorKind> {
 		Owner::retrieve_outputs(self, include_spent, refresh_from_node, tx_id)
-            .map(|x| (x.0, x.2))
-            .map_err(|e| ErrorKind::GenericError(e.to_string()))
+			.map(|x| (x.0, x.2))
+			.map_err(|e| ErrorKind::GenericError(e.to_string()))
 	}
 
 	fn retrieve_txs(
@@ -104,8 +100,8 @@ where
 		tx_slate_id: Option<Uuid>,
 	) -> Result<(bool, Vec<TxLogEntry>), ErrorKind> {
 		Owner::retrieve_txs(self, refresh_from_node, false, false, tx_id, tx_slate_id)
-            .map(|x| (x.0, x.2))
-            .map_err(|e| ErrorKind::GenericError(e.to_string()))
+			.map(|x| (x.0, x.2))
+			.map_err(|e| ErrorKind::GenericError(e.to_string()))
 	}
 
 	fn retrieve_summary_info(
@@ -118,8 +114,7 @@ where
 	}
 
 	fn init_send_tx(&self, args: InitTxArgs) -> Result<Slate, ErrorKind> {
-		Owner::init_send_tx(self, args)
-            .map_err(|e| ErrorKind::GenericError(e.to_string()))
+		Owner::init_send_tx(self, args).map_err(|e| ErrorKind::GenericError(e.to_string()))
 	}
 
 	/*fn issue_invoice_tx(&self, args: IssueInvoiceTxArgs) -> Result<Slate, ErrorKind> {
@@ -130,48 +125,49 @@ where
 		Owner::process_invoice_tx(self, slate, args).map_err(|e| e.kind())
 	}*/
 
-    fn tx_lock_outputs(&self, mut slate: Slate, participant_id: usize) -> Result<(), ErrorKind> {
-		Owner::tx_lock_outputs(self, &mut slate, participant_id, Some("http owner api".to_owned()))
-            .map_err(|e| ErrorKind::GenericError(e.to_string()))
+	fn tx_lock_outputs(&self, mut slate: Slate, participant_id: usize) -> Result<(), ErrorKind> {
+		Owner::tx_lock_outputs(
+			self,
+			&mut slate,
+			participant_id,
+			Some("http owner api".to_owned()),
+		)
+		.map_err(|e| ErrorKind::GenericError(e.to_string()))
 	}
 
 	fn finalize_tx(&self, mut slate: Slate) -> Result<Slate, ErrorKind> {
 		Owner::finalize_tx(self, &mut slate, None)
-            .map_err(|e| ErrorKind::GenericError(e.to_string()))
+			.map_err(|e| ErrorKind::GenericError(e.to_string()))
 	}
 
-    fn post_tx(&self, tx: &Transaction, fluff: bool) -> Result<(), ErrorKind> {
-		Owner::post_tx(self, tx, fluff)
-            .map_err(|e| ErrorKind::GenericError(e.to_string()))
+	fn post_tx(&self, tx: &Transaction, fluff: bool) -> Result<(), ErrorKind> {
+		Owner::post_tx(self, tx, fluff).map_err(|e| ErrorKind::GenericError(e.to_string()))
 	}
 
 	fn cancel_tx(&self, tx_id: Option<u32>, tx_slate_id: Option<Uuid>) -> Result<(), ErrorKind> {
 		Owner::cancel_tx(self, tx_id, tx_slate_id)
-            .map_err(|e| ErrorKind::GenericError(e.to_string()))
+			.map_err(|e| ErrorKind::GenericError(e.to_string()))
 	}
 
 	fn get_stored_tx(&self, slate_id: &Uuid) -> Result<Option<Transaction>, ErrorKind> {
-		Owner::get_stored_tx(self, slate_id)
-            .map_err(|e| ErrorKind::GenericError(e.to_string()))
+		Owner::get_stored_tx(self, slate_id).map_err(|e| ErrorKind::GenericError(e.to_string()))
 	}
 
 	fn verify_slate_messages(&self, slate: &Slate) -> Result<(), ErrorKind> {
 		Owner::verify_slate_messages(self, slate)
-            .map_err(|e| ErrorKind::GenericError(e.to_string()))
+			.map_err(|e| ErrorKind::GenericError(e.to_string()))
 	}
 
 	fn restore(&self) -> Result<(), ErrorKind> {
-        Owner::restore(self)
-            .map_err(|e| ErrorKind::GenericError(e.to_string()))
+		Owner::restore(self).map_err(|e| ErrorKind::GenericError(e.to_string()))
 	}
 
 	fn check_repair(&self, delete_unconfirmed: bool) -> Result<(), ErrorKind> {
 		Owner::check_repair(self, delete_unconfirmed)
-            .map_err(|e| ErrorKind::GenericError(e.to_string()))
+			.map_err(|e| ErrorKind::GenericError(e.to_string()))
 	}
 
 	fn node_height(&self) -> Result<NodeHeightResult, ErrorKind> {
-		Owner::node_height(self)
-			.map_err(|e| ErrorKind::GenericError(e.to_string()))
+		Owner::node_height(self).map_err(|e| ErrorKind::GenericError(e.to_string()))
 	}
 }

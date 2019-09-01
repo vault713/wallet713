@@ -1,41 +1,38 @@
-/// Grinbox 'plugin' implementation
-
-use failure::Error;
+use super::Adapter;
 use crate::api::listener::ListenerInterface;
 use crate::common::{Arc, Keychain, Mutex};
 use crate::wallet::types::{NodeClient, VersionedSlate, WalletBackend};
 use crate::wallet::Container;
-use super::Adapter;
+/// Grinbox 'plugin' implementation
+use failure::Error;
 
 #[derive(Clone)]
 pub struct GrinboxAdapter<'a, W, C, K>
-	where
-		W: WalletBackend<C, K>,
-		C: NodeClient,
-		K: Keychain,
+where
+	W: WalletBackend<C, K>,
+	C: NodeClient,
+	K: Keychain,
 {
-    container: &'a Arc<Mutex<Container<W, C, K>>>,
+	container: &'a Arc<Mutex<Container<W, C, K>>>,
 }
 
 impl<'a, W, C, K> GrinboxAdapter<'a, W, C, K>
-	where
-		W: WalletBackend<C, K>,
-		C: NodeClient,
-		K: Keychain,
+where
+	W: WalletBackend<C, K>,
+	C: NodeClient,
+	K: Keychain,
 {
 	/// Create
 	pub fn new(container: &'a Arc<Mutex<Container<W, C, K>>>) -> Box<Self> {
-        Box::new(Self {
-            container,
-        })
+		Box::new(Self { container })
 	}
 }
 
 impl<'a, W, C, K> Adapter for GrinboxAdapter<'a, W, C, K>
-	where
-		W: WalletBackend<C, K>,
-		C: NodeClient,
-		K: Keychain,
+where
+	W: WalletBackend<C, K>,
+	C: NodeClient,
+	K: Keychain,
 {
 	fn supports_sync(&self) -> bool {
 		false

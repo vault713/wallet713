@@ -13,6 +13,12 @@
 // limitations under the License.
 //! Functions to restore a wallet's outputs from just the master seed
 
+use super::{keys, updater};
+use crate::common::ErrorKind;
+use crate::wallet::types::{
+	NodeClient, OutputCommitMapping, OutputData, OutputStatus, TxLogEntry, TxLogEntryType,
+	WalletBackend,
+};
 use failure::Error;
 use grin_core::consensus::{valid_header_version, WEEK_HEIGHT};
 use grin_core::core::HeaderVersion;
@@ -22,11 +28,6 @@ use grin_keychain::{Identifier, Keychain, SwitchCommitmentType};
 use grin_util::secp::pedersen::{Commitment, RangeProof};
 use std::collections::HashMap;
 use std::time::Instant;
-use crate::common::ErrorKind;
-use crate::wallet::types::{
-    NodeClient, OutputCommitMapping, OutputData, OutputStatus, TxLogEntry, TxLogEntryType, WalletBackend
-};
-use super::{keys, updater};
 
 /// Utility struct for return values from below
 #[derive(Clone)]
@@ -267,7 +268,7 @@ where
 			None,
 			Some(&parent_key_id),
 			false,
-            false,
+			false,
 		)?;
 		if entries.len() > 0 {
 			let mut entry = entries[0].clone();

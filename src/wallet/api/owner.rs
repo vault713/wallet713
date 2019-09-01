@@ -15,30 +15,30 @@
 use colored::Colorize;
 use failure::Error;
 use grin_core::core::hash::Hashed;
-use grin_core::core::{Transaction, amount_to_hr_string};
+use grin_core::core::{amount_to_hr_string, Transaction};
 use grin_core::ser::ser_vec;
 use grin_keychain::Identifier;
 use grin_util::secp::key::PublicKey;
 use grin_util::secp::pedersen::Commitment;
-use grin_util::{ZeroingString, to_hex};
+use grin_util::{to_hex, ZeroingString};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use uuid::Uuid;
 
 use crate::api::listener::*;
+use crate::cli_message;
 use crate::common::config::Wallet713Config;
 use crate::common::hasher::derive_address_key;
 use crate::common::{Arc, Keychain, Mutex, MutexGuard};
-use crate::contacts::{AddressType, Contact, GrinboxAddress, parse_address};
-use crate::wallet::adapter::{Adapter, GrinboxAdapter, HTTPAdapter, KeybaseAdapter};
-use crate::wallet::{Container, ErrorKind};
+use crate::contacts::{parse_address, AddressType, Contact, GrinboxAddress};
 use crate::internal::*;
+use crate::wallet::adapter::{Adapter, GrinboxAdapter, HTTPAdapter, KeybaseAdapter};
 use crate::wallet::types::{
-	AcctPathMapping, InitTxArgs, NodeClient, OutputCommitMapping, Slate,
-	SlateVersion, TxLogEntry, TxProof, TxWrapper, VersionedSlate,
-	WalletBackend, WalletInfo, NodeHeightResult, NodeVersionInfo
+	AcctPathMapping, InitTxArgs, NodeClient, NodeHeightResult, NodeVersionInfo,
+	OutputCommitMapping, Slate, SlateVersion, TxLogEntry, TxProof, TxWrapper, VersionedSlate,
+	WalletBackend, WalletInfo,
 };
-use crate::cli_message;
+use crate::wallet::{Container, ErrorKind};
 
 #[derive(StateData)]
 pub struct Owner<W, C, K>
@@ -47,7 +47,7 @@ where
 	C: NodeClient,
 	K: Keychain,
 {
-    container: Arc<Mutex<Container<W, C, K>>>,
+	container: Arc<Mutex<Container<W, C, K>>>,
 }
 
 impl<W, C, K> Owner<W, C, K>
@@ -56,10 +56,8 @@ where
 	C: NodeClient,
 	K: Keychain,
 {
-    pub fn new(container: Arc<Mutex<Container<W, C, K>>>) -> Self {
-		Owner {
-			container,
-		}
+	pub fn new(container: Arc<Mutex<Container<W, C, K>>>) -> Self {
+		Owner { container }
 	}
 
 	pub fn has_seed(&self) -> Result<bool, Error> {
@@ -74,7 +72,12 @@ where
 		w.get_seed()
 	}
 
-	pub fn set_seed(&self, mnemonic: Option<ZeroingString>, password: ZeroingString, overwrite: bool) -> Result<(), Error> {
+	pub fn set_seed(
+		&self,
+		mnemonic: Option<ZeroingString>,
+		password: ZeroingString,
+		overwrite: bool,
+	) -> Result<(), Error> {
 		let mut c = self.container.lock();
 		let w = c.raw_backend();
 		w.set_seed(mnemonic, password, overwrite)
@@ -114,7 +117,7 @@ where
 	}
 
 	pub fn start_listener(&self, interface: ListenerInterface) -> Result<String, Error> {
-		let container= self.container.clone();
+		let container = self.container.clone();
 		self.open_and_close(|c| {
 			if c.listeners.contains_key(&interface) {
 				return Err(ErrorKind::AlreadyListening(format!("{}", interface)).into());
@@ -138,13 +141,12 @@ where
 		let mut c = self.container.lock();
 		if let Some(listener) = c.listeners.remove(&interface) {
 			let address = listener.address();
-            listener.stop()?;
+			listener.stop()?;
 			println!("Listener for {} stopped", address.bright_green());
-            Ok(true)
-        }
-        else {
-            Ok(false)
-        }
+			Ok(true)
+		} else {
+			Ok(false)
+		}
 	}
 
 	/// Stop all running listeners
@@ -161,15 +163,15 @@ where
 	pub fn grinbox_address(&self) -> Result<GrinboxAddress, Error> {
 		self.open_and_close(|c| {
 			let index = c.config.grinbox_address_index();
-    		let keychain = c.backend()?.keychain();
-    		let sec_key = derive_address_key(keychain, index)?;
-    		let pub_key = PublicKey::from_secret_key(keychain.secp(), &sec_key)?;
+			let keychain = c.backend()?.keychain();
+			let sec_key = derive_address_key(keychain, index)?;
+			let pub_key = PublicKey::from_secret_key(keychain.secp(), &sec_key)?;
 
 			Ok(GrinboxAddress::new(
 				pub_key,
 				Some(c.config.grinbox_domain.clone()),
-        		c.config.grinbox_port,
-    		))
+				c.config.grinbox_port,
+			))
 		})
 	}
 
@@ -191,13 +193,13 @@ where
 	pub fn accounts(&self) -> Result<Vec<AcctPathMapping>, Error> {
 		let mut c = self.container.lock();
 		let w = c.backend()?;
-        keys::accounts(w)
+		keys::accounts(w)
 	}
 
-    pub fn create_account_path(&self, label: &str) -> Result<Identifier, Error> {
+	pub fn create_account_path(&self, label: &str) -> Result<Identifier, Error> {
 		let mut c = self.container.lock();
 		let w = c.backend()?;
-        keys::new_acct_path(w, label)
+		keys::new_acct_path(w, label)
 	}
 
 	pub fn active_account(&self) -> Result<String, Error> {
@@ -237,7 +239,7 @@ where
 		Ok(())
 	}
 
-    pub fn retrieve_outputs(
+	pub fn retrieve_outputs(
 		&self,
 		include_spent: bool,
 		refresh_from_node: bool,
@@ -256,11 +258,7 @@ where
 			}
 
 			let outputs = updater::retrieve_outputs(w, include_spent, tx_id, Some(&parent_key_id))?;
-			Ok((
-				validated,
-				height,
-				outputs,
-			))
+			Ok((validated, height, outputs))
 		})
 	}
 
@@ -271,7 +269,16 @@ where
 		check_proofs: bool,
 		tx_id: Option<u32>,
 		tx_slate_id: Option<Uuid>,
-	) -> Result<(bool, Option<u64>, Vec<TxLogEntry>, HashMap<String, String>, HashMap<Uuid, bool>), Error> {
+	) -> Result<
+		(
+			bool,
+			Option<u64>,
+			Vec<TxLogEntry>,
+			HashMap<String, String>,
+			HashMap<Uuid, bool>,
+		),
+		Error,
+	> {
 		self.open_and_close(|c| {
 			let w = c.backend()?;
 			let parent_key_id = w.get_parent_key_id();
@@ -285,7 +292,14 @@ where
 				}
 			}
 
-			let (txs, proofs) = updater::retrieve_txs(w, tx_id, tx_slate_id, Some(&parent_key_id), false, check_proofs)?;
+			let (txs, proofs) = updater::retrieve_txs(
+				w,
+				tx_id,
+				tx_slate_id,
+				Some(&parent_key_id),
+				false,
+				check_proofs,
+			)?;
 
 			let mut contacts = HashMap::new();
 			if check_contacts {
@@ -294,7 +308,7 @@ where
 						match c.address_book.get_contact_by_address(a) {
 							Ok(Some(con)) => {
 								contacts.insert(a.clone(), con.name.clone());
-							},
+							}
 							_ => {}
 						}
 					}
@@ -320,13 +334,11 @@ where
 		let (_, _, txs, _, _) = self.retrieve_txs(true, false, false, tx_id, tx_slate_id)?;
 		match txs.into_iter().next() {
 			Some(t) => Ok(t),
-			None => {
-				Err(ErrorKind::TransactionDoesntExist(tx_id_string).into())
-			}
+			None => Err(ErrorKind::TransactionDoesntExist(tx_id_string).into()),
 		}
 	}
 
-    pub fn retrieve_summary_info(
+	pub fn retrieve_summary_info(
 		&self,
 		refresh_from_node: bool,
 		minimum_confirmations: u64,
@@ -345,7 +357,7 @@ where
 		})
 	}
 
-    pub fn init_send_tx(&self, mut args: InitTxArgs) -> Result<Slate, Error> {
+	pub fn init_send_tx(&self, mut args: InitTxArgs) -> Result<Slate, Error> {
 		if let Some(sa) = &mut args.send_args {
 			if sa.dest.starts_with("@") {
 				// Look up contact by address
@@ -359,14 +371,16 @@ where
 			if sa.method.is_none() {
 				// Try to infer method from the address
 				let address = parse_address(&sa.dest)?;
-				sa.method = Some(match address.address_type() {
-					AddressType::Http => "http",
-					AddressType::Grinbox => "grinbox",
-					AddressType::Keybase => "keybase",
-				}.to_owned());
+				sa.method = Some(
+					match address.address_type() {
+						AddressType::Http => "http",
+						AddressType::Grinbox => "grinbox",
+						AddressType::Keybase => "keybase",
+					}
+					.to_owned(),
+				);
 				sa.dest = address.stripped();
 			}
-
 		}
 		let mut send_args = args.send_args.clone();
 		let version = match args.target_slate_version {
@@ -383,15 +397,9 @@ where
 			Some(sa) => {
 				let vslate = VersionedSlate::into_version(slate.clone(), version);
 				let adapter: Box<dyn Adapter> = match sa.method.clone().unwrap().as_ref() {
-					"http" => {
-						HTTPAdapter::new()
-					}
-					"grinbox" => {
-						GrinboxAdapter::new(&self.container)
-					}
-					"keybase" => {
-						KeybaseAdapter::new(&self.container)
-					}
+					"http" => HTTPAdapter::new(),
+					"grinbox" => GrinboxAdapter::new(&self.container),
+					"keybase" => KeybaseAdapter::new(&self.container),
 					_ => {
 						error!("unsupported payment method");
 						return Err(ErrorKind::ClientCallback(
@@ -402,8 +410,7 @@ where
 
 				if adapter.supports_sync() {
 					slate = adapter.send_tx_sync(&sa.dest, &vslate)?.into();
-				}
-				else {
+				} else {
 					adapter.send_tx_async(&sa.dest, &vslate)?;
 				}
 				self.tx_lock_outputs(&slate, 0, Some(sa.dest.clone()))?;
@@ -439,7 +446,7 @@ where
 		Ok(slate)
 	}*/
 
-    /*pub fn process_invoice_tx(&self, slate: &Slate, args: InitTxArgs) -> Result<Slate, Error> {
+	/*pub fn process_invoice_tx(&self, slate: &Slate, args: InitTxArgs) -> Result<Slate, Error> {
 		let mut w = self.wallet.lock();
 		w.open_with_credentials()?;
 		let slate = owner::process_invoice_tx(&mut *w, slate, args, self.doctest_mode)?;
@@ -447,14 +454,23 @@ where
 		Ok(slate)
 	}*/
 
-	pub fn tx_lock_outputs(&self, slate: &Slate, participant_id: usize, address: Option<String>) -> Result<(), Error> {
+	pub fn tx_lock_outputs(
+		&self,
+		slate: &Slate,
+		participant_id: usize,
+		address: Option<String>,
+	) -> Result<(), Error> {
 		self.open_and_close(|c| {
 			let w = c.backend()?;
 			tx::tx_lock_outputs(w, slate, participant_id, address)
 		})
 	}
 
-	pub fn finalize_tx(&self, slate: &Slate, tx_proof: Option<&mut TxProof>) -> Result<Slate, Error> {
+	pub fn finalize_tx(
+		&self,
+		slate: &Slate,
+		tx_proof: Option<&mut TxProof>,
+	) -> Result<Slate, Error> {
 		self.open_and_close(|c| {
 			let w = c.backend()?;
 			let mut slate = slate.clone();
@@ -504,16 +520,24 @@ where
 		w.get_stored_tx(&slate_id.to_string())
 	}
 
-	pub fn repost_tx(&self, tx_id: Option<u32>, tx_slate_id: Option<Uuid>, fluff: bool) -> Result<Uuid, Error> {
+	pub fn repost_tx(
+		&self,
+		tx_id: Option<u32>,
+		tx_slate_id: Option<Uuid>,
+		fluff: bool,
+	) -> Result<Uuid, Error> {
 		let tx_entry = self.retrieve_tx(tx_id, tx_slate_id)?;
 		if tx_entry.confirmed {
 			return Err(ErrorKind::TransactionAlreadyConfirmed.into());
 		}
-		let slate_id = tx_entry.tx_slate_id.ok_or(ErrorKind::TransactionProofNotStored)?;
+		let slate_id = tx_entry
+			.tx_slate_id
+			.ok_or(ErrorKind::TransactionProofNotStored)?;
 		let tx = {
 			let mut c = self.container.lock();
 			let w = c.backend()?;
-			w.get_stored_tx(&slate_id.to_string())?.ok_or(ErrorKind::TransactionNotStored)?
+			w.get_stored_tx(&slate_id.to_string())?
+				.ok_or(ErrorKind::TransactionNotStored)?
 		};
 		self.post_tx(&tx, fluff)?;
 		Ok(slate_id)
@@ -523,7 +547,11 @@ where
 		slate.verify_messages()
 	}
 
-	pub fn get_stored_tx_proof(&self, tx_id: Option<u32>, tx_slate_id: Option<Uuid>) -> Result<Option<TxProof>, Error> {
+	pub fn get_stored_tx_proof(
+		&self,
+		tx_id: Option<u32>,
+		tx_slate_id: Option<Uuid>,
+	) -> Result<Option<TxProof>, Error> {
 		let tx_entry = self.retrieve_tx(tx_id, tx_slate_id)?;
 		let slate_id = match tx_entry.tx_slate_id {
 			Some(id) => id,
@@ -536,18 +564,19 @@ where
 		w.get_stored_tx_proof(&slate_id.to_string())
 	}
 
-	pub fn verify_tx_proof(&self, tx_proof: &TxProof) ->
-	Result<
+	pub fn verify_tx_proof(
+		&self,
+		tx_proof: &TxProof,
+	) -> Result<
 		(
-			GrinboxAddress,				// sender address
-			GrinboxAddress,				// receiver address
-			u64,						// amount
-			Vec<Commitment>,			// receiver outputs
-			Commitment,					// kernel excess
+			GrinboxAddress,  // sender address
+			GrinboxAddress,  // receiver address
+			u64,             // amount
+			Vec<Commitment>, // receiver outputs
+			Commitment,      // kernel excess
 		),
 		Error,
-	>
-	{
+	> {
 		tx::verify_tx_proof(tx_proof)
 	}
 
@@ -579,10 +608,10 @@ where
 		self.open_and_close(|c| {
 			let w = c.backend()?;
 			let (updated_from_node, height) = updater::node_height(w)?;
-            Ok(NodeHeightResult {
-                height,
-                updated_from_node,
-            })
+			Ok(NodeHeightResult {
+				height,
+				updated_from_node,
+			})
 		})
 	}
 
@@ -600,7 +629,7 @@ where
 	/// Convenience function that opens and closes the wallet with the stored credentials
 	fn open_and_close<F, X>(&self, f: F) -> Result<X, Error>
 	where
-		F: FnOnce(&mut MutexGuard<Container<W, C, K>>) -> Result<X, Error>
+		F: FnOnce(&mut MutexGuard<Container<W, C, K>>) -> Result<X, Error>,
 	{
 		let mut c = self.container.lock();
 		{

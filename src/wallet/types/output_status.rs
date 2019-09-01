@@ -6,23 +6,23 @@ use std::fmt;
 /// broadcasted or mined).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub enum OutputStatus {
-    /// Unconfirmed
-    Unconfirmed,
-    /// Unspent
-    Unspent,
-    /// Locked
-    Locked,
-    /// Spent
-    Spent,
+	/// Unconfirmed
+	Unconfirmed,
+	/// Unspent
+	Unspent,
+	/// Locked
+	Locked,
+	/// Spent
+	Spent,
 }
 
 impl fmt::Display for OutputStatus {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            OutputStatus::Unconfirmed => write!(f, "Unconfirmed"),
-            OutputStatus::Unspent => write!(f, "Unspent"),
-            OutputStatus::Locked => write!(f, "Locked"),
-            OutputStatus::Spent => write!(f, "Spent"),
-        }
-    }
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match *self {
+			OutputStatus::Unconfirmed => write!(f, "Unconfirmed"),
+			OutputStatus::Unspent => write!(f, "Unspent"),
+			OutputStatus::Locked => write!(f, "Locked"),
+			OutputStatus::Spent => write!(f, "Spent"),
+		}
+	}
 }

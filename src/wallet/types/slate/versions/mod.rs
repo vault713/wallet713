@@ -1,9 +1,9 @@
 pub mod v2;
 
+use super::Slate;
+use crate::wallet::error::ErrorKind;
 use std::convert::TryFrom;
 use v2::SlateV2;
-use crate::wallet::error::ErrorKind;
-use super::Slate;
 
 pub const CURRENT_SLATE_VERSION: u16 = 2;
 pub const GRIN_BLOCK_HEADER_VERSION: u16 = 2;
@@ -22,14 +22,14 @@ impl Default for SlateVersion {
 }
 
 impl TryFrom<u16> for SlateVersion {
-    type Error = ErrorKind;
+	type Error = ErrorKind;
 
-    fn try_from(value: u16) -> Result<Self, Self::Error> {
+	fn try_from(value: u16) -> Result<Self, Self::Error> {
 		match value {
 			2 => Ok(SlateVersion::V2),
-			v => Err(ErrorKind::SlateVersion(v))
+			v => Err(ErrorKind::SlateVersion(v)),
 		}
-    }
+	}
 }
 
 #[derive(Serialize, Deserialize)]
@@ -71,9 +71,7 @@ impl From<VersionedSlate> for Slate {
 impl From<&VersionedSlate> for Slate {
 	fn from(slate: &VersionedSlate) -> Slate {
 		match slate {
-			VersionedSlate::V2(s) => {
-				Slate::from(s)
-			}
+			VersionedSlate::V2(s) => Slate::from(s),
 		}
 	}
 }

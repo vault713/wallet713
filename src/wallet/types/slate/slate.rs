@@ -20,12 +20,12 @@ use failure::Error;
 use grin_core::core::amount_to_hr_string;
 use grin_core::core::committed::Committed;
 use grin_core::core::transaction::{
-	kernel_features, kernel_sig_msg, Input, Output, Transaction,
-	TransactionBody, TxKernel, Weighting,
+	kernel_features, kernel_sig_msg, Input, Output, Transaction, TransactionBody, TxKernel,
+	Weighting,
 };
 use grin_core::core::verifier_cache::LruVerifierCache;
-use grin_core::libtx::{aggsig, build, secp_ser, tx_fee};
 use grin_core::libtx::proof::ProofBuild;
+use grin_core::libtx::{aggsig, build, secp_ser, tx_fee};
 use grin_keychain::{BlindSum, BlindingFactor, Keychain};
 use grin_util::secp::key::{PublicKey, SecretKey};
 use grin_util::secp::pedersen::Commitment;
@@ -36,10 +36,9 @@ use serde::{Serialize, Serializer};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::wallet::ErrorKind;
 use super::versions::v2::*;
 use super::versions::{CURRENT_SLATE_VERSION, GRIN_BLOCK_HEADER_VERSION};
-
+use crate::wallet::ErrorKind;
 
 /// Public data for each participant in the slate
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -334,13 +333,8 @@ impl Slate {
 			if let Some(m) = message.clone() {
 				let hashed = blake2b(secp::constants::MESSAGE_SIZE, &[], &m.as_bytes()[..]);
 				let m = secp::Message::from_slice(&hashed.as_bytes())?;
-				let res = aggsig::sign_single(
-					&keychain.secp(),
-					&m,
-					&sec_key,
-					None,
-					Some(&pub_key),
-				)?;
+				let res =
+					aggsig::sign_single(&keychain.secp(), &m, &sec_key, None, Some(&pub_key))?;
 				Some(res)
 			} else {
 				None
@@ -371,18 +365,15 @@ impl Slate {
 	/// For now, we'll have the transaction initiator be responsible for it
 	/// Return offset private key for the participant to use later in the
 	/// transaction
-	fn generate_offset<K>(
-		&mut self,
-		keychain: &K,
-		sec_key: &mut SecretKey,
-	) -> Result<(), Error>
+	fn generate_offset<K>(&mut self, keychain: &K, sec_key: &mut SecretKey) -> Result<(), Error>
 	where
 		K: Keychain,
 	{
 		// Generate a random kernel offset here
 		// and subtract it from the blind_sum so we create
 		// the aggsig context with the "split" key
-		self.tx.offset = BlindingFactor::from_secret_key(SecretKey::new(&keychain.secp(), &mut thread_rng()));
+		self.tx.offset =
+			BlindingFactor::from_secret_key(SecretKey::new(&keychain.secp(), &mut thread_rng()));
 
 		let blind_offset = keychain.blind_sum(
 			&BlindSum::new()
@@ -484,10 +475,7 @@ impl Slate {
 	}
 
 	/// Calculate the total public excess
-	pub fn sum_excess<K>(
-		&self,
-		keychain: &K,
-	) -> Result<Commitment, Error>
+	pub fn sum_excess<K>(&self, keychain: &K) -> Result<Commitment, Error>
 	where
 		K: Keychain,
 	{
@@ -599,17 +587,17 @@ impl Slate {
 
 impl Serialize for Slate {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: Serializer {
+	where
+		S: Serializer,
+	{
 		use serde::ser::Error;
 
 		let v2 = SlateV2::from(self);
 		match self.version_info.orig_version {
-			2 => {
-				v2.serialize(serializer)
-			},
+			2 => v2.serialize(serializer),
 			v => Err(S::Error::custom(format!("Unknown slate version {}", v))),
 		}
-    }
+	}
 }
 
 // Current slate version to versioned conversions
@@ -847,13 +835,13 @@ impl From<&SlateV2> for Slate {
 			participant_data,
 			version_info,
 		} = slate;
-        let num_participants = *num_participants;
-        let id = id.clone();
-        let tx = Transaction::from(tx);
-        let amount = *amount;
-        let fee = *fee;
-        let height = *height;
-        let lock_height = *lock_height;
+		let num_participants = *num_participants;
+		let id = id.clone();
+		let tx = Transaction::from(tx);
+		let amount = *amount;
+		let fee = *fee;
+		let height = *height;
+		let lock_height = *lock_height;
 		let participant_data = map_vec!(participant_data, |data| ParticipantData::from(data));
 		let version_info = VersionCompatInfo::from(version_info);
 
@@ -927,7 +915,7 @@ impl From<TransactionV2> for Transaction {
 impl From<&TransactionV2> for Transaction {
 	fn from(tx: &TransactionV2) -> Transaction {
 		let TransactionV2 { offset, body } = tx;
-        let offset = offset.clone();
+		let offset = offset.clone();
 		let body = TransactionBody::from(body);
 		Transaction { offset, body }
 	}

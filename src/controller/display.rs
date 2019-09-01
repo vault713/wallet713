@@ -12,22 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::common::ErrorKind;
+use crate::contacts::{Contact, GrinboxAddress};
+use crate::wallet::types::{
+	AcctPathMapping, OutputCommitMapping, OutputStatus, TxLogEntry, WalletInfo,
+};
 use colored::Colorize;
 use failure::Error;
 use grin_core::core::amount_to_hr_string;
 use grin_core::global::{coinbase_maturity, is_mainnet};
 use grin_util::secp::pedersen::Commitment;
-use grin_util::{ZeroingString, to_hex};
-use uuid::Uuid;
+use grin_util::{to_hex, ZeroingString};
 use prettytable::format::consts::{FORMAT_NO_BORDER_LINE_SEPARATOR, FORMAT_NO_COLSEP};
 use rpassword::prompt_password_stdout;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::io::{self, Write};
 use std::ops::Deref;
-use crate::common::ErrorKind;
-use crate::contacts::{Contact, GrinboxAddress};
-use crate::wallet::types::{AcctPathMapping, OutputCommitMapping, OutputStatus, TxLogEntry, WalletInfo};
+use uuid::Uuid;
 
 pub enum InitialPromptOption {
 	Init,
@@ -39,7 +41,9 @@ pub fn password_prompt() -> Result<ZeroingString, Error> {
 	let password = match prompt_password_stdout("Password: ") {
 		Ok(p) => p,
 		Err(_) => {
-			return Err(ErrorKind::GenericError("Unable to read password prompt".to_owned()).into());
+			return Err(
+				ErrorKind::GenericError("Unable to read password prompt".to_owned()).into(),
+			);
 		}
 	};
 
@@ -47,15 +51,20 @@ pub fn password_prompt() -> Result<ZeroingString, Error> {
 }
 
 pub fn error<D>(msg: D)
-	where
-		D: Display,
+where
+	D: Display,
 {
 	println!("{} {}", "ERROR:".bright_red(), msg);
 }
 
 ///
 pub fn initial_prompt() -> Result<InitialPromptOption, Error> {
-	println!("{}", format!("\nWelcome to wallet713 v{}\n", crate_version!()).bright_yellow().bold());
+	println!(
+		"{}",
+		format!("\nWelcome to wallet713 v{}\n", crate_version!())
+			.bright_yellow()
+			.bold()
+	);
 
 	println!("{}", "Please choose an option".bright_green().bold());
 	println!(" 1) {} a new wallet", "init".bold());
@@ -72,18 +81,12 @@ pub fn initial_prompt() -> Result<InitialPromptOption, Error> {
 	println!();
 	let line = line.trim();
 	Ok(match line {
-		"1" | "init" | "" => {
-			InitialPromptOption::Init
-		},
-		"2" | "recover" | "restore" => {
-			InitialPromptOption::Recover
-		},
-		"3" | "exit" => {
-			InitialPromptOption::Exit
-		},
+		"1" | "init" | "" => InitialPromptOption::Init,
+		"2" | "recover" | "restore" => InitialPromptOption::Recover,
+		"3" | "exit" => InitialPromptOption::Exit,
 		_ => {
 			return Err(ErrorKind::GenericError("Invalid option".to_owned()).into());
-		},
+		}
 	})
 }
 
@@ -107,7 +110,10 @@ pub fn mnemonic(mnemonic: ZeroingString, confirm: bool) {
 	if confirm {
 		println!();
 		println!("Please back-up these words in a non-digital format.");
-		println!("{}", "Press ENTER when you have done so".bright_green().bold());
+		println!(
+			"{}",
+			"Press ENTER when you have done so".bright_green().bold()
+		);
 		let mut line = String::new();
 		io::stdout().flush().unwrap();
 		io::stdin().read_line(&mut line).unwrap();
@@ -124,8 +130,10 @@ pub fn estimate(
 	)>,
 	dark_background_color_scheme: bool,
 ) {
-
-	println!("\n____ Estimation for sending {} ____\n", amount_to_hr_string(amount, true));
+	println!(
+		"\n____ Estimation for sending {} ____\n",
+		amount_to_hr_string(amount, true)
+	);
 
 	let mut table = table!();
 
@@ -157,22 +165,22 @@ pub fn estimate(
 
 /// Display list of wallet accounts in a pretty way
 pub fn accounts(acct_mappings: Vec<AcctPathMapping>) {
-    println!("\n____ Wallet Accounts ____\n",);
-    let mut table = table!();
+	println!("\n____ Wallet Accounts ____\n",);
+	let mut table = table!();
 
-    table.set_titles(row![
-        mMG->"Name",
-        bMG->"Parent BIP-32 Derivation Path",
-    ]);
-    for m in acct_mappings {
-        table.add_row(row![
-            bFC->m.label,
-            bGC->m.path.to_bip_32_string(),
-        ]);
-    }
-    table.set_format(*FORMAT_NO_BORDER_LINE_SEPARATOR);
-    table.printstd();
-    println!();
+	table.set_titles(row![
+		mMG->"Name",
+		bMG->"Parent BIP-32 Derivation Path",
+	]);
+	for m in acct_mappings {
+		table.add_row(row![
+			bFC->m.label,
+			bGC->m.path.to_bip_32_string(),
+		]);
+	}
+	table.set_format(*FORMAT_NO_BORDER_LINE_SEPARATOR);
+	table.printstd();
+	println!();
 }
 
 /// Display outputs in a pretty way
@@ -183,8 +191,10 @@ pub fn outputs(
 	outputs: Vec<OutputCommitMapping>,
 	dark_background_color_scheme: bool,
 ) {
-
-    println!("\n____ Wallet Outputs - Account '{}' - Height {} ____\n", account, cur_height);
+	println!(
+		"\n____ Wallet Outputs - Account '{}' - Height {} ____\n",
+		account, cur_height
+	);
 
 	let mut table = table!();
 
@@ -203,17 +213,11 @@ pub fn outputs(
 		let commit = format!("{}", to_hex(m.commit.as_ref().to_vec()));
 		let height = format!("{}", m.output.height);
 		let lock_height = if m.output.lock_height > 0 {
-            format!("{}", m.output.lock_height)
-        }
-        else {
-            "".to_owned()
-        };
-        let is_coinbase = if m.output.is_coinbase {
-            "yes"
-        }
-        else {
-            ""
-        }.to_owned();
+			format!("{}", m.output.lock_height)
+		} else {
+			"".to_owned()
+		};
+		let is_coinbase = if m.output.is_coinbase { "yes" } else { "" }.to_owned();
 
 		// Mark unconfirmed coinbase outputs as "Mining" instead of "Unconfirmed"
 		let status = match m.output.status {
@@ -272,12 +276,15 @@ pub fn txs(
 	cur_height: u64,
 	validated: bool,
 	txs: &Vec<TxLogEntry>,
-    proofs: HashMap<Uuid, bool>,
+	proofs: HashMap<Uuid, bool>,
 	contacts: HashMap<String, String>,
 	include_status: bool,
 	dark_background_color_scheme: bool,
 ) {
-	println!("\n____ Transaction Log - Account '{}' - Height {} ____\n", account, cur_height);
+	println!(
+		"\n____ Transaction Log - Account '{}' - Height {} ____\n",
+		account, cur_height
+	);
 
 	let mut table = table!();
 
@@ -296,52 +303,41 @@ pub fn txs(
 
 	for t in txs {
 		let id = format!("{}", t.id);
-        let entry_type = format!("{}", t.tx_type);
+		let entry_type = format!("{}", t.tx_type);
 		let slate_id = match &t.tx_slate_id {
 			Some(m) => to_hex(m.as_bytes()[..4].to_vec()),
 			None => "".to_owned(),
 		};
-        let address = match &t.address {
-            Some(a) => {
-				match contacts.get(a) {
-					Some(c) => format!("@{}", c),
-					None => a.clone()
-				}
+		let address = match &t.address {
+			Some(a) => match contacts.get(a) {
+				Some(c) => format!("@{}", c),
+				None => a.clone(),
 			},
-            None => "".to_owned(),
-        };
+			None => "".to_owned(),
+		};
 		let creation_ts = format!("{}", t.creation_ts.format("%Y-%m-%d %H:%M:%S"));
-        let confirmed = if t.confirmed {
-            "yes"
-        } else {
-            ""
-        }.to_owned();
+		let confirmed = if t.confirmed { "yes" } else { "" }.to_owned();
 		let confirmation_ts = match t.confirmation_ts {
 			Some(m) => format!("{}", m.format("%Y-%m-%d %H:%M:%S")),
 			None => "".to_owned(),
 		};
-        let mut amount: i64 = t.amount_credited as i64 - t.amount_debited as i64;
-        if let Some(fee) = t.fee {
-            amount += fee as i64;
-        }
-        let amount = if amount > 0 {
-            format!(" {}", amount_to_hr_string(amount as u64, true))
-        }
-        else {
-            format!("-{}", amount_to_hr_string((-amount) as u64, true))
-        };
-        let fee = match t.fee {
+		let mut amount: i64 = t.amount_credited as i64 - t.amount_debited as i64;
+		if let Some(fee) = t.fee {
+			amount += fee as i64;
+		}
+		let amount = if amount > 0 {
+			format!(" {}", amount_to_hr_string(amount as u64, true))
+		} else {
+			format!("-{}", amount_to_hr_string((-amount) as u64, true))
+		};
+		let fee = match t.fee {
 			Some(f) => amount_to_hr_string(f, true),
 			None => "".to_owned(),
 		};
 		let proof = match &t.tx_slate_id {
-            Some(m) if proofs.contains_key(m) => {
-                "yes".to_owned()
-            },
-            _ => {
-                "".to_owned()
-            }
-        };
+			Some(m) if proofs.contains_key(m) => "yes".to_owned(),
+			_ => "".to_owned(),
+		};
 		if dark_background_color_scheme {
 			table.add_row(row![
 				bFC->id,
@@ -356,18 +352,18 @@ pub fn txs(
 				bFG->proof,
 			]);
 		} else {
-            table.add_row(row![
-                bFD->id,
-                bFb->entry_type,
-                bFB->slate_id,
-                bFG->address,
-                bFB->creation_ts,
-                bFg->confirmed,
-                bFB->confirmation_ts,
-                bFG->amount,
-                bFD->fee,
-                bFg->proof,
-            ]);
+			table.add_row(row![
+				bFD->id,
+				bFb->entry_type,
+				bFB->slate_id,
+				bFG->address,
+				bFB->creation_ts,
+				bFg->confirmed,
+				bFB->confirmation_ts,
+				bFG->amount,
+				bFD->fee,
+				bFg->proof,
+			]);
 		}
 	}
 
@@ -474,53 +470,56 @@ pub fn info(
 }
 
 pub fn proof(
-    sender: GrinboxAddress,
-    receiver: GrinboxAddress,
-    amount: u64,
-    outputs: Vec<Commitment>,
-    excess: Commitment,
+	sender: GrinboxAddress,
+	receiver: GrinboxAddress,
+	amount: u64,
+	outputs: Vec<Commitment>,
+	excess: Commitment,
 ) {
-	let outputs = outputs.iter().map(|o| to_hex(o.0.to_vec())).collect::<Vec<_>>();
+	let outputs = outputs
+		.iter()
+		.map(|o| to_hex(o.0.to_vec()))
+		.collect::<Vec<_>>();
 	let excess = to_hex(excess.0.to_vec());
 
 	println!(
-        "This file proves that {} grin was sent to {} from {}",
-        amount_to_hr_string(amount, false).bright_green(),
-        format!("{}", receiver).bright_green(),
+		"This file proves that {} grin was sent to {} from {}",
+		amount_to_hr_string(amount, false).bright_green(),
+		format!("{}", receiver).bright_green(),
 		format!("{}", sender).bright_green()
-    );
+	);
 
-    println!("\nOutputs:");
-    for output in outputs {
-        println!("   {}", output.bright_magenta());
-    }
-    println!("Kernel excess:");
-    println!("   {}", excess.bright_magenta());
-    println!("\n{}: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations", "WARNING".bright_yellow());
-    println!("Please use a grin block explorer to verify this is the case. for example:");
-    let prefix = match is_mainnet() {
-        true => "",
-        false => "floonet.",
-    };
-    cli_message!("   https://{}grinscan.net/kernel/{}", prefix, excess);
+	println!("\nOutputs:");
+	for output in outputs {
+		println!("   {}", output.bright_magenta());
+	}
+	println!("Kernel excess:");
+	println!("   {}", excess.bright_magenta());
+	println!("\n{}: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations", "WARNING".bright_yellow());
+	println!("Please use a grin block explorer to verify this is the case. for example:");
+	let prefix = match is_mainnet() {
+		true => "",
+		false => "floonet.",
+	};
+	cli_message!("   https://{}grinscan.net/kernel/{}", prefix, excess);
 }
 
 /// Display list of contacts in a pretty way
 pub fn contacts(contacts: Vec<Contact>) {
-    println!("\n____ Contacts ____\n",);
-    let mut table = table!();
+	println!("\n____ Contacts ____\n",);
+	let mut table = table!();
 
-    table.set_titles(row![
-        mMG->"Name",
-        bMG->"Address",
-    ]);
-    for c in contacts {
+	table.set_titles(row![
+		mMG->"Name",
+		bMG->"Address",
+	]);
+	for c in contacts {
 		table.add_row(row![
-            bFC->c.name,
-            bGC->c.address,
-        ]);
-    }
-    table.set_format(*FORMAT_NO_BORDER_LINE_SEPARATOR);
-    table.printstd();
-    println!();
+			bFC->c.name,
+			bGC->c.address,
+		]);
+	}
+	table.set_format(*FORMAT_NO_BORDER_LINE_SEPARATOR);
+	table.printstd();
+	println!();
 }

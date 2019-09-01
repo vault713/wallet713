@@ -23,20 +23,18 @@ impl Keychain for grin_keychain::ExtKeychain {}
 
 #[derive(Clone, PartialEq)]
 pub enum RuntimeMode {
-    Cli,
-    Daemon,
+	Cli,
+	Daemon,
 }
 
 static mut RUNTIME_MODE: RuntimeMode = RuntimeMode::Cli;
 
 pub unsafe fn set_runtime_mode(runtime_mode: &RuntimeMode) {
-    RUNTIME_MODE = runtime_mode.clone();
+	RUNTIME_MODE = runtime_mode.clone();
 }
 
 pub fn is_cli() -> bool {
-    unsafe {
-        RUNTIME_MODE == RuntimeMode::Cli
-    }
+	unsafe { RUNTIME_MODE == RuntimeMode::Cli }
 }
 
 pub const COLORED_PROMPT: &'static str = "\x1b[36mwallet713>\x1b[0m ";
