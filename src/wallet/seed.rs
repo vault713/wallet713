@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::ErrorKind;
+use crate::common::config::WalletConfig;
 use failure::{Error, ResultExt};
 use grin_keychain::{mnemonic, Keychain};
-use grin_util::{ZeroingString, from_hex, to_hex};
-use rand::{Rng, thread_rng};
+use grin_util::{from_hex, to_hex, ZeroingString};
+use rand::{thread_rng, Rng};
 use ring::{aead, digest, pbkdf2};
 use serde_json;
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, MAIN_SEPARATOR};
-use crate::common::config::WalletConfig;
-use super::ErrorKind;
 
 pub const SEED_FILE: &'static str = "wallet.seed";
 

@@ -13,16 +13,15 @@
 // limitations under the License.
 
 /// HTTP Wallet 'plugin' implementation
-
 use failure::Error;
 use grin_api::client;
 use grin_api::Error as APIError;
 use serde::Serialize;
 use serde_json::Value;
 
+use super::Adapter;
 use crate::wallet::types::VersionedSlate;
 use crate::wallet::ErrorKind;
-use super::Adapter;
 
 #[derive(Clone)]
 pub struct HTTPAdapter {}
@@ -108,7 +107,7 @@ impl Adapter for HTTPAdapter {
 			"method": "receive_tx",
 			"id": 1,
 			"params": [
-			    slate,
+				slate,
 				null,
 				null
 			]
@@ -135,7 +134,8 @@ impl Adapter for HTTPAdapter {
 		let slate_value = res["result"]["Ok"].clone();
 		trace!("slate_value: {}", slate_value);
 
-		let slate: VersionedSlate = serde_json::from_str(&serde_json::to_string(&slate_value).unwrap())?;
+		let slate: VersionedSlate =
+			serde_json::from_str(&serde_json::to_string(&slate_value).unwrap())?;
 		Ok(slate)
 	}
 

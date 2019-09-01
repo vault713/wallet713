@@ -12,22 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::keys;
+use crate::wallet::types::{
+	BlockFees, CbData, NodeClient, OutputCommitMapping, OutputData, OutputStatus, TxLogEntry,
+	TxLogEntryType, WalletBackend, WalletInfo,
+};
 use failure::Error;
-use grin_core::core::{Output, TxKernel};
 use grin_core::consensus::reward;
+use grin_core::core::{Output, TxKernel};
 use grin_core::global::coinbase_maturity;
 use grin_core::libtx::proof::ProofBuilder;
 use grin_core::libtx::reward;
 use grin_keychain::{Identifier, Keychain, SwitchCommitmentType};
-use grin_util::secp::pedersen::Commitment;
 use grin_util::from_hex;
+use grin_util::secp::pedersen::Commitment;
 use std::collections::HashMap;
 use uuid::Uuid;
-use crate::wallet::types::{
-    BlockFees, CbData, NodeClient, OutputCommitMapping, OutputData, OutputStatus, TxLogEntry,
-    TxLogEntryType, WalletBackend, WalletInfo,
-};
-use super::keys;
 
 /// Retrieve all of the outputs (doesn't attempt to update from node)
 pub fn retrieve_outputs<T: ?Sized, C, K>(
@@ -128,7 +128,10 @@ where
 	if check_proofs {
 		for tx in &txs {
 			if let Some(slate_id) = &tx.tx_slate_id {
-				if wallet.has_stored_tx_proof(&slate_id.to_string()).unwrap_or(false) {
+				if wallet
+					.has_stored_tx_proof(&slate_id.to_string())
+					.unwrap_or(false)
+				{
 					proofs.insert(slate_id.clone(), true);
 				}
 			}
@@ -167,8 +170,7 @@ where
 	C: NodeClient,
 	K: Keychain,
 {
-	let mut wallet_outputs: HashMap<Commitment, (Identifier, Option<u64>)> =
-		HashMap::new();
+	let mut wallet_outputs: HashMap<Commitment, (Identifier, Option<u64>)> = HashMap::new();
 	let keychain = wallet.keychain().clone();
 	let unspents: Vec<OutputData> = wallet
 		.outputs()?
@@ -521,17 +523,14 @@ where
 		&ProofBuilder::new(keychain),
 		&key_id,
 		block_fees.fees,
-		false
+		false,
 	)?;
 	Ok((out, kern, block_fees))
 }
 
-
 /// Fetch the height of the node
 /// If the node is down, use the height of the latest output
-pub fn node_height<T: ?Sized, C, K>(
-	wallet: &mut T,
-) -> Result<(bool, u64), Error>
+pub fn node_height<T: ?Sized, C, K>(wallet: &mut T) -> Result<(bool, u64), Error>
 where
 	T: WalletBackend<C, K>,
 	C: NodeClient,

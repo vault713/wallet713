@@ -6,10 +6,12 @@ pub use self::foreign::Foreign;
 pub use self::owner::Owner;
 pub use self::types::*;
 
-use failure::Error;
-use crate::wallet::types::{NodeVersionInfo, Slate, CURRENT_SLATE_VERSION, GRIN_BLOCK_HEADER_VERSION};
-use crate::wallet::ErrorKind;
 use self::foreign::ForeignCheckMiddlewareFn;
+use crate::wallet::types::{
+	NodeVersionInfo, Slate, CURRENT_SLATE_VERSION, GRIN_BLOCK_HEADER_VERSION,
+};
+use crate::wallet::ErrorKind;
+use failure::Error;
 
 pub fn check_middleware(
 	name: ForeignCheckMiddlewareFn,

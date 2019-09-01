@@ -14,11 +14,11 @@
 
 //! Error types for libwallet
 
+use failure::Fail;
 use grin_core::core::{committed, transaction};
 use grin_core::libtx;
 use grin_keychain;
 use grin_util::secp;
-use failure::Fail;
 
 /// Wallet errors, mostly wrappers around underlying crypto or I/O errors.
 #[derive(Clone, Eq, PartialEq, Debug, Fail, Serialize, Deserialize)]
@@ -220,7 +220,9 @@ pub enum ErrorKind {
 	#[fail(display = "No transaction proof stored")]
 	TransactionProofNotStored,
 
-	#[fail(display = "Incoming slate is not compatible with this wallet. Please upgrade the node or use a different one")]
+	#[fail(
+		display = "Incoming slate is not compatible with this wallet. Please upgrade the node or use a different one"
+	)]
 	Compatibility,
 
 	#[fail(display = "Unable to verify proof")]

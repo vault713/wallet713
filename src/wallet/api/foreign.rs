@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::{check_middleware, VersionInfo};
+use crate::common::{Arc, Keychain, Mutex, MutexGuard};
+use crate::internal::{tx, updater};
+use crate::wallet::types::{
+	BlockFees, CbData, NodeClient, NodeVersionInfo, Slate, SlateVersion, WalletBackend,
+};
+use crate::wallet::Container;
 use colored::Colorize;
 use failure::Error;
 use grin_core::core::amount_to_hr_string;
 use std::marker::PhantomData;
-use crate::common::{Arc, Keychain, Mutex, MutexGuard};
-use crate::internal::{tx, updater};
-use crate::wallet::types::{
-    BlockFees, CbData, NodeClient, NodeVersionInfo, Slate, SlateVersion, WalletBackend
-};
-use crate::wallet::Container;
-use super::{VersionInfo, check_middleware};
 
 const FOREIGN_API_VERSION: u16 = 2;
 
@@ -51,7 +51,7 @@ where
 	K: Keychain,
 {
 	container: Arc<Mutex<Container<W, C, K>>>,
-    middleware: Option<ForeignCheckMiddleware>,
+	middleware: Option<ForeignCheckMiddleware>,
 	phantom_k: PhantomData<K>,
 	phantom_c: PhantomData<C>,
 }
@@ -62,19 +62,19 @@ where
 	C: NodeClient,
 	K: Keychain,
 {
-    pub fn new(container: Arc<Mutex<Container<W, C, K>>>) -> Self {
+	pub fn new(container: Arc<Mutex<Container<W, C, K>>>) -> Self {
 		Foreign {
 			container,
-            middleware: Some(check_middleware),
+			middleware: Some(check_middleware),
 			phantom_k: PhantomData,
 			phantom_c: PhantomData,
 		}
 	}
 
-    /// Convenience function that opens and closes the wallet with the stored credentials
+	/// Convenience function that opens and closes the wallet with the stored credentials
 	fn open_and_close<F, X>(&self, f: F) -> Result<X, Error>
 	where
-		F: FnOnce(&mut MutexGuard<Container<W, C, K>>) -> Result<X, Error>
+		F: FnOnce(&mut MutexGuard<Container<W, C, K>>) -> Result<X, Error>,
 	{
 		let mut c = self.container.lock();
 		{
@@ -93,12 +93,12 @@ where
 		res
 	}
 
-    pub fn check_version(&self) -> Result<VersionInfo, Error> {
-        let mut c = self.container.lock();
-        let w = c.backend()?;
+	pub fn check_version(&self) -> Result<VersionInfo, Error> {
+		let mut c = self.container.lock();
+		let w = c.backend()?;
 
 		if let Some(m) = self.middleware.as_ref() {
-            m(
+			m(
 				ForeignCheckMiddlewareFn::CheckVersion,
 				w.w2n_client().get_version_info(),
 				None,
@@ -106,38 +106,38 @@ where
 		}
 
 		Ok(VersionInfo {
-		    foreign_api_version: FOREIGN_API_VERSION,
-		    supported_slate_versions: vec![SlateVersion::V2],
-	    })
+			foreign_api_version: FOREIGN_API_VERSION,
+			supported_slate_versions: vec![SlateVersion::V2],
+		})
 	}
 
 	pub fn build_coinbase(&self, block_fees: &BlockFees) -> Result<CbData, Error> {
-        self.open_and_close(|c| {
-            let w = c.backend()?;
-            if let Some(m) = self.middleware.as_ref() {
-			    m(
-				    ForeignCheckMiddlewareFn::BuildCoinbase,
-				    w.w2n_client().get_version_info(),
-				    None,
-			    )?;
-		    }
-            updater::build_coinbase(w, block_fees)
-        })
+		self.open_and_close(|c| {
+			let w = c.backend()?;
+			if let Some(m) = self.middleware.as_ref() {
+				m(
+					ForeignCheckMiddlewareFn::BuildCoinbase,
+					w.w2n_client().get_version_info(),
+					None,
+				)?;
+			}
+			updater::build_coinbase(w, block_fees)
+		})
 	}
 
 	pub fn verify_slate_messages(&self, slate: &Slate) -> Result<(), Error> {
-        let mut c = self.container.lock();
-        let w = c.backend()?;
+		let mut c = self.container.lock();
+		let w = c.backend()?;
 
 		if let Some(m) = self.middleware.as_ref() {
-            m(
+			m(
 				ForeignCheckMiddlewareFn::VerifySlateMessages,
 				w.w2n_client().get_version_info(),
 				Some(slate),
 			)?;
 		}
 
-        slate.verify_messages()
+		slate.verify_messages()
 	}
 
 	pub fn receive_tx(
@@ -147,18 +147,18 @@ where
 		address: Option<String>,
 		message: Option<String>,
 	) -> Result<Slate, Error> {
-        self.open_and_close(|c| {
-           let w = c.backend()?;
+		self.open_and_close(|c| {
+			let w = c.backend()?;
 
-            if let Some(m) = self.middleware.as_ref() {
-			    m(
-				    ForeignCheckMiddlewareFn::ReceiveTx,
-				    w.w2n_client().get_version_info(),
-				    Some(slate),
-			    )?;
-		    }
+			if let Some(m) = self.middleware.as_ref() {
+				m(
+					ForeignCheckMiddlewareFn::ReceiveTx,
+					w.w2n_client().get_version_info(),
+					Some(slate),
+				)?;
+			}
 
-            let slate = tx::receive_tx(w, slate, dest_acct_name, address.clone(), message)?;
+			let slate = tx::receive_tx(w, slate, dest_acct_name, address.clone(), message)?;
 
 			let from = match address {
 				Some(a) => format!(" from {}", a.bright_green()),
@@ -173,7 +173,7 @@ where
 			);
 
 			Ok(slate)
-        })
+		})
 	}
 
 	/*pub fn finalize_invoice_tx(&self, slate: &Slate) -> Result<Slate, Error> {

@@ -14,12 +14,12 @@
 
 //! JSON-RPC Stub generation for the Foreign API
 
-use easy_jsonrpc;
 use crate::common::Keychain;
-use crate::wallet::ErrorKind;
 use crate::wallet::api::types::VersionInfo;
 use crate::wallet::api::Foreign;
 use crate::wallet::types::{BlockFees, CbData, NodeClient, Slate, VersionedSlate, WalletBackend};
+use crate::wallet::ErrorKind;
+use easy_jsonrpc;
 
 /// Public definition used to generate Foreign jsonrpc api.
 /// * When running with defaults, the V2 api is available at
@@ -27,7 +27,7 @@ use crate::wallet::types::{BlockFees, CbData, NodeClient, Slate, VersionedSlate,
 /// * The endpoint only supports POST operations, with the json-rpc request as the body
 #[easy_jsonrpc::rpc]
 pub trait ForeignRpc {
-    fn check_version(&self) -> Result<VersionInfo, ErrorKind>;
+	fn check_version(&self) -> Result<VersionInfo, ErrorKind>;
 	fn build_coinbase(&self, block_fees: &BlockFees) -> Result<CbData, ErrorKind>;
 	fn verify_slate_messages(&self, slate: &Slate) -> Result<(), ErrorKind>;
 	fn receive_tx(
@@ -36,7 +36,7 @@ pub trait ForeignRpc {
 		dest_acct_name: Option<String>,
 		message: Option<String>,
 	) -> Result<VersionedSlate, ErrorKind>;
-//	fn finalize_invoice_tx(&self, slate: &Slate) -> Result<Slate, ErrorKind>;
+	//	fn finalize_invoice_tx(&self, slate: &Slate) -> Result<Slate, ErrorKind>;
 }
 
 impl<W, C, K> ForeignRpc for Foreign<W, C, K>
@@ -46,8 +46,7 @@ where
 	K: Keychain,
 {
 	fn check_version(&self) -> Result<VersionInfo, ErrorKind> {
-		Foreign::check_version(self)
-			.map_err(|e| ErrorKind::GenericError(e.to_string()))
+		Foreign::check_version(self).map_err(|e| ErrorKind::GenericError(e.to_string()))
 		// TODO: use ErrorKind everywhere
 	}
 

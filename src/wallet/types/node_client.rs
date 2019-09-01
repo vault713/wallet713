@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::TxWrapper;
+use crate::common::client;
+use crate::wallet::ErrorKind;
 use failure::Error;
-use futures::Stream;
 use futures::stream;
-use grin_api::{Output, OutputType, OutputListing, Tip};
+use futures::Stream;
+use grin_api::{Output, OutputListing, OutputType, Tip};
 use grin_util::secp::pedersen::{Commitment, RangeProof};
 use grin_util::to_hex;
 use std::collections::HashMap;
 use tokio::runtime::Runtime;
-use crate::common::client;
-use crate::wallet::ErrorKind;
-use super::TxWrapper;
 
 /// Node version info
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -74,14 +74,7 @@ pub trait NodeClient: Sync + Send + Clone + 'static {
 		&self,
 		start_height: u64,
 		max_outputs: u64,
-	) -> Result<
-		(
-			u64,
-			u64,
-			Vec<(Commitment, RangeProof, bool, u64, u64)>,
-		),
-		Error,
-	>;
+	) -> Result<(u64, u64, Vec<(Commitment, RangeProof, bool, u64, u64)>), Error>;
 }
 
 #[derive(Clone)]
@@ -123,25 +116,25 @@ impl NodeClient for HTTPNodeClient {
 			return Some(v.clone());
 		}
 		let url = format!("{}/v1/version", self.node_url());
-		let mut retval =
-			match client::get::<NodeVersionInfo>(url.as_str(), self.node_api_secret()) {
-				Ok(n) => n,
-				Err(e) => {
-					// If node isn't available, allow offline functions
-					// unfortunately have to parse string due to error structure
-					let err_string = format!("{}", e);
-					if err_string.contains("404") {
-						return Some(NodeVersionInfo {
-							node_version: "1.0.0".into(),
-							block_header_version: 1,
-							verified: Some(false),
-						});
-					} else {
-						error!("Unable to contact Node to get version info: {}", e);
-						return None;
-					}
+		let mut retval = match client::get::<NodeVersionInfo>(url.as_str(), self.node_api_secret())
+		{
+			Ok(n) => n,
+			Err(e) => {
+				// If node isn't available, allow offline functions
+				// unfortunately have to parse string due to error structure
+				let err_string = format!("{}", e);
+				if err_string.contains("404") {
+					return Some(NodeVersionInfo {
+						node_version: "1.0.0".into(),
+						block_header_version: 1,
+						verified: Some(false),
+					});
+				} else {
+					error!("Unable to contact Node to get version info: {}", e);
+					return None;
 				}
-			};
+			}
+		};
 		retval.verified = Some(true);
 		self.node_version_info = Some(retval.clone());
 		Some(retval)
@@ -198,7 +191,11 @@ impl NodeClient for HTTPNodeClient {
 		let mut tasks = Vec::new();
 
 		for query_chunk in query_params.chunks(120) {
-			let url = format!("{}/v1/chain/outputs/byids?id={}", addr, query_chunk.join(","),);
+			let url = format!(
+				"{}/v1/chain/outputs/byids?id={}",
+				addr,
+				query_chunk.join(","),
+			);
 			tasks.push(client::get_async::<Vec<Output>>(
 				url.as_str(),
 				self.node_api_secret(),
@@ -232,21 +229,13 @@ impl NodeClient for HTTPNodeClient {
 		&self,
 		start_height: u64,
 		max_outputs: u64,
-	) -> Result<
-		(
-			u64,
-			u64,
-			Vec<(Commitment, RangeProof, bool, u64, u64)>,
-		),
-		Error,
-	> {
+	) -> Result<(u64, u64, Vec<(Commitment, RangeProof, bool, u64, u64)>), Error> {
 		let addr = self.node_url();
 		let query_param = format!("start_index={}&max={}", start_height, max_outputs);
 
 		let url = format!("{}/v1/txhashset/outputs?{}", addr, query_param,);
 
-		let mut api_outputs: Vec<(Commitment, RangeProof, bool, u64, u64)> =
-			Vec::new();
+		let mut api_outputs: Vec<(Commitment, RangeProof, bool, u64, u64)> = Vec::new();
 
 		match client::get::<OutputListing>(url.as_str(), self.node_api_secret()) {
 			Ok(o) => {
