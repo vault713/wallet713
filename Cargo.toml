@@ -1,6 +1,6 @@
 [package]
 name = "wallet713"
-version = "2.0.0"
+version = "3.0.0-beta.1"
 authors = ["vault713 devs"]
 description = "A wallet that makes it easy to send, store, and swap Grin."
 keywords = [ "grin", "mimblewimble", "rust", "crypto", "cryptocurrency" ]
@@ -9,50 +9,48 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-serde = "1.0"
-serde_derive = "1.0"
-serde_json = "1.0"
-toml = "0.4"
-clap = {version = "2", features = ["yaml"]}
 ansi_term = "0.11"
+blake2-rfc = "0.2"
+chrono = { version = "0.4.4", features = ["serde"] }
+clap = { version = "2", features = ["yaml"] }
 colored = "1.6"
-ws = { version = "0.8", features = ["nativetls"] }
-native-tls = { version = "0.2", features = ["vendored"] }
-dirs = "1"
-futures = "0.1"
-tokio = "= 0.1.11"
-rand = "0.5"
-sha2 = "0.7"
 digest = "0.7"
-lmdb-zero = "0.4"
+dirs = "1"
+dont_disappear = "3.0.0"
+easy-jsonrpc-mw = "0.5.3"
+env_logger = "0.6.0"
 failure = "0.1"
-uuid = { version = "0.6", features = ["serde", "v4"] }
-regex = "1"
-rustyline = "5.0"
-hmac = "0.6"
-ripemd160 = "0.7"
-ring = "0.13"
-prettytable-rs = "0.7"
+futures = "0.1"
 gotham = "0.3.0"
 gotham_derive = "0.3.0"
-hyper = "0.12"
-hyper-rustls = "0.14"
-http = "0.1.5"
-mime = "0.3"
-chrono = { version = "0.4.4", features = ["serde"] }
-term = "0.5"
-blake2-rfc = "0.2"
-log = "0.4"
-env_logger = "0.6.0"
-rpassword = "2.1.0"
-url = "1.7"
-parking_lot = "0.6"
-semver = "0.9.0"
-easy-jsonrpc = "0.5.2"
-dont_disappear = "3.0.0"
-
 grin_api = "2.0.0"
 grin_core = "2.0.0"
 grin_keychain = "2.0.0"
-grin_util = "2.0.0"
 grin_store = "2.0.0"
+grin_util = "2.0.0"
+hmac = "0.6"
+http = "0.1.5"
+hyper = "0.12"
+hyper-rustls = "0.14"
+lmdb-zero = "0.4"
+log = "0.4"
+mime = "0.3"
+native-tls = { version = "0.2", features = ["vendored"] }
+parking_lot = "0.6"
+prettytable-rs = "0.7"
+rand = "0.5"
+regex = "1"
+ring = "0.13"
+ripemd160 = "0.7"
+rpassword = "2.1.0"
+rustyline = "5.0"
+semver = "0.9.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.7"
+term = "0.5"
+tokio = "= 0.1.11"
+toml = "0.4"
+url = "1.7"
+uuid = { version = "0.6", features = ["serde", "v4"] }
+ws = { version = "0.8", features = ["nativetls"] }

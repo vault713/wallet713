@@ -1,14 +1,26 @@
-use digest::generic_array::GenericArray;
-use hmac::{Hmac, Mac};
-use ripemd160::Ripemd160;
-use sha2::{Digest, Sha256, Sha512};
+// Copyright 2019 The vault713 Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
+use crate::common::Result;
+use digest::generic_array::GenericArray;
 use grin_core::global::is_floonet;
 use grin_keychain::extkey_bip32::{BIP32Hasher, ChildNumber, ExtendedPrivKey};
 use grin_keychain::{Keychain, SwitchCommitmentType};
 use grin_util::secp::key::SecretKey;
-
-use crate::common::Result;
+use hmac::{Hmac, Mac};
+use ripemd160::Ripemd160;
+use sha2::{Digest, Sha256, Sha512};
 
 type HmacSha512 = Hmac<Sha512>;
 
@@ -45,7 +57,7 @@ impl BIP32Hasher for BIP32GrinboxHasher {
 		b"Grinbox_seed".to_owned()
 	}
 	fn init_sha512(&mut self, seed: &[u8]) {
-		self.hmac_sha512 = HmacSha512::new_varkey(seed).expect("HMAC can take key of any size");;
+		self.hmac_sha512 = HmacSha512::new_varkey(seed).expect("HMAC can take key of any size");
 	}
 	fn append_sha512(&mut self, value: &[u8]) {
 		self.hmac_sha512.input(value);

@@ -21,6 +21,8 @@ use futures::Stream;
 use grin_api::{Output, OutputListing, OutputType, Tip};
 use grin_util::secp::pedersen::{Commitment, RangeProof};
 use grin_util::to_hex;
+use log::error;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio::runtime::Runtime;
 

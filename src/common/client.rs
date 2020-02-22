@@ -14,6 +14,7 @@
 
 //! High level JSON/HTTP client API
 
+use clap::crate_version;
 use failure::{Backtrace, Context, Fail, ResultExt};
 use futures::future::{err, ok, Either};
 use grin_util::to_base64;

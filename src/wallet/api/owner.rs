@@ -12,19 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use colored::Colorize;
-use failure::Error;
-use grin_core::core::hash::Hashed;
-use grin_core::core::{amount_to_hr_string, Transaction};
-use grin_core::ser::ser_vec;
-use grin_keychain::Identifier;
-use grin_util::secp::key::PublicKey;
-use grin_util::secp::pedersen::Commitment;
-use grin_util::{to_hex, ZeroingString};
-use std::collections::{HashMap, HashSet};
-use std::convert::TryFrom;
-use uuid::Uuid;
-
 use crate::api::listener::*;
 use crate::cli_message;
 use crate::common::config::Wallet713Config;
@@ -39,6 +26,20 @@ use crate::wallet::types::{
 	WalletBackend, WalletInfo,
 };
 use crate::wallet::{Container, ErrorKind};
+use colored::Colorize;
+use failure::Error;
+use gotham_derive::StateData;
+use grin_core::core::hash::Hashed;
+use grin_core::core::{amount_to_hr_string, Transaction};
+use grin_core::ser::ser_vec;
+use grin_keychain::Identifier;
+use grin_util::secp::key::PublicKey;
+use grin_util::secp::pedersen::Commitment;
+use grin_util::{to_hex, ZeroingString};
+use log::{debug, error};
+use std::collections::{HashMap, HashSet};
+use std::convert::TryFrom;
+use uuid::Uuid;
 
 #[derive(StateData)]
 pub struct Owner<W, C, K>

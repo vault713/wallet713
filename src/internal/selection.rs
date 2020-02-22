@@ -25,6 +25,7 @@ use grin_core::libtx::build;
 use grin_core::libtx::proof::{ProofBuild, ProofBuilder};
 use grin_core::libtx::tx_fee;
 use grin_keychain::{Identifier, Keychain};
+use log::debug;
 use std::collections::HashMap;
 
 /// Initialize a transaction on the sender side, returns a corresponding

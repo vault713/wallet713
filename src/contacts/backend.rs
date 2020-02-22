@@ -1,14 +1,27 @@
-use std::cell::RefCell;
-use std::fs::create_dir_all;
-use std::path::Path;
+// Copyright 2019 The vault713 Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
+use super::types::{parse_address, AddressBookBackend, AddressBookBatch, Contact};
+use crate::common::Error;
 use grin_core::ser::Error as CoreError;
 use grin_core::ser::{Readable, Reader, Writeable, Writer};
 use grin_store::Store;
 use grin_store::{self, to_key};
-
-use super::types::{parse_address, AddressBookBackend, AddressBookBatch, Contact};
-use crate::common::Error;
+use serde_json::json;
+use std::cell::RefCell;
+use std::fs::create_dir_all;
+use std::path::Path;
 
 const DB_DIR: &'static str = "contacts";
 const CONTACT_PREFIX: u8 = 'X' as u8;
@@ -36,11 +49,11 @@ impl AddressBookBackend for Backend {
 		Ok(contact)
 	}
 
-	fn contacts(&self) -> Box<Iterator<Item = Contact>> {
+	fn contacts(&self) -> Box<dyn Iterator<Item = Contact>> {
 		Box::new(self.db.iter(&[CONTACT_PREFIX]).unwrap().map(|x| x.1))
 	}
 
-	fn batch<'a>(&'a self) -> Result<Box<AddressBookBatch + 'a>, Error> {
+	fn batch<'a>(&'a self) -> Result<Box<dyn AddressBookBatch + 'a>, Error> {
 		let batch = self.db.batch()?;
 		let batch = Batch {
 			_store: self,
@@ -95,7 +108,7 @@ impl Writeable for Contact {
 }
 
 impl Readable for Contact {
-	fn read(reader: &mut Reader) -> Result<Contact, CoreError> {
+	fn read(reader: &mut dyn Reader) -> Result<Contact, CoreError> {
 		let data = reader.read_bytes_len_prefix()?;
 		let data = std::str::from_utf8(&data).map_err(|_| CoreError::CorruptedData)?;
 

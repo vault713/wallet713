@@ -1,3 +1,17 @@
+// Copyright 2019 The vault713 Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use super::args::{
 	self, AccountArgs, AddressArgs, ContactArgs, ProofArgs, SeedArgs, SendCommandType,
 };
@@ -9,7 +23,7 @@ use crate::contacts::Address;
 use crate::wallet::api::{Foreign, Owner};
 use crate::wallet::types::{NodeClient, TxProof, VersionedSlate, WalletBackend};
 use crate::wallet::Container;
-use clap::{App, ArgMatches};
+use clap::{crate_version, load_yaml, App, ArgMatches};
 use colored::Colorize;
 use failure::Error;
 use grin_core::core::amount_to_hr_string;

@@ -21,6 +21,7 @@ use crate::wallet::types::{
 use crate::wallet::Container;
 use colored::Colorize;
 use failure::Error;
+use gotham_derive::StateData;
 use grin_core::core::amount_to_hr_string;
 use std::marker::PhantomData;
 

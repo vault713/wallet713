@@ -1,14 +1,27 @@
-use std::fmt;
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
-
-use grin_core::global::ChainTypes;
-use grin_util::LoggingConfig;
+// Copyright 2019 The vault713 Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use super::is_cli;
 use super::Result;
 use crate::contacts::DEFAULT_GRINBOX_PORT;
+use grin_core::global::ChainTypes;
+use grin_util::LoggingConfig;
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::fs::File;
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
 
 const WALLET713_HOME: &str = ".wallet713";
 const WALLET713_DEFAULT_CONFIG_FILENAME: &str = "wallet713.toml";

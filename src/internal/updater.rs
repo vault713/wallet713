@@ -26,6 +26,7 @@ use grin_core::libtx::reward;
 use grin_keychain::{Identifier, Keychain, SwitchCommitmentType};
 use grin_util::from_hex;
 use grin_util::secp::pedersen::Commitment;
+use log::{debug, warn};
 use std::collections::HashMap;
 use uuid::Uuid;
 

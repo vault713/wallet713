@@ -1,3 +1,17 @@
+// Copyright 2019 The vault713 Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 mod acct_path_mapping;
 mod args;
 mod block_fees;
@@ -17,14 +31,6 @@ mod wallet_backend;
 mod wallet_backend_batch;
 mod wallet_info;
 mod wallet_inst;
-
-pub use super::seed::{EncryptedWalletSeed, WalletSeed};
-pub use grin_core::core::hash::Hash;
-pub use grin_core::core::{Output, Transaction, TxKernel};
-pub use grin_keychain::{ChildNumber, ExtKeychain, Identifier, Keychain};
-pub use grin_util::secp::key::{PublicKey, SecretKey};
-
-pub use crate::common::{Arc, Mutex, MutexGuard, Result};
 
 pub use self::acct_path_mapping::AcctPathMapping;
 pub use self::args::*;
@@ -48,3 +54,9 @@ pub use self::wallet_backend::WalletBackend;
 pub use self::wallet_backend_batch::WalletBackendBatch;
 pub use self::wallet_info::WalletInfo;
 pub use self::wallet_inst::WalletInst;
+pub use super::seed::{EncryptedWalletSeed, WalletSeed};
+pub use crate::common::{Arc, Mutex, MutexGuard, Result};
+pub use grin_core::core::hash::Hash;
+pub use grin_core::core::{Output, Transaction, TxKernel};
+pub use grin_keychain::{ChildNumber, ExtKeychain, Identifier, Keychain};
+pub use grin_util::secp::key::{PublicKey, SecretKey};
