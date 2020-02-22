@@ -41,6 +41,7 @@ use grin_keychain::BlindingFactor;
 use grin_util::secp::key::PublicKey;
 use grin_util::secp::pedersen::{Commitment, RangeProof};
 use grin_util::secp::Signature;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

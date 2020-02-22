@@ -19,13 +19,13 @@ use crate::wallet::api::types::VersionInfo;
 use crate::wallet::api::Foreign;
 use crate::wallet::types::{BlockFees, CbData, NodeClient, Slate, VersionedSlate, WalletBackend};
 use crate::wallet::ErrorKind;
-use easy_jsonrpc;
+use easy_jsonrpc_mw;
 
 /// Public definition used to generate Foreign jsonrpc api.
 /// * When running with defaults, the V2 api is available at
 /// `localhost:3415/v2/foreign`
 /// * The endpoint only supports POST operations, with the json-rpc request as the body
-#[easy_jsonrpc::rpc]
+#[easy_jsonrpc_mw::rpc]
 pub trait ForeignRpc {
 	fn check_version(&self) -> Result<VersionInfo, ErrorKind>;
 	fn build_coinbase(&self, block_fees: &BlockFees) -> Result<CbData, ErrorKind>;

@@ -17,6 +17,7 @@ use crate::contacts::{Contact, GrinboxAddress};
 use crate::wallet::types::{
 	AcctPathMapping, OutputCommitMapping, OutputStatus, TxLogEntry, WalletInfo,
 };
+use clap::crate_version;
 use colored::Colorize;
 use failure::Error;
 use grin_core::core::amount_to_hr_string;
@@ -24,6 +25,7 @@ use grin_core::global::{coinbase_maturity, is_mainnet};
 use grin_util::secp::pedersen::Commitment;
 use grin_util::{to_hex, ZeroingString};
 use prettytable::format::consts::{FORMAT_NO_BORDER_LINE_SEPARATOR, FORMAT_NO_COLSEP};
+use prettytable::{cell, row, table};
 use rpassword::prompt_password_stdout;
 use std::collections::HashMap;
 use std::fmt::Display;

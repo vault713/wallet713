@@ -20,7 +20,6 @@ mod keybase;
 pub use self::grinbox::GrinboxAdapter;
 pub use self::http::HTTPAdapter;
 pub use self::keybase::KeybaseAdapter;
-
 use super::types::VersionedSlate;
 use failure::Error;
 

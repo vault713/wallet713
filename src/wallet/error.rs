@@ -19,6 +19,7 @@ use grin_core::core::{committed, transaction};
 use grin_core::libtx;
 use grin_keychain;
 use grin_util::secp;
+use serde::{Deserialize, Serialize};
 
 /// Wallet errors, mostly wrappers around underlying crypto or I/O errors.
 #[derive(Clone, Eq, PartialEq, Debug, Fail, Serialize, Deserialize)]

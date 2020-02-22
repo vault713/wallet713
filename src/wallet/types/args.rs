@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use crate::common::ser;
+use serde::{Deserialize, Serialize};
 
 /// V2 Init / Send TX API Args
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -15,6 +15,9 @@
 //! Functions for building partial transactions to be passed
 //! around during an interactive wallet exchange
 
+use super::versions::v2::*;
+use super::versions::{CURRENT_SLATE_VERSION, GRIN_BLOCK_HEADER_VERSION};
+use crate::wallet::ErrorKind;
 use blake2_rfc::blake2b::blake2b;
 use failure::Error;
 use grin_core::core::amount_to_hr_string;
@@ -26,19 +29,17 @@ use grin_core::core::transaction::{
 use grin_core::core::verifier_cache::LruVerifierCache;
 use grin_core::libtx::proof::ProofBuild;
 use grin_core::libtx::{aggsig, build, secp_ser, tx_fee};
+use grin_core::map_vec;
 use grin_keychain::{BlindSum, BlindingFactor, Keychain};
 use grin_util::secp::key::{PublicKey, SecretKey};
 use grin_util::secp::pedersen::Commitment;
 use grin_util::secp::{self, Signature};
 use grin_util::RwLock;
+use log::{debug, error, info};
 use rand::thread_rng;
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer};
 use std::sync::Arc;
 use uuid::Uuid;
-
-use super::versions::v2::*;
-use super::versions::{CURRENT_SLATE_VERSION, GRIN_BLOCK_HEADER_VERSION};
-use crate::wallet::ErrorKind;
 
 /// Public data for each participant in the slate
 #[derive(Serialize, Deserialize, Debug, Clone)]

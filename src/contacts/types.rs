@@ -1,13 +1,26 @@
-use regex::Regex;
-use std::fmt::{self, Debug, Display};
-use url::Url;
-
-use grin_core::global::is_mainnet;
+// Copyright 2019 The vault713 Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use crate::common::crypto::{
 	Base58, PublicKey, GRINBOX_ADDRESS_VERSION_MAINNET, GRINBOX_ADDRESS_VERSION_TESTNET,
 };
 use crate::common::{ErrorKind, Result};
+use grin_core::global::is_mainnet;
+use regex::Regex;
+use serde::{Deserialize, Serialize};
+use std::fmt::{self, Debug, Display};
+use url::Url;
 
 const ADDRESS_REGEX: &str = r"^((?P<address_type>keybase|grinbox|http|https)://).+$";
 const GRINBOX_ADDRESS_REGEX: &str = r"^(grinbox://)?(?P<public_key>[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{52})(@(?P<domain>[a-zA-Z0-9\.]+)(:(?P<port>[0-9]*))?)?$";
@@ -33,7 +46,7 @@ pub trait Address: Debug + Display {
 	fn stripped(&self) -> String;
 }
 
-pub fn parse_address(address: &str) -> Result<Box<Address>> {
+pub fn parse_address(address: &str) -> Result<Box<dyn Address>> {
 	let re = Regex::new(ADDRESS_REGEX)?;
 	let captures = re.captures(address);
 	if captures.is_none() {
@@ -44,7 +57,7 @@ pub fn parse_address(address: &str) -> Result<Box<Address>> {
 
 	let captures = captures.unwrap();
 	let address_type = captures.name("address_type").unwrap().as_str().to_string();
-	let address: Box<Address> = match address_type.as_ref() {
+	let address: Box<dyn Address> = match address_type.as_ref() {
 		"keybase" => Box::new(KeybaseAddress::from_str(address)?),
 		"grinbox" => Box::new(GrinboxAddress::from_str(address)?),
 		"http" | "https" => Box::new(HttpAddress::from_str(address)?),
@@ -55,8 +68,8 @@ pub fn parse_address(address: &str) -> Result<Box<Address>> {
 
 pub trait AddressBookBackend {
 	fn get_contact(&self, name: &[u8]) -> Result<Option<Contact>>;
-	fn contacts(&self) -> Box<Iterator<Item = Contact>>;
-	fn batch<'a>(&'a self) -> Result<Box<AddressBookBatch + 'a>>;
+	fn contacts(&self) -> Box<dyn Iterator<Item = Contact>>;
+	fn batch<'a>(&'a self) -> Result<Box<dyn AddressBookBatch + 'a>>;
 }
 
 pub trait AddressBookBatch {
@@ -66,11 +79,11 @@ pub trait AddressBookBatch {
 }
 
 pub struct AddressBook {
-	backend: Box<AddressBookBackend + Send>,
+	backend: Box<dyn AddressBookBackend + Send>,
 }
 
 impl AddressBook {
-	pub fn new(backend: Box<AddressBookBackend + Send>) -> Result<Self> {
+	pub fn new(backend: Box<dyn AddressBookBackend + Send>) -> Result<Self> {
 		let address_book = Self { backend };
 		Ok(address_book)
 	}
@@ -106,7 +119,7 @@ impl AddressBook {
 		Ok(None)
 	}
 
-	pub fn contacts(&self) -> Box<Iterator<Item = Contact>> {
+	pub fn contacts(&self) -> Box<dyn Iterator<Item = Contact>> {
 		self.backend.contacts()
 	}
 }
@@ -118,7 +131,7 @@ pub struct Contact {
 }
 
 impl Contact {
-	pub fn new(name: &str, address: Box<Address>) -> Result<Self> {
+	pub fn new(name: &str, address: Box<dyn Address>) -> Result<Self> {
 		Ok(Self {
 			name: name.to_string(),
 			address: address.to_string(),

@@ -21,14 +21,14 @@ use crate::wallet::types::{
 	Slate, Transaction, TxLogEntry, WalletBackend, WalletInfo,
 };
 use crate::wallet::ErrorKind;
-use easy_jsonrpc;
+use easy_jsonrpc_mw;
 use uuid::Uuid;
 
 /// Public definition used to generate Owner jsonrpc api.
 /// * When running with defaults, the V2 api is available at
 /// `localhost:3420/v2/owner`
 /// * The endpoint only supports POST operations, with the json-rpc request as the body
-#[easy_jsonrpc::rpc]
+#[easy_jsonrpc_mw::rpc]
 pub trait OwnerRpc {
 	fn accounts(&self) -> Result<Vec<AcctPathMapping>, ErrorKind>;
 	fn create_account_path(&self, label: &String) -> Result<Identifier, ErrorKind>;

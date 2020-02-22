@@ -1,6 +1,6 @@
 [package]
 name = "wallet713"
-version = "2.0.0"
+version = "3.0.0-beta.1"
 authors = ["vault713 devs"]
 description = "A wallet that makes it easy to send, store, and swap Grin."
 keywords = [ "grin", "mimblewimble", "rust", "crypto", "cryptocurrency" ]
@@ -9,8 +9,7 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-serde = "1.0"
-serde_derive = "1.0"
+serde = {version = "1.0", features = ["derive"]}
 serde_json = "1.0"
 toml = "0.4"
 clap = {version = "2", features = ["yaml"]}
@@ -48,7 +47,7 @@ rpassword = "2.1.0"
 url = "1.7"
 parking_lot = "0.6"
 semver = "0.9.0"
-easy-jsonrpc = "0.5.2"
+easy-jsonrpc-mw = "0.5.3"
 dont_disappear = "3.0.0"
 
 grin_api = "2.0.0"

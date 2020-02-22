@@ -1,18 +1,16 @@
-use blake2_rfc::blake2b::Blake2b;
-use chrono::Utc;
-use failure::ResultExt;
-use std::cell::RefCell;
-use std::fs::{self, File};
-use std::io::{Read, Write};
-use std::ops::Deref;
-use std::path::Path;
-
-use grin_core::{global, ser};
-use grin_keychain::SwitchCommitmentType;
-use grin_store::Store;
-use grin_store::{self, option_to_not_found, to_key, to_key_u64};
-use grin_util::secp::constants::SECRET_KEY_SIZE;
-use grin_util::{from_hex, to_hex, ZeroingString};
+// Copyright 2018 The Grin Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use super::types::{
 	AcctPathMapping, ChildNumber, Context, Identifier, NodeClient, OutputData, Result, Transaction,
@@ -21,6 +19,20 @@ use super::types::{
 use crate::common::config::WalletConfig;
 use crate::common::{ErrorKind, Keychain};
 use crate::internal::restore;
+use blake2_rfc::blake2b::Blake2b;
+use chrono::Utc;
+use failure::ResultExt;
+use grin_core::{global, ser};
+use grin_keychain::SwitchCommitmentType;
+use grin_store::Store;
+use grin_store::{self, option_to_not_found, to_key, to_key_u64};
+use grin_util::secp::constants::SECRET_KEY_SIZE;
+use grin_util::{from_hex, to_hex, ZeroingString};
+use std::cell::RefCell;
+use std::fs::{self, File};
+use std::io::{Read, Write};
+use std::ops::Deref;
+use std::path::Path;
 
 pub const DB_DIR: &'static str = "db";
 pub const TX_SAVE_DIR: &'static str = "saved_txs";
@@ -518,7 +530,7 @@ where
 			.join(filename);
 		let path_buf = Path::new(&path).to_path_buf();
 		let mut stored_tx = File::create(path_buf)?;
-		let tx_hex = to_hex(ser::ser_vec(tx).unwrap());;
+		let tx_hex = to_hex(ser::ser_vec(tx).unwrap());
 		stored_tx.write_all(&tx_hex.as_bytes())?;
 		stored_tx.sync_all()?;
 		Ok(())

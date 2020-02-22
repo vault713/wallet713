@@ -1,3 +1,17 @@
+// Copyright 2019 The vault713 Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use crate::cli_message;
 use crate::common::{Arc, Error, Keychain, Mutex};
 use crate::contacts::{Address, AddressType, GrinboxAddress};
@@ -13,7 +27,7 @@ pub enum CloseReason {
 }
 
 pub trait Publisher: Send {
-	fn post_slate(&self, slate: &VersionedSlate, to: &Address) -> Result<(), Error>;
+	fn post_slate(&self, slate: &VersionedSlate, to: &dyn Address) -> Result<(), Error>;
 }
 
 pub trait Subscriber {
@@ -29,7 +43,7 @@ pub trait Subscriber {
 
 pub trait SubscriptionHandler: Send {
 	fn on_open(&self);
-	fn on_slate(&self, from: &Address, slate: &VersionedSlate, proof: Option<&mut TxProof>);
+	fn on_slate(&self, from: &dyn Address, slate: &VersionedSlate, proof: Option<&mut TxProof>);
 	fn on_close(&self, result: CloseReason);
 	fn on_dropped(&self);
 	fn on_reestablished(&self);
@@ -99,7 +113,7 @@ where
 		//        cli_message!("Listener for {} started", self.name.bright_green());
 	}
 
-	fn on_slate(&self, from: &Address, slate: &VersionedSlate, tx_proof: Option<&mut TxProof>) {
+	fn on_slate(&self, from: &dyn Address, slate: &VersionedSlate, tx_proof: Option<&mut TxProof>) {
 		let version = slate.version();
 		let mut slate: Slate = slate.clone().into();
 

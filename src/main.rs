@@ -1,58 +1,16 @@
-#[macro_use]
-extern crate serde_derive;
-#[macro_use]
-extern crate prettytable;
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate serde_json;
-#[macro_use]
-extern crate gotham_derive;
-#[macro_use]
-extern crate clap;
-extern crate ansi_term;
-extern crate blake2_rfc;
-extern crate chrono;
-extern crate colored;
-extern crate digest;
-extern crate dirs;
-extern crate dont_disappear;
-extern crate easy_jsonrpc;
-extern crate env_logger;
-extern crate failure;
-extern crate futures;
-extern crate gotham;
-extern crate hmac;
-extern crate http;
-extern crate hyper;
-extern crate hyper_rustls;
-extern crate mime;
-extern crate parking_lot;
-extern crate rand;
-extern crate regex;
-extern crate ring;
-extern crate ripemd160;
-extern crate rpassword;
-extern crate rustyline;
-extern crate semver;
-extern crate serde;
-extern crate sha2;
-extern crate term;
-extern crate tokio;
-extern crate url;
-extern crate uuid;
-extern crate ws;
-
-extern crate grin_api;
-#[macro_use]
-extern crate grin_core;
-extern crate grin_keychain;
-extern crate grin_store;
-extern crate grin_util;
-
-use clap::{App, Arg, ArgMatches};
-use colored::*;
-use grin_core::global::{set_mining_mode, ChainTypes};
+// Copyright 2019 The vault713 Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 mod api;
 mod broker;
@@ -63,10 +21,13 @@ mod controller;
 mod internal;
 mod wallet;
 
+use clap::{crate_version, App, Arg, ArgMatches};
+use colored::*;
 use common::config::Wallet713Config;
 use common::{ErrorKind, Result, RuntimeMode};
 use contacts::{AddressBook, Backend};
 use controller::cli::CLI;
+use grin_core::global::{set_mining_mode, ChainTypes};
 use wallet::create_container;
 
 fn do_config(

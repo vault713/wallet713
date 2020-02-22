@@ -13,15 +13,16 @@
 // limitations under the License.
 
 /// HTTP Wallet 'plugin' implementation
-use failure::Error;
-use grin_api::client;
-use grin_api::Error as APIError;
-use serde::Serialize;
-use serde_json::Value;
-
 use super::Adapter;
 use crate::wallet::types::VersionedSlate;
 use crate::wallet::ErrorKind;
+use failure::Error;
+use grin_api::client;
+use grin_api::Error as APIError;
+use log::*;
+use serde::Serialize;
+use serde_json::json;
+use serde_json::Value;
 
 #[derive(Clone)]
 pub struct HTTPAdapter {}

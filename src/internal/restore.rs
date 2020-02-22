@@ -26,6 +26,7 @@ use grin_core::global::coinbase_maturity;
 use grin_core::libtx::proof;
 use grin_keychain::{Identifier, Keychain, SwitchCommitmentType};
 use grin_util::secp::pedersen::{Commitment, RangeProof};
+use log::*;
 use std::collections::HashMap;
 use std::time::Instant;
 
