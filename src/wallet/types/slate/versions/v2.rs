@@ -35,7 +35,8 @@
 //!    orig_verion: u16,
 //!    block_header_version: u16
 
-use grin_core::core::transaction::{KernelFeatures, OutputFeatures};
+use super::CompatKernelFeatures;
+use grin_core::core::transaction::OutputFeatures;
 use grin_core::libtx::secp_ser;
 use grin_keychain::BlindingFactor;
 use grin_util::secp::key::PublicKey;
@@ -162,7 +163,7 @@ pub struct OutputV2 {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TxKernelV2 {
 	/// Options for a kernel's structure or use
-	pub features: KernelFeatures,
+	pub features: CompatKernelFeatures,
 	/// Fee originally included in the transaction this proof is for.
 	#[serde(with = "secp_ser::string_or_u64")]
 	pub fee: u64,

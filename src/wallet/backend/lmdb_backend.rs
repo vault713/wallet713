@@ -308,7 +308,7 @@ where
 			Some(i) => to_key_u64(OUTPUT_PREFIX, &mut id.to_bytes().to_vec(), *i),
 			None => to_key(OUTPUT_PREFIX, &mut id.to_bytes().to_vec()),
 		};
-		option_to_not_found(self.db()?.get_ser(&key), &format!("Key Id: {}", id))
+		option_to_not_found(self.db()?.get_ser(&key), || format!("Key Id: {}", id))
 			.map_err(|e| e.into())
 	}
 
@@ -340,10 +340,9 @@ where
 		);
 		let (blind_xor_key, nonce_xor_key) = private_ctx_xor_keys(self.keychain(), slate_id)?;
 
-		let mut ctx: Context = option_to_not_found(
-			self.db()?.get_ser(&ctx_key),
-			&format!("Slate id: {:x?}", slate_id.to_vec()),
-		)?;
+		let mut ctx: Context = option_to_not_found(self.db()?.get_ser(&ctx_key), || {
+			format!("Slate id: {:x?}", slate_id.to_vec())
+		})?;
 
 		for i in 0..SECRET_KEY_SIZE {
 			ctx.sec_key.0[i] = ctx.sec_key.0[i] ^ blind_xor_key[i];
@@ -382,7 +381,7 @@ where
 		tx_f.read_to_string(&mut content)?;
 		let tx_bin = from_hex(content).unwrap();
 		Ok(Some(
-			ser::deserialize::<Transaction>(&mut &tx_bin[..]).unwrap(),
+			ser::deserialize::<Transaction>(&mut &tx_bin[..], ser::ProtocolVersion(1)).unwrap(),
 		))
 	}
 
@@ -530,7 +529,7 @@ where
 			.join(filename);
 		let path_buf = Path::new(&path).to_path_buf();
 		let mut stored_tx = File::create(path_buf)?;
-		let tx_hex = to_hex(ser::ser_vec(tx).unwrap());
+		let tx_hex = to_hex(ser::ser_vec(tx, ser::ProtocolVersion(1)).unwrap());
 		stored_tx.write_all(&tx_hex.as_bytes())?;
 		stored_tx.sync_all()?;
 		Ok(())

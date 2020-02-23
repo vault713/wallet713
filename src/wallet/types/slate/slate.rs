@@ -16,15 +16,14 @@
 //! around during an interactive wallet exchange
 
 use super::versions::v2::*;
-use super::versions::{CURRENT_SLATE_VERSION, GRIN_BLOCK_HEADER_VERSION};
+use super::versions::{CompatKernelFeatures, CURRENT_SLATE_VERSION, GRIN_BLOCK_HEADER_VERSION};
 use crate::wallet::ErrorKind;
 use blake2_rfc::blake2b::blake2b;
 use failure::Error;
 use grin_core::core::amount_to_hr_string;
 use grin_core::core::committed::Committed;
 use grin_core::core::transaction::{
-	kernel_features, kernel_sig_msg, Input, Output, Transaction, TransactionBody, TxKernel,
-	Weighting,
+	Input, KernelFeatures, Output, Transaction, TransactionBody, TxKernel, Weighting,
 };
 use grin_core::core::verifier_cache::LruVerifierCache;
 use grin_core::libtx::proof::ProofBuild;
@@ -186,17 +185,18 @@ impl Slate {
 		&mut self,
 		keychain: &K,
 		builder: &B,
-		mut elems: Vec<Box<build::Append<K, B>>>,
+		elems: Vec<Box<build::Append<K, B>>>,
 	) -> Result<BlindingFactor, Error>
 	where
 		K: Keychain,
 		B: ProofBuild,
 	{
-		// Append to the exiting transaction
-		if self.tx.kernels().len() != 0 {
-			elems.insert(0, build::initial_tx(self.tx.clone()));
-		}
-		let (tx, blind) = build::partial_transaction(elems, keychain, builder)?;
+		let tx = self
+			.tx
+			.clone()
+			.replace_kernel(TxKernel::with_features(self.kernel_features()));
+
+		let (tx, blind) = build::partial_transaction(tx, elems, keychain, builder)?;
 		self.tx = tx;
 		Ok(blind)
 	}
@@ -229,12 +229,20 @@ impl Slate {
 		Ok(())
 	}
 
+	fn kernel_features(&self) -> KernelFeatures {
+		match self.lock_height {
+			0 => KernelFeatures::Plain { fee: self.fee },
+			_ => KernelFeatures::HeightLocked {
+				fee: self.fee,
+				lock_height: self.lock_height,
+			},
+		}
+	}
+
 	// This is the msg that we will sign as part of the tx kernel.
 	// Currently includes the fee and the lock_height.
 	fn msg_to_sign(&self) -> Result<secp::Message, Error> {
-		// Currently we only support interactively creating a tx with a "default" kernel.
-		let features = kernel_features(self.lock_height);
-		let msg = kernel_sig_msg(self.fee, self.lock_height, features)?;
+		let msg = self.kernel_features().kernel_sig_msg()?;
 		Ok(msg)
 	}
 
@@ -777,11 +785,16 @@ impl From<&TxKernel> for TxKernelV2 {
 	fn from(kernel: &TxKernel) -> TxKernelV2 {
 		let TxKernel {
 			features,
-			fee,
-			lock_height,
 			excess,
 			excess_sig,
 		} = *kernel;
+		let (features, fee, lock_height) = match features {
+			KernelFeatures::Plain { fee } => (CompatKernelFeatures::Plain, fee, 0),
+			KernelFeatures::Coinbase => (CompatKernelFeatures::Coinbase, 0, 0),
+			KernelFeatures::HeightLocked { fee, lock_height } => {
+				(CompatKernelFeatures::HeightLocked, fee, lock_height)
+			}
+		};
 		TxKernelV2 {
 			features,
 			fee,
@@ -972,10 +985,13 @@ impl From<&TxKernelV2> for TxKernel {
 			excess,
 			excess_sig,
 		} = *kernel;
+		let features = match features {
+			CompatKernelFeatures::Plain => KernelFeatures::Plain { fee },
+			CompatKernelFeatures::Coinbase => KernelFeatures::Coinbase,
+			CompatKernelFeatures::HeightLocked => KernelFeatures::HeightLocked { fee, lock_height },
+		};
 		TxKernel {
 			features,
-			fee,
-			lock_height,
 			excess,
 			excess_sig,
 		}

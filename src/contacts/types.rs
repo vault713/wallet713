@@ -16,7 +16,7 @@ use crate::common::crypto::{
 	Base58, PublicKey, GRINBOX_ADDRESS_VERSION_MAINNET, GRINBOX_ADDRESS_VERSION_TESTNET,
 };
 use crate::common::{ErrorKind, Result};
-use grin_core::global::is_mainnet;
+use grin_core::global::is_floonet;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display};
@@ -186,10 +186,10 @@ impl Display for KeybaseAddress {
 }
 
 pub fn version_bytes() -> Vec<u8> {
-	if is_mainnet() {
-		GRINBOX_ADDRESS_VERSION_MAINNET.to_vec()
-	} else {
+	if is_floonet() {
 		GRINBOX_ADDRESS_VERSION_TESTNET.to_vec()
+	} else {
+		GRINBOX_ADDRESS_VERSION_MAINNET.to_vec()
 	}
 }
 
