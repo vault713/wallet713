@@ -90,3 +90,10 @@ impl From<&VersionedSlate> for Slate {
 		}
 	}
 }
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum CompatKernelFeatures {
+	Plain,
+	Coinbase,
+	HeightLocked,
+}

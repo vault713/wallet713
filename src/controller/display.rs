@@ -21,7 +21,7 @@ use clap::crate_version;
 use colored::Colorize;
 use failure::Error;
 use grin_core::core::amount_to_hr_string;
-use grin_core::global::{coinbase_maturity, is_mainnet};
+use grin_core::global::{coinbase_maturity, is_floonet};
 use grin_util::secp::pedersen::Commitment;
 use grin_util::{to_hex, ZeroingString};
 use prettytable::format::consts::{FORMAT_NO_BORDER_LINE_SEPARATOR, FORMAT_NO_COLSEP};
@@ -499,10 +499,7 @@ pub fn proof(
 	println!("   {}", excess.bright_magenta());
 	println!("\n{}: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations", "WARNING".bright_yellow());
 	println!("Please use a grin block explorer to verify this is the case. for example:");
-	let prefix = match is_mainnet() {
-		true => "",
-		false => "floonet.",
-	};
+	let prefix = if is_floonet() { "floonet." } else { "" };
 	cli_message!("   https://{}grinscan.net/kernel/{}", prefix, excess);
 }
 
