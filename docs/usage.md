@@ -36,7 +36,6 @@ While running, wallet713 works with an internal command prompt. You type command
     + [Owner API](#owner-api)
   * [Recovering your wallet](#recovering-your-wallet)
     + [Recovering a wallet from seed file](#recovering-a-wallet-from-seed-file)
-    + [Recovering a wallet using your mnemonic BIP-39 phrase](#recovering-a-wallet-using-your-mnemonic-bip-39-phrase)
     + [Displaying existing BIP-39 mnemonic](#displaying-existing-bip-39-mnemonic)
   * [Supported address formats](#supported-address-formats)
     + [Grinbox](#grinbox)
@@ -355,16 +354,9 @@ keybase_listener_auto_start = true
 ```
 wallet713> $ restore
 ```
+This will prompt for your mnemonic and allows you to set an optional password (BIP-39 phrase).
 
 Note that this command will scan the chain for your UTXO's so it might take a few minutes to complete.
-
-### Recovering a wallet using your mnemonic BIP-39 phrase
-```
-wallet713> $ seed recover
-```
-This will prompt for your mnemonic and allows you to set an optional password.
-
-Note that this command will scan the chain for your UTXO's so it might take a few minutes to complete. 
 
 ### Displaying existing BIP-39 mnemonic
 ```
