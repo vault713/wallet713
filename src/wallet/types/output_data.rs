@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::{Identifier, OutputStatus};
-use grin_core::ser;
+use epic_core::ser;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]

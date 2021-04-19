@@ -15,8 +15,8 @@
 use super::ErrorKind;
 use crate::common::config::WalletConfig;
 use failure::{Error, ResultExt};
-use grin_keychain::{mnemonic, Keychain};
-use grin_util::{from_hex, to_hex, ZeroingString};
+use epic_keychain::{mnemonic, Keychain};
+use epic_util::{from_hex, to_hex, ZeroingString};
 use log::{debug, error, warn};
 use rand::{thread_rng, Rng};
 use ring::{aead, digest, pbkdf2};

@@ -18,9 +18,9 @@ use crate::common::crypto::Hex;
 use crate::common::message::EncryptedMessage;
 use crate::contacts::{Address, GrinboxAddress};
 use failure::Fail;
-use grin_util::secp::key::SecretKey;
-use grin_util::secp::pedersen::Commitment;
-use grin_util::secp::Signature;
+use epic_util::secp::key::SecretKey;
+use epic_util::secp::pedersen::Commitment;
+use epic_util::secp::Signature;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Fail)]

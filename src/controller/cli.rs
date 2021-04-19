@@ -26,7 +26,7 @@ use crate::wallet::Container;
 use clap::{crate_version, load_yaml, App, ArgMatches};
 use colored::Colorize;
 use failure::Error;
-use grin_core::core::amount_to_hr_string;
+use epic_core::core::amount_to_hr_string;
 use rustyline::completion::{Completer, FilenameCompleter, Pair};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};

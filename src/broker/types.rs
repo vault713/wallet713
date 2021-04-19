@@ -177,8 +177,8 @@ where
 			CloseReason::Normal => {
 				//println!("Listener for {} stopped", self.name.bright_green())
 			}
-			CloseReason::Abnormal(_) => {
-				cli_message!("Listener {} stopped unexpectedly", self.name.bright_green())
+			CloseReason::Abnormal(error) => {
+				cli_message!("Listener {} stopped unexpectedly {:?}", self.name.bright_green(), error)
 			}
 		}
 	}

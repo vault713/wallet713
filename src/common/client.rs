@@ -17,7 +17,7 @@
 use clap::crate_version;
 use failure::{Backtrace, Context, Fail, ResultExt};
 use futures::future::{err, ok, Either};
-use grin_util::to_base64;
+use epic_util::to_base64;
 use http::uri::{InvalidUri, Uri};
 use hyper::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use hyper::rt::{Future, Stream};
@@ -125,7 +125,7 @@ fn build_request(
 	})?;
 	let mut builder = Request::builder();
 	if let Some(api_secret) = api_secret {
-		let basic_auth = format!("Basic {}", to_base64(&format!("grin:{}", api_secret)));
+		let basic_auth = format!("Basic {}", to_base64(&format!("epic:{}", api_secret)));
 		builder.header(AUTHORIZATION, basic_auth);
 	}
 

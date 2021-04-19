@@ -15,10 +15,10 @@
 //! Error types for libwallet
 
 use failure::Fail;
-use grin_core::core::{committed, transaction};
-use grin_core::libtx;
-use grin_keychain;
-use grin_util::secp;
+use epic_core::core::{committed, transaction};
+use epic_core::libtx;
+use epic_keychain;
+use epic_util::secp;
 use serde::{Deserialize, Serialize};
 
 /// Wallet errors, mostly wrappers around underlying crypto or I/O errors.
@@ -50,7 +50,7 @@ pub enum ErrorKind {
 
 	/// Keychain error
 	#[fail(display = "Keychain error")]
-	Keychain(grin_keychain::Error),
+	Keychain(epic_keychain::Error),
 
 	/// Transaction Error
 	#[fail(display = "Transaction error")]
@@ -90,7 +90,7 @@ pub enum ErrorKind {
 
 	/// Other serialization errors
 	#[fail(display = "Ser/Deserialization error")]
-	Deser(grin_core::ser::Error),
+	Deser(epic_core::ser::Error),
 
 	/// IO Error
 	#[fail(display = "I/O error")]

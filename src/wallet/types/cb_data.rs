@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use grin_core::core::{Output, TxKernel};
-use grin_keychain::Identifier;
+use epic_core::core::{Output, TxKernel};
+use epic_keychain::Identifier;
 use serde::{Deserialize, Serialize};
 
 /// Response to build a coinbase output.

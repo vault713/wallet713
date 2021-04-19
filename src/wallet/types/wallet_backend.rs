@@ -16,7 +16,7 @@ use super::{
 	AcctPathMapping, Context, Identifier, Keychain, NodeClient, OutputData, Result, Transaction,
 	TxLogEntry, TxProof, WalletBackendBatch,
 };
-use grin_util::ZeroingString;
+use epic_util::ZeroingString;
 
 pub trait WalletBackend<C, K>: Send + 'static
 where

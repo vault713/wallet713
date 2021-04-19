@@ -14,10 +14,10 @@
 
 use super::types::{parse_address, AddressBookBackend, AddressBookBatch, Contact};
 use crate::common::Error;
-use grin_core::ser::Error as CoreError;
-use grin_core::ser::{Readable, Reader, Writeable, Writer};
-use grin_store::Store;
-use grin_store::{self, to_key};
+use epic_core::ser::Error as CoreError;
+use epic_core::ser::{Readable, Reader, Writeable, Writer};
+use epic_store::Store;
+use epic_store::{self, to_key};
 use serde_json::json;
 use std::cell::RefCell;
 use std::fs::create_dir_all;
@@ -65,7 +65,7 @@ impl AddressBookBackend for Backend {
 
 pub struct Batch<'a> {
 	_store: &'a Backend,
-	db: RefCell<Option<grin_store::Batch<'a>>>,
+	db: RefCell<Option<epic_store::Batch<'a>>>,
 }
 
 impl<'a> AddressBookBatch for Batch<'a> {

@@ -20,7 +20,7 @@ use crate::contacts::AddressBook;
 use crate::wallet::backend::Backend;
 use crate::wallet::types::{HTTPNodeClient, NodeClient, WalletBackend};
 use failure::Error;
-use grin_keychain::ExtKeychain;
+use epic_keychain::ExtKeychain;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 

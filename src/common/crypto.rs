@@ -14,9 +14,9 @@
 
 use super::base58::{FromBase58, ToBase58};
 use super::{ErrorKind, Result};
-pub use grin_util::secp::key::{PublicKey, SecretKey};
-use grin_util::secp::pedersen::Commitment;
-pub use grin_util::secp::{Message, Secp256k1, Signature};
+pub use epic_util::secp::key::{PublicKey, SecretKey};
+use epic_util::secp::pedersen::Commitment;
+pub use epic_util::secp::{Message, Secp256k1, Signature};
 use sha2::{Digest, Sha256};
 use std::fmt::Write;
 

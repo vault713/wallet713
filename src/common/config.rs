@@ -15,8 +15,8 @@
 use super::is_cli;
 use super::Result;
 use crate::contacts::DEFAULT_GRINBOX_PORT;
-use grin_core::global::ChainTypes;
-use grin_util::logger::LoggingConfig;
+use epic_core::global::ChainTypes;
+use epic_util::logger::LoggingConfig;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fs::File;

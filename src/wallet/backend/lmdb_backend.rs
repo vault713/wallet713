@@ -22,12 +22,12 @@ use crate::internal::restore;
 use blake2_rfc::blake2b::Blake2b;
 use chrono::Utc;
 use failure::ResultExt;
-use grin_core::{global, ser};
-use grin_keychain::SwitchCommitmentType;
-use grin_store::Store;
-use grin_store::{self, option_to_not_found, to_key, to_key_u64};
-use grin_util::secp::constants::SECRET_KEY_SIZE;
-use grin_util::{from_hex, to_hex, ZeroingString};
+use epic_core::{global, ser};
+use epic_keychain::SwitchCommitmentType;
+use epic_store::Store;
+use epic_store::{self, option_to_not_found, to_key, to_key_u64};
+use epic_util::secp::constants::SECRET_KEY_SIZE;
+use epic_util::{from_hex, to_hex, ZeroingString};
 use std::cell::RefCell;
 use std::fs::{self, File};
 use std::io::{Read, Write};
@@ -463,7 +463,7 @@ where
 		if self.config.no_commit_cache == Some(true) {
 			Ok(None)
 		} else {
-			Ok(Some(grin_util::to_hex(
+			Ok(Some(epic_util::to_hex(
 				self.keychain()
 					.commit(amount, id, &SwitchCommitmentType::Regular)?
 					.0
@@ -481,7 +481,7 @@ where
 	K: Keychain,
 {
 	_store: &'a Backend<C, K>,
-	db: RefCell<Option<grin_store::Batch<'a>>>,
+	db: RefCell<Option<epic_store::Batch<'a>>>,
 	/// Keychain
 	keychain: Option<K>,
 }

@@ -3,7 +3,7 @@ name = "wallet713"
 version = "3.0.0-beta.1"
 authors = ["vault713 devs"]
 description = "A wallet that makes it easy to send, store, and swap Grin."
-keywords = [ "grin", "mimblewimble", "rust", "crypto", "cryptocurrency" ]
+keywords = [ "epic", "mimblewimble", "rust", "crypto", "cryptocurrency" ]
 license = "Apache-2.0"
 readme = "README.md"
 edition = "2018"
@@ -23,11 +23,14 @@ failure = "0.1"
 futures = "0.1"
 gotham = "0.3.0"
 gotham_derive = "0.3.0"
-grin_api = "3.0.0"
-grin_core = "3.0.0"
-grin_keychain = "3.0.0"
-grin_store = "3.0.0"
-grin_util = "3.0.0"
+epic_api      = { git = "https://github.com/EpicCash/epic", rev = "develop" }
+epic_core     = { git = "https://github.com/EpicCash/epic", rev = "develop" }
+epic_keychain = { git = "https://github.com/EpicCash/epic", rev = "develop" }
+epic_store    = { git = "https://github.com/EpicCash/epic", rev = "develop" }
+epic_util     = { git = "https://github.com/EpicCash/epic", rev = "develop" }
+epic_wallet_libwallet = { path="../epic-wallet/libwallet" , version = "3.0.0"}
+
+
 hmac = "0.6"
 http = "0.1.5"
 hyper = "0.12"
@@ -44,7 +47,7 @@ ring = "0.13"
 ripemd160 = "0.7"
 rpassword = "2.1.0"
 rustyline = "5.0"
-semver = "0.9.0"
+semver = { version = "0.9.0", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.7"

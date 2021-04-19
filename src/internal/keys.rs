@@ -15,7 +15,7 @@
 use crate::wallet::error::ErrorKind;
 use crate::wallet::types::{AcctPathMapping, NodeClient, WalletBackend};
 use failure::Error;
-use grin_keychain::{ChildNumber, Identifier, Keychain};
+use epic_keychain::{ChildNumber, Identifier, Keychain};
 
 /// Get next available key in the wallet for a given parent
 pub fn next_available_key<T: ?Sized, C, K>(wallet: &mut T) -> Result<Identifier, Error>

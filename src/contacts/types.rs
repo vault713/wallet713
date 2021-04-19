@@ -16,7 +16,7 @@ use crate::common::crypto::{
 	Base58, PublicKey, GRINBOX_ADDRESS_VERSION_MAINNET, GRINBOX_ADDRESS_VERSION_TESTNET,
 };
 use crate::common::{ErrorKind, Result};
-use grin_core::global::is_floonet;
+use epic_core::global::is_floonet;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display};

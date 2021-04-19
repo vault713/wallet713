@@ -20,10 +20,10 @@ use crate::wallet::types::{
 };
 use crate::wallet::ErrorKind;
 use failure::Error;
-use grin_keychain::{Identifier, Keychain};
-use grin_util::secp::key::PublicKey;
-use grin_util::secp::pedersen::Commitment;
-use grin_util::static_secp_instance;
+use epic_keychain::{Identifier, Keychain};
+use epic_util::secp::key::PublicKey;
+use epic_util::secp::pedersen::Commitment;
+use epic_util::static_secp_instance;
 use std::collections::HashSet;
 use uuid::Uuid;
 

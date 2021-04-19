@@ -13,10 +13,10 @@
 // limitations under the License.
 
 use super::{Identifier, SecretKey};
-use grin_core::libtx::aggsig;
-use grin_core::ser;
-use grin_util::secp;
-use grin_util::secp::pedersen::Commitment;
+use epic_core::libtx::aggsig;
+use epic_core::ser;
+use epic_util::secp;
+use epic_util::secp::pedersen::Commitment;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

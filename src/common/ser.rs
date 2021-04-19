@@ -14,11 +14,11 @@
 
 //! Sane serialization & deserialization of cryptographic structs into hex
 
-//use grin_keychain::BlindingFactor;
-//use grin_util::secp::key::PublicKey;
-//use grin_util::secp::pedersen::{Commitment, RangeProof};
-//use grin_util::secp::Signature;
-//use grin_util::{from_hex, static_secp_instance, to_hex};
+//use epic_keychain::BlindingFactor;
+//use epic_util::secp::key::PublicKey;
+//use epic_util::secp::pedersen::{Commitment, RangeProof};
+//use epic_util::secp::Signature;
+//use epic_util::{from_hex, static_secp_instance, to_hex};
 //use serde::{Deserialize, Deserializer, Serializer};
 
 /*/// Serializes a secp PublicKey to and from hex

@@ -15,7 +15,7 @@
 use clap::crate_version;
 use colored::Colorize;
 use failure::Error;
-use grin_api::client;
+use epic_api::client;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::io;

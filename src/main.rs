@@ -27,7 +27,7 @@ use common::config::Wallet713Config;
 use common::{ErrorKind, Result, RuntimeMode};
 use contacts::{AddressBook, Backend};
 use controller::cli::CLI;
-use grin_core::global::{set_mining_mode, ChainTypes};
+use epic_core::global::{set_mining_mode, ChainTypes};
 use wallet::create_container;
 
 fn do_config(

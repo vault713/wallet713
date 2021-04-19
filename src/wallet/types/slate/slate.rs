@@ -20,20 +20,20 @@ use super::versions::{CompatKernelFeatures, CURRENT_SLATE_VERSION, GRIN_BLOCK_HE
 use crate::wallet::ErrorKind;
 use blake2_rfc::blake2b::blake2b;
 use failure::Error;
-use grin_core::core::amount_to_hr_string;
-use grin_core::core::committed::Committed;
-use grin_core::core::transaction::{
+use epic_core::core::amount_to_hr_string;
+use epic_core::core::committed::Committed;
+use epic_core::core::transaction::{
 	Input, KernelFeatures, Output, Transaction, TransactionBody, TxKernel, Weighting,
 };
-use grin_core::core::verifier_cache::LruVerifierCache;
-use grin_core::libtx::proof::ProofBuild;
-use grin_core::libtx::{aggsig, build, secp_ser, tx_fee};
-use grin_core::map_vec;
-use grin_keychain::{BlindSum, BlindingFactor, Keychain};
-use grin_util::secp::key::{PublicKey, SecretKey};
-use grin_util::secp::pedersen::Commitment;
-use grin_util::secp::{self, Signature};
-use grin_util::RwLock;
+use epic_core::core::verifier_cache::LruVerifierCache;
+use epic_core::libtx::proof::ProofBuild;
+use epic_core::libtx::{aggsig, build, secp_ser, tx_fee};
+use epic_core::map_vec;
+use epic_keychain::{BlindSum, BlindingFactor, Keychain};
+use epic_util::secp::key::{PublicKey, SecretKey};
+use epic_util::secp::pedersen::Commitment;
+use epic_util::secp::{self, Signature};
+use epic_util::RwLock;
 use log::{debug, error, info};
 use rand::thread_rng;
 use serde::{Deserialize, Serialize, Serializer};

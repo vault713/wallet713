@@ -14,10 +14,10 @@
 
 use crate::common::Result;
 use digest::generic_array::GenericArray;
-use grin_core::global::is_floonet;
-use grin_keychain::extkey_bip32::{BIP32Hasher, ChildNumber, ExtendedPrivKey};
-use grin_keychain::{Keychain, SwitchCommitmentType};
-use grin_util::secp::key::SecretKey;
+use epic_core::global::is_floonet;
+use epic_keychain::extkey_bip32::{BIP32Hasher, ChildNumber, ExtendedPrivKey};
+use epic_keychain::{Keychain, SwitchCommitmentType};
+use epic_util::secp::key::SecretKey;
 use hmac::{Hmac, Mac};
 use ripemd160::Ripemd160;
 use sha2::{Digest, Sha256, Sha512};

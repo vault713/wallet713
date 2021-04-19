@@ -17,7 +17,7 @@ use gotham::handler::HandlerFuture;
 use gotham::helpers::http::response::create_empty_response;
 use gotham::middleware::{Middleware, NewMiddleware};
 use gotham::state::{FromState, State};
-use grin_util::to_base64;
+use epic_util::to_base64;
 use hyper::header::{HeaderMap, AUTHORIZATION};
 use hyper::StatusCode;
 use ring::constant_time::verify_slices_are_equal;
@@ -31,7 +31,7 @@ impl BasicAuthMiddleware {
 	pub fn new(api_basic_auth: Option<String>) -> Self {
 		Self {
 			api_basic_auth: api_basic_auth
-				.map(|x| String::from("Basic ") + &to_base64(&(String::from("grin:") + &x))),
+				.map(|x| String::from("Basic ") + &to_base64(&(String::from("epic:") + &x))),
 		}
 	}
 }

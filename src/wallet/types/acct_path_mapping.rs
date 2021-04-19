@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::Identifier;
-use grin_core::ser;
+use epic_core::ser;
 use serde::{Deserialize, Serialize};
 
 /// Map of named accounts to BIP32 paths

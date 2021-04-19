@@ -18,14 +18,14 @@ use crate::wallet::types::{
 	TxLogEntryType, WalletBackend, WalletInfo,
 };
 use failure::Error;
-use grin_core::consensus::reward;
-use grin_core::core::{Output, TxKernel};
-use grin_core::global::coinbase_maturity;
-use grin_core::libtx::proof::ProofBuilder;
-use grin_core::libtx::reward;
-use grin_keychain::{Identifier, Keychain, SwitchCommitmentType};
-use grin_util::from_hex;
-use grin_util::secp::pedersen::Commitment;
+use epic_core::consensus::reward;
+use epic_core::core::{Output, TxKernel};
+use epic_core::global::coinbase_maturity;
+use epic_core::libtx::proof::ProofBuilder;
+use epic_core::libtx::reward;
+use epic_keychain::{Identifier, Keychain, SwitchCommitmentType};
+use epic_util::from_hex;
+use epic_util::secp::pedersen::Commitment;
 use log::{debug, warn};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -488,7 +488,7 @@ where
 
 	{
 		// Now acquire the wallet lock and write the new output.
-		let amount = reward(block_fees.fees);
+		let amount = reward(block_fees.fees, block_fees.height);
 		let commit = wallet.calc_commit_for_cache(amount, &key_id)?;
 		let mut batch = wallet.batch()?;
 		batch.save_output(&OutputData {
@@ -525,6 +525,7 @@ where
 		&key_id,
 		block_fees.fees,
 		false,
+		block_fees.height,
 	)?;
 	Ok((out, kern, block_fees))
 }

@@ -20,12 +20,12 @@ use crate::wallet::types::{
 	WalletBackend,
 };
 use failure::Error;
-use grin_core::consensus::{valid_header_version, WEEK_HEIGHT};
-use grin_core::core::HeaderVersion;
-use grin_core::global::coinbase_maturity;
-use grin_core::libtx::proof;
-use grin_keychain::{Identifier, Keychain, SwitchCommitmentType};
-use grin_util::secp::pedersen::{Commitment, RangeProof};
+use epic_core::consensus::{valid_header_version, WEEK_HEIGHT};
+use epic_core::core::HeaderVersion;
+use epic_core::global::coinbase_maturity;
+use epic_core::libtx::proof;
+use epic_keychain::{Identifier, Keychain, SwitchCommitmentType};
+use epic_util::secp::pedersen::{Commitment, RangeProof};
 use log::*;
 use std::collections::HashMap;
 use std::time::Instant;

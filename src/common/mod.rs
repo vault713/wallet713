@@ -32,8 +32,8 @@ use std::result::Result as StdResult;
 pub use std::sync::Arc;
 
 pub type Result<T> = StdResult<T, Error>;
-pub trait Keychain: grin_keychain::Keychain + Clone + 'static {}
-impl Keychain for grin_keychain::ExtKeychain {}
+pub trait Keychain: epic_keychain::Keychain + Clone + 'static {}
+impl Keychain for epic_keychain::ExtKeychain {}
 
 #[derive(Clone, PartialEq)]
 pub enum RuntimeMode {

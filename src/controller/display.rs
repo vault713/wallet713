@@ -20,10 +20,10 @@ use crate::wallet::types::{
 use clap::crate_version;
 use colored::Colorize;
 use failure::Error;
-use grin_core::core::amount_to_hr_string;
-use grin_core::global::{coinbase_maturity, is_floonet};
-use grin_util::secp::pedersen::Commitment;
-use grin_util::{to_hex, ZeroingString};
+use epic_core::core::amount_to_hr_string;
+use epic_core::global::{coinbase_maturity, is_floonet};
+use epic_util::secp::pedersen::Commitment;
+use epic_util::{to_hex, ZeroingString};
 use prettytable::format::consts::{FORMAT_NO_BORDER_LINE_SEPARATOR, FORMAT_NO_COLSEP};
 use prettytable::{cell, row, table};
 use rpassword::prompt_password_stdout;

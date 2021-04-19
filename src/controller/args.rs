@@ -15,7 +15,7 @@
 use crate::common::ErrorKind;
 use crate::wallet::types::{InitTxArgs, InitTxSendArgs};
 use clap::ArgMatches;
-use grin_core::core::amount_from_hr_string;
+use epic_core::core::amount_from_hr_string;
 use std::str::FromStr;
 
 macro_rules! usage {

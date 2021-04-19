@@ -14,8 +14,8 @@
 
 use super::{Identifier, TxLogEntryType};
 use chrono::prelude::*;
-use grin_core::ser;
-use grin_util::secp::pedersen::Commitment;
+use epic_core::ser;
+use epic_util::secp::pedersen::Commitment;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

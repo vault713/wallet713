@@ -25,7 +25,7 @@ use crate::wallet::Container;
 use failure::Error;
 use futures::sync::oneshot;
 use futures::Future;
-use grin_util::secp::key::PublicKey;
+use epic_util::secp::key::PublicKey;
 use std::fmt;
 use std::thread::{spawn, JoinHandle};
 

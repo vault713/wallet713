@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::OutputData;
-use grin_util::secp::pedersen::Commitment;
+use epic_util::secp::pedersen::Commitment;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

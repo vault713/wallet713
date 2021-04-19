@@ -36,12 +36,12 @@
 //!    block_header_version: u16
 
 use super::CompatKernelFeatures;
-use grin_core::core::transaction::OutputFeatures;
-use grin_core::libtx::secp_ser;
-use grin_keychain::BlindingFactor;
-use grin_util::secp::key::PublicKey;
-use grin_util::secp::pedersen::{Commitment, RangeProof};
-use grin_util::secp::Signature;
+use epic_core::core::transaction::OutputFeatures;
+use epic_core::libtx::secp_ser;
+use epic_keychain::BlindingFactor;
+use epic_util::secp::key::PublicKey;
+use epic_util::secp::pedersen::{Commitment, RangeProof};
+use epic_util::secp::Signature;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

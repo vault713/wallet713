@@ -15,8 +15,8 @@
 use crate::common::crypto::{from_hex, to_hex};
 use crate::common::{ErrorKind, Result};
 use crate::contacts::GrinboxAddress;
-use grin_util::secp::key::{PublicKey, SecretKey};
-use grin_util::secp::Secp256k1;
+use epic_util::secp::key::{PublicKey, SecretKey};
+use epic_util::secp::Secp256k1;
 use rand::thread_rng;
 use rand::Rng;
 use ring::aead;
