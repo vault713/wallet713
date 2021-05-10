@@ -1021,6 +1021,7 @@ dependencies = [
 [[package]]
 name = "epic_wallet_config"
 version = "3.0.0"
+source = "git+https://github.com/EpicCash/epic-wallet?rev=3.0.0-alpha-3#2b19b839e086a12129981071c92b3c9041a1bc76"
 dependencies = [
  "dirs 1.0.5",
  "epic_wallet_util",
@@ -1033,6 +1034,7 @@ dependencies = [
 [[package]]
 name = "epic_wallet_libwallet"
 version = "3.0.0"
+source = "git+https://github.com/EpicCash/epic-wallet?rev=3.0.0-alpha-3#2b19b839e086a12129981071c92b3c9041a1bc76"
 dependencies = [
  "blake2-rfc",
  "byteorder 1.4.3",
@@ -1058,6 +1060,7 @@ dependencies = [
 [[package]]
 name = "epic_wallet_util"
 version = "3.0.0"
+source = "git+https://github.com/EpicCash/epic-wallet?rev=3.0.0-alpha-3#2b19b839e086a12129981071c92b3c9041a1bc76"
 dependencies = [
  "dirs 1.0.5",
  "epic_api",
