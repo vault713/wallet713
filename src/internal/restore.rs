@@ -163,7 +163,7 @@ where
 
 		result_vec.append(&mut identify_utxo_outputs(wallet, outputs.clone())?);
 
-		if highest_index == last_retrieved_index {
+		if highest_index <= last_retrieved_index {
 			break;
 		}
 		start_index = last_retrieved_index + 1;
