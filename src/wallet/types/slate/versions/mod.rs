@@ -20,8 +20,8 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use v2::SlateV2;
 
-pub const CURRENT_SLATE_VERSION: u16 = 2;
-pub const GRIN_BLOCK_HEADER_VERSION: u16 = 2;
+pub const CURRENT_SLATE_VERSION: u16 = 3;
+pub const GRIN_BLOCK_HEADER_VERSION: u16 = 6;
 
 /// Existing versions of the slate
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]

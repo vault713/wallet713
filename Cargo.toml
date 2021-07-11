@@ -23,11 +23,11 @@ failure = "0.1"
 futures = "0.1"
 gotham = "0.3.0"
 gotham_derive = "0.3.0"
-epic_api      = { git = "https://github.com/EpicCash/epic", rev = "develop" }
-epic_core     = { git = "https://github.com/EpicCash/epic", rev = "develop" }
-epic_keychain = { git = "https://github.com/EpicCash/epic", rev = "develop" }
-epic_store    = { git = "https://github.com/EpicCash/epic", rev = "develop" }
-epic_util     = { git = "https://github.com/EpicCash/epic", rev = "develop" }
+epic_api      = { git = "https://github.com/EpicCash/epic", rev = "3.0.0-alpha-6" }
+epic_core     = { git = "https://github.com/EpicCash/epic", rev = "3.0.0-alpha-6" }
+epic_keychain = { git = "https://github.com/EpicCash/epic", rev = "3.0.0-alpha-6" }
+epic_store    = { git = "https://github.com/EpicCash/epic", rev = "3.0.0-alpha-6" }
+epic_util     = { git = "https://github.com/EpicCash/epic", rev = "3.0.0-alpha-6" }
 epic_wallet_libwallet = { git = "https://github.com/EpicCash/epic-wallet" , rev = "3.0.0-alpha-3"}
 
 
