@@ -131,8 +131,8 @@ impl WalletSeed {
 			Ok(wallet_seed)
 		} else {
 			error!(
-				"wallet seed file {} could not be opened (grin wallet init). \
-				 Run \"grin wallet init\" to initialize a new wallet.",
+				"wallet seed file {} could not be opened (epic wallet init). \
+				 Run \"epic wallet init\" to initialize a new wallet.",
 				seed_file_path
 			);
 			Err(ErrorKind::WalletSeedDoesntExist)?

@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["COLORED_PROMPT",""],["HISTORY_PATH",""],["PROMPT",""]],"struct":[["CLI",""],["EditorHelper",""]]});

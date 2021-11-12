@@ -52,28 +52,28 @@ fn do_config(
 	}
 
 	if let Some(domain) = args.value_of("domain") {
-		config.grinbox_domain = domain.to_string();
+		config.epicbox_domain = domain.to_string();
 		any_matches = true;
 	}
 
 	if let Some(port) = args.value_of("port") {
 		let port = u16::from_str_radix(port, 10).map_err(|_| ErrorKind::NumberParsingError)?;
-		config.grinbox_port = Some(port);
+		config.epicbox_port = Some(port);
 		any_matches = true;
 	}
 
 	if let Some(node_uri) = args.value_of("node-uri") {
-		config.grin_node_uri = Some(node_uri.to_string());
+		config.epic_node_uri = Some(node_uri.to_string());
 		any_matches = true;
 	}
 
 	if let Some(node_secret) = args.value_of("node-secret") {
-		config.grin_node_secret = Some(node_secret.to_string());
+		config.epic_node_secret = Some(node_secret.to_string());
 		any_matches = true;
 	}
 
 	if new_address_index.is_some() {
-		config.grinbox_address_index = new_address_index;
+		config.epicbox_address_index = new_address_index;
 		any_matches = true;
 	}
 

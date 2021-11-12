@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::common::crypto::{
-	Base58, PublicKey, GRINBOX_ADDRESS_VERSION_MAINNET, GRINBOX_ADDRESS_VERSION_TESTNET,
+	Base58, PublicKey, EPICBOX_ADDRESS_VERSION_MAINNET, EPICBOX_ADDRESS_VERSION_TESTNET,
 };
 use crate::common::{ErrorKind, Result};
 use epic_core::global::is_floonet;
@@ -22,18 +22,18 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display};
 use url::Url;
 
-const ADDRESS_REGEX: &str = r"^((?P<address_type>keybase|grinbox|http|https)://).+$";
-const GRINBOX_ADDRESS_REGEX: &str = r"^(grinbox://)?(?P<public_key>[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{52})(@(?P<domain>[a-zA-Z0-9\.]+)(:(?P<port>[0-9]*))?)?$";
+const ADDRESS_REGEX: &str = r"^((?P<address_type>keybase|epicbox|http|https)://).+$";
+const EPICBOX_ADDRESS_REGEX: &str = r"^(epicbox://)?(?P<public_key>[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{52})(@(?P<domain>[a-zA-Z0-9\.]+)(:(?P<port>[0-9]*))?)?$";
 const KEYBASE_ADDRESS_REGEX: &str = r"^(keybase://)?(?P<username>[0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_]{1,16})(:(?P<topic>[a-zA-Z0-9_-]+))?$";
-const DEFAULT_GRINBOX_DOMAIN: &str = "grinbox.io";
+const DEFAULT_EPICBOX_DOMAIN: &str = "epicbox.io";
 #[cfg(not(windows))]
-pub const DEFAULT_GRINBOX_PORT: u16 = 443;
+pub const DEFAULT_EPICBOX_PORT: u16 = 443;
 #[cfg(windows)]
-pub const DEFAULT_GRINBOX_PORT: u16 = 80;
+pub const DEFAULT_EPICBOX_PORT: u16 = 80;
 
 #[derive(PartialEq)]
 pub enum AddressType {
-	Grinbox,
+	Epicbox,
 	Keybase,
 	Http,
 }
@@ -47,11 +47,12 @@ pub trait Address: Debug + Display {
 }
 
 pub fn parse_address(address: &str) -> Result<Box<dyn Address>> {
+
 	let re = Regex::new(ADDRESS_REGEX)?;
 	let captures = re.captures(address);
 	if captures.is_none() {
 		return Ok(Box::new(
-			GrinboxAddress::from_str(address).map_err(|_| ErrorKind::ParseAddress)?,
+			EpicboxAddress::from_str(address).map_err(|_| ErrorKind::ParseAddress)?,
 		));
 	}
 
@@ -59,7 +60,7 @@ pub fn parse_address(address: &str) -> Result<Box<dyn Address>> {
 	let address_type = captures.name("address_type").unwrap().as_str().to_string();
 	let address: Box<dyn Address> = match address_type.as_ref() {
 		"keybase" => Box::new(KeybaseAddress::from_str(address)?),
-		"grinbox" => Box::new(GrinboxAddress::from_str(address)?),
+		"epicbox" => Box::new(EpicboxAddress::from_str(address)?),
 		"http" | "https" => Box::new(HttpAddress::from_str(address)?),
 		x => Err(ErrorKind::UnknownAddressType(x.to_string()))?,
 	};
@@ -187,24 +188,24 @@ impl Display for KeybaseAddress {
 
 pub fn version_bytes() -> Vec<u8> {
 	if is_floonet() {
-		GRINBOX_ADDRESS_VERSION_TESTNET.to_vec()
+		EPICBOX_ADDRESS_VERSION_TESTNET.to_vec()
 	} else {
-		GRINBOX_ADDRESS_VERSION_MAINNET.to_vec()
+		EPICBOX_ADDRESS_VERSION_MAINNET.to_vec()
 	}
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct GrinboxAddress {
+pub struct EpicboxAddress {
 	pub public_key: String,
 	pub domain: String,
 	pub port: Option<u16>,
 }
 
-impl GrinboxAddress {
+impl EpicboxAddress {
 	pub fn new(public_key: PublicKey, domain: Option<String>, port: Option<u16>) -> Self {
 		Self {
 			public_key: public_key.to_base58_check(version_bytes()),
-			domain: domain.unwrap_or(DEFAULT_GRINBOX_DOMAIN.to_string()),
+			domain: domain.unwrap_or(DEFAULT_EPICBOX_DOMAIN.to_string()),
 			port,
 		}
 	}
@@ -214,12 +215,13 @@ impl GrinboxAddress {
 	}
 }
 
-impl Address for GrinboxAddress {
+impl Address for EpicboxAddress {
 	fn from_str(s: &str) -> Result<Self> {
-		let re = Regex::new(GRINBOX_ADDRESS_REGEX).unwrap();
+		let re = Regex::new(EPICBOX_ADDRESS_REGEX).unwrap();
+
 		let captures = re.captures(s);
 		if captures.is_none() {
-			Err(ErrorKind::GrinboxAddressParsingError(s.to_string()))?;
+			Err(ErrorKind::EpicboxAddressParsingError(s.to_string()))?;
 		}
 
 		let captures = captures.unwrap();
@@ -231,11 +233,11 @@ impl Address for GrinboxAddress {
 
 		let public_key = PublicKey::from_base58_check(&public_key, version_bytes())?;
 
-		Ok(GrinboxAddress::new(public_key, domain, port))
+		Ok(EpicboxAddress::new(public_key, domain, port))
 	}
 
 	fn address_type(&self) -> AddressType {
-		AddressType::Grinbox
+		AddressType::Epicbox
 	}
 
 	fn stripped(&self) -> String {
@@ -243,14 +245,14 @@ impl Address for GrinboxAddress {
 	}
 }
 
-impl Display for GrinboxAddress {
+impl Display for EpicboxAddress {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.public_key)?;
-		if self.domain != DEFAULT_GRINBOX_DOMAIN
-			|| (self.port.is_some() && self.port.unwrap() != DEFAULT_GRINBOX_PORT)
+		if self.domain != DEFAULT_EPICBOX_DOMAIN
+			|| (self.port.is_some() && self.port.unwrap() != DEFAULT_EPICBOX_PORT)
 		{
 			write!(f, "@{}", self.domain)?;
-			if self.port.is_some() && self.port.unwrap() != DEFAULT_GRINBOX_PORT {
+			if self.port.is_some() && self.port.unwrap() != DEFAULT_EPICBOX_PORT {
 				write!(f, ":{}", self.port.unwrap())?;
 			}
 		}

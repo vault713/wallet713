@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["TxLogEntryType","Types of transactions that can be contained within a TXLog entry"]]});

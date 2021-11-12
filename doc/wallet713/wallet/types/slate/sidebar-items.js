@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["slate","Functions for building partial transactions to be passed around during an interactive wallet exchange"],["versions",""]]});

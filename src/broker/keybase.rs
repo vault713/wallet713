@@ -24,9 +24,9 @@ use std::iter::FromIterator;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-pub const TOPIC_SLATE_NEW: &str = "grin_slate_new";
-pub const TOPIC_WALLET713_SLATES: &str = "wallet713_grin_slate";
-const TOPIC_SLATE_SIGNED: &str = "grin_slate_signed";
+pub const TOPIC_SLATE_NEW: &str = "epic_slate_new";
+pub const TOPIC_WALLET713_SLATES: &str = "wallet713_epic_slate";
+const TOPIC_SLATE_SIGNED: &str = "epic_slate_signed";
 const SLEEP_DURATION: Duration = Duration::from_millis(5000);
 
 #[derive(Clone)]

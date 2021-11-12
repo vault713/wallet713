@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["wallet713"] = [{"text":"impl Handler for dyn <a class=\"trait\" href=\"wallet713/api/rpc/foreign/trait.ForeignRpc.html\" title=\"trait wallet713::api::rpc::foreign::ForeignRpc\">ForeignRpc</a>","synthetic":false,"types":[]},{"text":"impl Handler for dyn <a class=\"trait\" href=\"wallet713/api/rpc/owner/trait.OwnerRpc.html\" title=\"trait wallet713::api::rpc::owner::OwnerRpc\">OwnerRpc</a>","synthetic":false,"types":[]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

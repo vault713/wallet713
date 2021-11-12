@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["wallet713"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.56.1/std/error/trait.Error.html\" title=\"trait std::error::Error\">Error</a> for <a class=\"struct\" href=\"wallet713/api/error/struct.ApiError.html\" title=\"struct wallet713::api::error::ApiError\">ApiError</a>","synthetic":false,"types":["wallet713::api::error::ApiError"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

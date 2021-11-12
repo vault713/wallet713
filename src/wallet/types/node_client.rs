@@ -54,13 +54,13 @@ pub trait NodeClient: Sync + Send + Clone + 'static {
 
 	fn get_version_info(&mut self) -> Option<NodeVersionInfo>;
 
-	/// Posts a transaction to a grin node
+	/// Posts a transaction to a epic node
 	fn post_tx(&self, tx: &TxWrapper, fluff: bool) -> Result<(), Error>;
 
-	/// retrieves the current tip from the specified grin node
+	/// retrieves the current tip from the specified epic node
 	fn get_chain_height(&self) -> Result<u64, Error>;
 
-	/// retrieve a list of outputs from the specified grin node
+	/// retrieve a list of outputs from the specified epic node
 	/// need "by_height" and "by_id" variants
 	fn get_outputs_from_node(
 		&self,
@@ -87,7 +87,7 @@ pub struct HTTPNodeClient {
 }
 
 impl HTTPNodeClient {
-	/// Create a new client that will communicate with the given grin node
+	/// Create a new client that will communicate with the given epic node
 	pub fn new(node_url: &str, node_api_secret: Option<String>) -> HTTPNodeClient {
 		HTTPNodeClient {
 			node_url: node_url.to_owned(),
@@ -142,7 +142,7 @@ impl NodeClient for HTTPNodeClient {
 		Some(retval)
 	}
 
-	/// Posts a transaction to a grin node
+	/// Posts a transaction to a epic node
 	fn post_tx(&self, tx: &TxWrapper, fluff: bool) -> Result<(), Error> {
 		let url;
 		let dest = self.node_url();

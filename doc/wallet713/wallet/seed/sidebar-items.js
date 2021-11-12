@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["SEED_FILE",""]],"struct":[["EncryptedWalletSeed","Encrypted wallet seed, for storing on disk and decrypting with provided password"],["WalletSeed",""]]});

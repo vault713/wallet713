@@ -52,8 +52,8 @@ pub enum ErrorKind {
 	NumberParsingError,
 	#[fail(display = "Unknown address type '{}'", 0)]
 	UnknownAddressType(String),
-	#[fail(display = "Could not parse '{}' to a grinbox address", 0)]
-	GrinboxAddressParsingError(String),
+	#[fail(display = "Could not parse '{}' to a epicbox address", 0)]
+	EpicboxAddressParsingError(String),
 	#[fail(display = "Could not parse '{}' to a keybase address", 0)]
 	KeybaseAddressParsingError(String),
 	#[fail(display = "Could not parse `{}` to a http address", 0)]
@@ -64,8 +64,8 @@ pub enum ErrorKind {
 	KeybaseMessageSendError,
 	#[fail(display = "Keybase not found! Consider installing it first")]
 	KeybaseNotFound,
-	#[fail(display = "Grinbox websocket terminated unexpectedly")]
-	GrinboxWebsocketAbnormalTermination,
+	#[fail(display = "Epicbox websocket terminated unexpectedly")]
+	EpicboxWebsocketAbnormalTermination,
 	#[fail(display = "Unable to encrypt message")]
 	Encryption,
 	#[fail(display = "Unable to decrypt message")]

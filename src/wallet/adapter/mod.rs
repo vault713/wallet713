@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod grinbox;
+mod epicbox;
 mod http;
 mod keybase;
 //mod null;
 
-pub use self::grinbox::GrinboxAdapter;
+pub use self::epicbox::EpicboxAdapter;
 pub use self::http::HTTPAdapter;
 pub use self::keybase::KeybaseAdapter;
 use super::types::VersionedSlate;

@@ -16,11 +16,11 @@ use super::VersionedSlate;
 use crate::common::crypto::verify_signature;
 use crate::common::crypto::Hex;
 use crate::common::message::EncryptedMessage;
-use crate::contacts::{Address, GrinboxAddress};
-use failure::Fail;
+use crate::contacts::{Address, EpicboxAddress};
 use epic_util::secp::key::SecretKey;
 use epic_util::secp::pedersen::Commitment;
 use epic_util::secp::Signature;
+use failure::Fail;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Fail)]
@@ -47,7 +47,7 @@ pub enum ErrorKind {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TxProof {
-	pub address: GrinboxAddress,
+	pub address: EpicboxAddress,
 	pub message: String,
 	pub challenge: String,
 	pub signature: Signature,
@@ -61,8 +61,8 @@ pub struct TxProof {
 impl TxProof {
 	pub fn verify_extract(
 		&self,
-		expected_destination: Option<&GrinboxAddress>,
-	) -> Result<(GrinboxAddress, VersionedSlate), ErrorKind> {
+		expected_destination: Option<&EpicboxAddress>,
+	) -> Result<(EpicboxAddress, VersionedSlate), ErrorKind> {
 		let mut challenge = String::new();
 		challenge.push_str(self.message.as_str());
 		challenge.push_str(self.challenge.as_str());
@@ -101,10 +101,11 @@ impl TxProof {
 		challenge: String,
 		signature: String,
 		secret_key: &SecretKey,
-		expected_destination: Option<&GrinboxAddress>,
+		expected_destination: Option<&EpicboxAddress>,
 	) -> Result<(VersionedSlate, TxProof), ErrorKind> {
+		
 		let address =
-			GrinboxAddress::from_str(from.as_str()).map_err(|_| ErrorKind::ParseAddress)?;
+			EpicboxAddress::from_str(from.as_str()).map_err(|_| ErrorKind::ParseAddress)?;
 		let signature =
 			Signature::from_hex(signature.as_str()).map_err(|_| ErrorKind::ParseSignature)?;
 		let public_key = address

@@ -1,8 +1,8 @@
 [package]
 name = "wallet713"
-version = "3.0.0-beta.1"
+version = "3.0.0"
 authors = ["vault713 devs"]
-description = "A wallet that makes it easy to send, store, and swap Grin."
+description = "A wallet that makes it easy to send, store, and swap Epic."
 keywords = [ "epic", "mimblewimble", "rust", "crypto", "cryptocurrency" ]
 license = "Apache-2.0"
 readme = "README.md"
@@ -14,24 +14,21 @@ blake2-rfc = "0.2"
 chrono = { version = "0.4.4", features = ["serde"] }
 clap = { version = "2", features = ["yaml"] }
 colored = "1.6"
-digest = "0.7"
+
 dirs = "1"
 dont_disappear = "3.0.0"
 easy-jsonrpc-mw = "0.5.3"
 env_logger = "0.6.0"
-failure = "0.1"
+failure = "0.1.1"
 futures = "0.1"
 gotham = "0.3.0"
 gotham_derive = "0.3.0"
-epic_api      = { git = "https://github.com/EpicCash/epic", rev = "3.0.0-alpha-6" }
-epic_core     = { git = "https://github.com/EpicCash/epic", rev = "3.0.0-alpha-6" }
-epic_keychain = { git = "https://github.com/EpicCash/epic", rev = "3.0.0-alpha-6" }
-epic_store    = { git = "https://github.com/EpicCash/epic", rev = "3.0.0-alpha-6" }
-epic_util     = { git = "https://github.com/EpicCash/epic", rev = "3.0.0-alpha-6" }
-epic_wallet_libwallet = { git = "https://github.com/EpicCash/epic-wallet" , rev = "3.0.0-alpha-3"}
 
+digest = "0.9"
+hmac = "0.11"
+ripemd160 = "0.9"
+sha2 = "0.9"
 
-hmac = "0.6"
 http = "0.1.5"
 hyper = "0.12"
 hyper-rustls = "0.14"
@@ -44,16 +41,26 @@ prettytable-rs = "0.7"
 rand = "0.5"
 regex = "1"
 ring = "0.13"
-ripemd160 = "0.7"
+
 rpassword = "2.1.0"
 rustyline = "5.0"
 semver = { version = "0.9.0", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-sha2 = "0.7"
+
 term = "0.5"
 tokio = "= 0.1.11"
 toml = "0.4"
 url = "1.7"
 uuid = { version = "0.6", features = ["serde", "v4"] }
 ws = { version = "0.8", features = ["nativetls"] }
+
+
+
+
+epic_api      = { git = "https://github.com/EpicCash/epic", branch = "3.0.0" }
+epic_core     = { git = "https://github.com/EpicCash/epic", branch = "3.0.0" }
+epic_keychain = { git = "https://github.com/EpicCash/epic", branch = "3.0.0" }
+epic_store    = { git = "https://github.com/EpicCash/epic", branch = "3.0.0" }
+epic_util     = { git = "https://github.com/EpicCash/epic", branch = "3.0.0" }
+epic_wallet_libwallet = { git = "https://github.com/EpicCash/epic-wallet" , branch = "3.0.0"}

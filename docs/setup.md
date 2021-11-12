@@ -24,12 +24,12 @@ I
 ## Option 2: Building your own binary
 
 ### Requirements
-1. All the [current requirements](https://github.com/mimblewimble/grin/blob/master/doc/build.md#requirements) of Grin.
+1. All the [current requirements](https://github.com/mimblewimble/grin/blob/master/doc/build.md#requirements) of Epic.
 1. [OpenSSL](https://www.openssl.org).
    * macOS with Homebrew:
       ```
       $ brew install openssl # you need to install version 1.1 of openssl for version 1.0.1 or newer of wallet713
-      ``` 
+      ```
    * Linux:
       ```
       $ sudo apt-get install openssl
@@ -38,7 +38,7 @@ I
 ### Installation
 
 ```
-$ git clone https://github.com/vault713/wallet713
+$ git clone https://github.com/EpicCash/epic-wallet-address
 $ cd wallet713
 $ cargo build --release
 ```

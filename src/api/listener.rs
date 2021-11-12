@@ -14,12 +14,12 @@
 
 use crate::api::router::{build_foreign_api_router, build_owner_api_router};
 use crate::broker::{
-	Controller, GrinboxPublisher, GrinboxSubscriber, KeybasePublisher, KeybaseSubscriber,
+	Controller, EpicboxPublisher, EpicboxSubscriber, KeybasePublisher, KeybaseSubscriber,
 	Publisher, Subscriber,
 };
 use crate::common::hasher::derive_address_key;
 use crate::common::{Arc, Keychain, Mutex, MutexGuard};
-use crate::contacts::{Address, GrinboxAddress, KeybaseAddress};
+use crate::contacts::{Address, EpicboxAddress, KeybaseAddress};
 use crate::wallet::types::{NodeClient, VersionedSlate, WalletBackend};
 use crate::wallet::Container;
 use failure::Error;
@@ -38,7 +38,7 @@ pub trait Listener: Sync + Send + 'static {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub enum ListenerInterface {
-	Grinbox,
+	Epicbox,
 	Keybase,
 	ForeignHttp,
 	OwnerHttp,
@@ -47,7 +47,7 @@ pub enum ListenerInterface {
 impl fmt::Display for ListenerInterface {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match *self {
-			ListenerInterface::Grinbox => write!(f, "Grinbox"),
+			ListenerInterface::Epicbox => write!(f, "Epicbox"),
 			ListenerInterface::Keybase => write!(f, "Keybase"),
 			ListenerInterface::ForeignHttp => write!(f, "Foreign HTTP"),
 			ListenerInterface::OwnerHttp => write!(f, "Owner HTTP"),
@@ -55,16 +55,16 @@ impl fmt::Display for ListenerInterface {
 	}
 }
 
-pub struct GrinboxListener {
-	address: GrinboxAddress,
-	publisher: GrinboxPublisher,
-	subscriber: GrinboxSubscriber,
+pub struct EpicboxListener {
+	address: EpicboxAddress,
+	publisher: EpicboxPublisher,
+	subscriber: EpicboxSubscriber,
 	handle: JoinHandle<()>,
 }
 
-impl Listener for GrinboxListener {
+impl Listener for EpicboxListener {
 	fn interface(&self) -> ListenerInterface {
-		ListenerInterface::Grinbox
+		ListenerInterface::Epicbox
 	}
 
 	fn address(&self) -> String {
@@ -72,7 +72,7 @@ impl Listener for GrinboxListener {
 	}
 
 	fn publish(&self, slate: &VersionedSlate, to: &String) -> Result<(), Error> {
-		let address = GrinboxAddress::from_str(to)?;
+		let address = EpicboxAddress::from_str(to)?;
 		self.publisher.post_slate(slate, &address)
 	}
 
@@ -167,7 +167,7 @@ impl Listener for OwnerHttpListener {
 	}
 }
 
-pub fn start_grinbox<W, C, K>(
+pub fn start_epicbox<W, C, K>(
 	container: Arc<Mutex<Container<W, C, K>>>,
 	c: &mut MutexGuard<Container<W, C, K>>,
 ) -> Result<Box<dyn Listener>, Error>
@@ -176,35 +176,35 @@ where
 	C: NodeClient,
 	K: Keychain,
 {
-	let index = c.config.grinbox_address_index();
+	let index = c.config.epicbox_address_index();
 	let keychain = c.backend()?.keychain();
 	let sec_key = derive_address_key(keychain, index)?;
 	let pub_key = PublicKey::from_secret_key(keychain.secp(), &sec_key)?;
 
-	let address = GrinboxAddress::new(
+	let address = EpicboxAddress::new(
 		pub_key,
-		Some(c.config.grinbox_domain.clone()),
-		c.config.grinbox_port,
+		Some(c.config.epicbox_domain.clone()),
+		c.config.epicbox_port,
 	);
 
 	let publisher =
-		GrinboxPublisher::new(&address, &sec_key, c.config.grinbox_protocol_unsecure())?;
+		EpicboxPublisher::new(&address, &sec_key, c.config.epicbox_protocol_unsecure())?;
 
-	let subscriber = GrinboxSubscriber::new(&publisher)?;
+	let subscriber = EpicboxSubscriber::new(&publisher)?;
 
 	let caddress = address.clone();
 	let mut csubscriber = subscriber.clone();
 	let cpublisher = publisher.clone();
 	let handle = spawn(move || {
 		let controller = Controller::new(&caddress.stripped(), container, cpublisher)
-			.expect("could not start grinbox controller!");
+			.expect("could not start epicbox controller!");
 		csubscriber
 			.start(controller)
 			.expect("something went wrong!");
 		()
 	});
 
-	Ok(Box::new(GrinboxListener {
+	Ok(Box::new(EpicboxListener {
 		address,
 		publisher,
 		subscriber,

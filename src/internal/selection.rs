@@ -121,7 +121,7 @@ where
 		let mut t = TxLogEntry::new(parent_key_id.clone(), TxLogEntryType::TxSent, log_id);
 		t.tx_slate_id = Some(slate_id.clone());
 		t.address = address;
-		let filename = format!("{}.grintx", slate_id);
+		let filename = format!("{}.epictx", slate_id);
 		t.stored_tx = Some(filename);
 		t.fee = Some(slate.fee);
 		let mut amount_debited = 0;

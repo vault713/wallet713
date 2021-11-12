@@ -23,7 +23,7 @@ pub struct InitTxArgs {
 	/// `set_active_account` method.
 	pub src_acct_name: Option<String>,
 	#[serde(with = "ser::string_or_u64")]
-	/// The amount to send, in nanogrins. (`1 G = 1_000_000_000nG`)
+	/// The amount to send, in nanoepics. (`1 G = 1_000_000_000nG`)
 	pub amount: u64,
 	#[serde(with = "ser::string_or_u64")]
 	/// The minimum number of confirmations an output
@@ -70,7 +70,7 @@ pub struct InitTxArgs {
 /// in one go
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InitTxSendArgs {
-	/// The transaction method. Can currently be 'http', 'grinbox' or 'keybase'. Can be auto-detected from the `dest`
+	/// The transaction method. Can currently be 'http', 'epicbox' or 'keybase'. Can be auto-detected from the `dest`
 	pub method: Option<String>,
 	/// The destination, contents will depend on the particular method
 	pub dest: String,
@@ -106,7 +106,7 @@ pub struct IssueInvoiceTxArgs {
 	/// overriding whatever the active account is as set via the
 	/// `set_active_account` method.
 	pub dest_acct_name: Option<String>,
-	/// The invoice amount in nanogrins. (`1 G = 1_000_000_000nG`)
+	/// The invoice amount in nanoepics. (`1 G = 1_000_000_000nG`)
 	#[serde(with = "ser::string_or_u64")]
 	pub amount: u64,
 	/// Optional message, that will be signed

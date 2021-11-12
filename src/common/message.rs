@@ -14,7 +14,7 @@
 
 use crate::common::crypto::{from_hex, to_hex};
 use crate::common::{ErrorKind, Result};
-use crate::contacts::GrinboxAddress;
+use crate::contacts::EpicboxAddress;
 use epic_util::secp::key::{PublicKey, SecretKey};
 use epic_util::secp::Secp256k1;
 use rand::thread_rng;
@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EncryptedMessage {
-	pub destination: GrinboxAddress,
+	pub destination: EpicboxAddress,
 	encrypted_message: String,
 	salt: String,
 	nonce: String,
@@ -34,7 +34,7 @@ pub struct EncryptedMessage {
 impl EncryptedMessage {
 	pub fn new(
 		message: String,
-		destination: &GrinboxAddress,
+		destination: &EpicboxAddress,
 		receiver_public_key: &PublicKey,
 		secret_key: &SecretKey,
 	) -> Result<EncryptedMessage> {

@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["AcctPathMapping","Map of named accounts to BIP32 paths"]]});

@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod grinbox;
+mod epicbox;
 mod keybase;
 mod protocol;
 mod types;
 
-pub use self::grinbox::{GrinboxPublisher, GrinboxSubscriber};
+pub use self::epicbox::{EpicboxPublisher, EpicboxSubscriber};
 pub use self::keybase::{KeybasePublisher, KeybaseSubscriber, TOPIC_SLATE_NEW};
 pub use self::types::{CloseReason, Controller, Publisher, Subscriber, SubscriptionHandler};

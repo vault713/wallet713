@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["TxLogEntry","Optional transaction information, recorded when an event happens to add or remove funds from a wallet. One Transaction log entry maps to one or many outputs"]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["TxWrapper","Dummy wrapper for the hex-encoded serialized transaction."]]});

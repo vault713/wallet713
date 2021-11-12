@@ -173,10 +173,10 @@ impl FromBase58 for str {
 
 fn double_sha256(payload: &[u8]) -> Vec<u8> {
 	let mut hasher = Sha256::new();
-	hasher.input(&payload);
-	let hash = hasher.result();
+	hasher.update(&payload);
+	let hash = hasher.finalize();
 	let mut hasher = Sha256::new();
-	hasher.input(&hash);
-	let hash = hasher.result();
+	hasher.update(&hash);
+	let hash = hasher.finalize();
 	hash.to_vec()
 }

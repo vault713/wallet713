@@ -17,5 +17,5 @@ pub mod versions;
 
 pub use self::slate::Slate;
 pub use self::versions::{
-	SlateVersion, VersionedSlate, CURRENT_SLATE_VERSION, GRIN_BLOCK_HEADER_VERSION,
+	SlateVersion, VersionedSlate, CURRENT_SLATE_VERSION, EPIC_BLOCK_HEADER_VERSION,
 };

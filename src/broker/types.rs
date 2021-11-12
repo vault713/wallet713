@@ -14,7 +14,7 @@
 
 use crate::cli_message;
 use crate::common::{Arc, Error, Keychain, Mutex};
-use crate::contacts::{Address, AddressType, GrinboxAddress};
+use crate::contacts::{Address, AddressType, EpicboxAddress};
 use crate::wallet::api::{Foreign, Owner};
 use crate::wallet::types::{NodeClient, Slate, TxProof, VersionedSlate, WalletBackend};
 use crate::wallet::Container;
@@ -119,22 +119,22 @@ where
 
 		/*if slate.num_participants > slate.participant_data.len() {
 			cli_message!(
-				"Slate [{}] received from [{}] for [{}] grins",
+				"Slate [{}] received from [{}] for [{}] epics",
 				slate.id.to_string().bright_green(),
 				display_from.bright_green(),
 				amount_to_hr_string(slate.amount, false).bright_green()
 			);
 		} else {
 			cli_message!(
-				"Slate [{}] received back from [{}] for [{}] grins",
+				"Slate [{}] received back from [{}] for [{}] epics",
 				slate.id.to_string().bright_green(),
 				display_from.bright_green(),
 				amount_to_hr_string(slate.amount, false).bright_green()
 			);
 		};*/
 
-		if from.address_type() == AddressType::Grinbox {
-			GrinboxAddress::from_str(&from.to_string()).expect("invalid grinbox address");
+		if from.address_type() == AddressType::Epicbox {
+			EpicboxAddress::from_str(&from.to_string()).expect("invalid epicbox address");
 		}
 
 		let result = self

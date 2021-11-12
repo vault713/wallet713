@@ -20,8 +20,8 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use v2::SlateV2;
 
-pub const CURRENT_SLATE_VERSION: u16 = 3;
-pub const GRIN_BLOCK_HEADER_VERSION: u16 = 6;
+pub const CURRENT_SLATE_VERSION: u16 = 2;
+pub const EPIC_BLOCK_HEADER_VERSION: u16 = 6;
 
 /// Existing versions of the slate
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
@@ -52,7 +52,7 @@ impl TryFrom<u16> for SlateVersion {
 /// Versions are ordered newest to oldest so serde attempts to
 /// deserialize newer versions first, then falls back to older versions.
 pub enum VersionedSlate {
-	/// Current (Grin 1.1.0 - 2.x (current))
+	/// Current (Epic 1.1.0 - 2.x (current))
 	V2(SlateV2),
 }
 

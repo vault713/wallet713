@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["DEFAULT_CONFIG",""],["WALLET713_DEFAULT_CONFIG_FILENAME",""],["WALLET713_HOME",""]],"struct":[["GlobalWalletConfig","Wallet should be split into a separate configuration file"],["GlobalWalletConfigMembers","Wallet internal members"],["Wallet713Config",""],["WalletConfig","Command-line wallet configuration"]]});

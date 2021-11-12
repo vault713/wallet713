@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["BlockFees","Fees in block to use for coinbase amount calculation"]]});

@@ -43,7 +43,7 @@ pub use self::output_commit_mapping::OutputCommitMapping;
 pub use self::output_data::OutputData;
 pub use self::output_status::OutputStatus;
 pub use self::slate::{
-	Slate, SlateVersion, VersionedSlate, CURRENT_SLATE_VERSION, GRIN_BLOCK_HEADER_VERSION,
+	Slate, SlateVersion, VersionedSlate, CURRENT_SLATE_VERSION, EPIC_BLOCK_HEADER_VERSION,
 };
 pub use self::tx_log_entry::TxLogEntry;
 pub use self::tx_log_entry_type::TxLogEntryType;

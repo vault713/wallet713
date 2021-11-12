@@ -20,8 +20,8 @@ pub use epic_util::secp::{Message, Secp256k1, Signature};
 use sha2::{Digest, Sha256};
 use std::fmt::Write;
 
-pub const GRINBOX_ADDRESS_VERSION_MAINNET: [u8; 2] = [1, 11];
-pub const GRINBOX_ADDRESS_VERSION_TESTNET: [u8; 2] = [1, 120];
+pub const EPICBOX_ADDRESS_VERSION_MAINNET: [u8; 2] = [1, 0];
+pub const EPICBOX_ADDRESS_VERSION_TESTNET: [u8; 2] = [1, 136];
 
 pub trait Hex<T> {
 	fn from_hex(str: &str) -> Result<T>;
@@ -119,8 +119,8 @@ impl Hex<Commitment> for Commitment {
 
 pub fn sign_challenge(challenge: &str, secret_key: &SecretKey) -> Result<Signature> {
 	let mut hasher = Sha256::new();
-	hasher.input(challenge.as_bytes());
-	let message = Message::from_slice(hasher.result().as_slice())?;
+	hasher.update(challenge.as_bytes());
+	let message = Message::from_slice(hasher.finalize().as_slice())?;
 	let secp = Secp256k1::new();
 	secp.sign(&message, secret_key)
 		.map_err(|_| ErrorKind::Secp.into())
@@ -132,8 +132,8 @@ pub fn verify_signature(
 	public_key: &PublicKey,
 ) -> Result<()> {
 	let mut hasher = Sha256::new();
-	hasher.input(challenge.as_bytes());
-	let message = Message::from_slice(hasher.result().as_slice())?;
+	hasher.update(challenge.as_bytes());
+	let message = Message::from_slice(hasher.finalize().as_slice())?;
 	let secp = Secp256k1::new();
 	secp.verify(&message, signature, public_key)
 		.map_err(|_| ErrorKind::Secp.into())

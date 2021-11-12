@@ -21,7 +21,7 @@ use self::foreign::ForeignCheckMiddlewareFn;
 pub use self::owner::Owner;
 pub use self::types::*;
 use crate::wallet::types::{
-	NodeVersionInfo, Slate, CURRENT_SLATE_VERSION, GRIN_BLOCK_HEADER_VERSION,
+	NodeVersionInfo, Slate, CURRENT_SLATE_VERSION, EPIC_BLOCK_HEADER_VERSION,
 };
 use crate::wallet::ErrorKind;
 use failure::Error;
@@ -42,7 +42,7 @@ pub fn check_middleware(
 			if let Some(s) = slate {
 				if s.version_info.version < CURRENT_SLATE_VERSION
 					|| (bhv == 1 && s.version_info.block_header_version != 1)
-					|| (bhv > 1 && s.version_info.block_header_version < GRIN_BLOCK_HEADER_VERSION)
+					|| (bhv > 1 && s.version_info.block_header_version < EPIC_BLOCK_HEADER_VERSION)
 				{
 					return Err(ErrorKind::Compatibility.into());
 				}

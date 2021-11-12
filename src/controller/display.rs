@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::common::ErrorKind;
-use crate::contacts::{Contact, GrinboxAddress};
+use crate::contacts::{Contact, EpicboxAddress};
 use crate::wallet::types::{
 	AcctPathMapping, OutputCommitMapping, OutputStatus, TxLogEntry, WalletInfo,
 };
@@ -267,7 +267,7 @@ pub fn outputs(
 		println!(
 			"\nWARNING: Wallet failed to verify data. \
 			 The above is from local cache and possibly invalid! \
-			 (is your `grin server` offline or broken?)"
+			 (is your `epic server` offline or broken?)"
 		);
 	}
 }
@@ -377,7 +377,7 @@ pub fn txs(
 		println!(
 			"\nWARNING: Wallet failed to verify data. \
 			 The above is from local cache and possibly invalid! \
-			 (is your `grin server` offline or broken?)"
+			 (is your `epic server` offline or broken?)"
 		);
 	}
 }
@@ -466,14 +466,14 @@ pub fn info(
 		println!(
 			"\nWARNING: Wallet failed to verify data against a live chain. \
 			 The above is from local cache and only valid up to the given height! \
-			 (is your `grin server` offline or broken?)"
+			 (is your `epic server` offline or broken?)"
 		);
 	}
 }
 
 pub fn proof(
-	sender: GrinboxAddress,
-	receiver: GrinboxAddress,
+	sender: EpicboxAddress,
+	receiver: EpicboxAddress,
 	amount: u64,
 	outputs: Vec<Commitment>,
 	excess: Commitment,
@@ -485,7 +485,7 @@ pub fn proof(
 	let excess = to_hex(excess.0.to_vec());
 
 	println!(
-		"This file proves that {} grin was sent to {} from {}",
+		"This file proves that {} epic was sent to {} from {}",
 		amount_to_hr_string(amount, false).bright_green(),
 		format!("{}", receiver).bright_green(),
 		format!("{}", sender).bright_green()
@@ -498,9 +498,9 @@ pub fn proof(
 	println!("Kernel excess:");
 	println!("   {}", excess.bright_magenta());
 	println!("\n{}: this proof should only be considered valid if the kernel is actually on-chain with sufficient confirmations", "WARNING".bright_yellow());
-	println!("Please use a grin block explorer to verify this is the case. for example:");
+	println!("Please use a epic block explorer to verify this is the case. for example:");
 	let prefix = if is_floonet() { "floonet." } else { "" };
-	cli_message!("   https://{}grinscan.net/kernel/{}", prefix, excess);
+	cli_message!("   https://{}epicscan.net/kernel/{}", prefix, excess);
 }
 
 /// Display list of contacts in a pretty way

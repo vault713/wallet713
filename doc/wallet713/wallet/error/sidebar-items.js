@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["ErrorKind","Wallet errors, mostly wrappers around underlying crypto or I/O errors."]]});

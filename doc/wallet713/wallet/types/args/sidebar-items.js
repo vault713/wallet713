@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["InitTxArgs","V2 Init / Send TX API Args"],["InitTxSendArgs","Send TX API Args, for convenience functionality that inits the transaction and sends in one go"],["IssueInvoiceTxArgs","V2 Issue Invoice Tx Args"],["NodeHeightResult","Node height result"]]});

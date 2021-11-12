@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["HTTPNodeClient",""],["NodeVersionInfo","Node version info"]],"trait":[["NodeClient","Encapsulate all wallet-node communication functions. No functions within libwallet should care about communication details"]]});

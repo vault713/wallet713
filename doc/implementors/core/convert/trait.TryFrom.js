@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["wallet713"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.56.1/core/convert/trait.TryFrom.html\" title=\"trait core::convert::TryFrom\">TryFrom</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.56.1/std/primitive.u16.html\">u16</a>&gt; for <a class=\"enum\" href=\"wallet713/wallet/types/slate/versions/enum.SlateVersion.html\" title=\"enum wallet713::wallet::types::slate::versions::SlateVersion\">SlateVersion</a>","synthetic":false,"types":["wallet713::wallet::types::slate::versions::SlateVersion"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

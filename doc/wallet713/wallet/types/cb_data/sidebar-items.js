@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["CbData","Response to build a coinbase output."]]});

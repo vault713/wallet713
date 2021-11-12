@@ -368,7 +368,7 @@ where
 	}
 
 	fn get_stored_tx(&self, uuid: &str) -> Result<Option<Transaction>> {
-		let filename = format!("{}.grintx", uuid);
+		let filename = format!("{}.epictx", uuid);
 		let path = Path::new(&self.config.data_file_dir)
 			.join(TX_SAVE_DIR)
 			.join(filename);
@@ -523,7 +523,7 @@ where
 	}
 
 	fn store_tx(&self, uuid: &str, tx: &Transaction) -> Result<()> {
-		let filename = format!("{}.grintx", uuid);
+		let filename = format!("{}.epictx", uuid);
 		let path = Path::new(&self._store.config.data_file_dir)
 			.join(TX_SAVE_DIR)
 			.join(filename);

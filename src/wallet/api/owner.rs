@@ -17,9 +17,9 @@ use crate::cli_message;
 use crate::common::config::Wallet713Config;
 use crate::common::hasher::derive_address_key;
 use crate::common::{Arc, Keychain, Mutex, MutexGuard};
-use crate::contacts::{parse_address, AddressType, Contact, GrinboxAddress};
+use crate::contacts::{parse_address, AddressType, Contact, EpicboxAddress};
 use crate::internal::*;
-use crate::wallet::adapter::{Adapter, GrinboxAdapter, HTTPAdapter, KeybaseAdapter};
+use crate::wallet::adapter::{Adapter, EpicboxAdapter, HTTPAdapter, KeybaseAdapter};
 use crate::wallet::types::{
 	AcctPathMapping, InitTxArgs, NodeClient, NodeHeightResult, NodeVersionInfo,
 	OutputCommitMapping, Slate, SlateVersion, TxLogEntry, TxProof, TxWrapper, VersionedSlate,
@@ -27,8 +27,6 @@ use crate::wallet::types::{
 };
 use crate::wallet::{Container, ErrorKind};
 use colored::Colorize;
-use failure::Error;
-use gotham_derive::StateData;
 use epic_core::core::hash::Hashed;
 use epic_core::core::{amount_to_hr_string, Transaction};
 use epic_core::ser::{ser_vec, ProtocolVersion};
@@ -36,10 +34,14 @@ use epic_keychain::Identifier;
 use epic_util::secp::key::PublicKey;
 use epic_util::secp::pedersen::Commitment;
 use epic_util::{to_hex, ZeroingString};
+use failure::Error;
+use gotham_derive::StateData;
 use log::{debug, error};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use uuid::Uuid;
+
+use crate::common::base58::FromBase58;
 
 #[derive(StateData)]
 pub struct Owner<W, C, K>
@@ -125,7 +127,7 @@ where
 			}
 
 			let listener = match interface {
-				ListenerInterface::Grinbox => start_grinbox(container, c),
+				ListenerInterface::Epicbox => start_epicbox(container, c),
 				ListenerInterface::Keybase => start_keybase(container, c),
 				ListenerInterface::ForeignHttp => start_foreign_http(container, c),
 				ListenerInterface::OwnerHttp => start_owner_http(container, c),
@@ -133,6 +135,7 @@ where
 
 			let address = listener.address();
 			println!("Listener for {} started", address.bright_green());
+
 			c.listeners.insert(interface, listener);
 			Ok(address)
 		})
@@ -161,34 +164,34 @@ where
 		Ok(interfaces)
 	}
 
-	pub fn grinbox_address(&self) -> Result<GrinboxAddress, Error> {
+	pub fn epicbox_address(&self) -> Result<EpicboxAddress, Error> {
 		self.open_and_close(|c| {
-			let index = c.config.grinbox_address_index();
+			let index = c.config.epicbox_address_index();
 			let keychain = c.backend()?.keychain();
 			let sec_key = derive_address_key(keychain, index)?;
 			let pub_key = PublicKey::from_secret_key(keychain.secp(), &sec_key)?;
 
-			Ok(GrinboxAddress::new(
+			Ok(EpicboxAddress::new(
 				pub_key,
-				Some(c.config.grinbox_domain.clone()),
-				c.config.grinbox_port,
+				Some(c.config.epicbox_domain.clone()),
+				c.config.epicbox_port,
 			))
 		})
 	}
 
-	pub fn set_grinbox_address_index(&self, index: u32) -> Result<GrinboxAddress, Error> {
-		let grinbox = self.stop_listener(ListenerInterface::Grinbox)?;
+	pub fn set_epicbox_address_index(&self, index: u32) -> Result<EpicboxAddress, Error> {
+		let epicbox = self.stop_listener(ListenerInterface::Epicbox)?;
 		{
 			let mut c = self.container.lock();
-			c.config.grinbox_address_index = Some(index);
+			c.config.epicbox_address_index = Some(index);
 			c.config.save()?;
 		}
 
-		if grinbox {
-			self.start_listener(ListenerInterface::Grinbox)?;
+		if epicbox {
+			self.start_listener(ListenerInterface::Epicbox)?;
 		}
 
-		self.grinbox_address()
+		self.epicbox_address()
 	}
 
 	pub fn accounts(&self) -> Result<Vec<AcctPathMapping>, Error> {
@@ -375,7 +378,7 @@ where
 				sa.method = Some(
 					match address.address_type() {
 						AddressType::Http => "http",
-						AddressType::Grinbox => "grinbox",
+						AddressType::Epicbox => "epicbox",
 						AddressType::Keybase => "keybase",
 					}
 					.to_owned(),
@@ -399,7 +402,10 @@ where
 				let vslate = VersionedSlate::into_version(slate.clone(), version);
 				let adapter: Box<dyn Adapter> = match sa.method.clone().unwrap().as_ref() {
 					"http" => HTTPAdapter::new(),
-					"grinbox" => GrinboxAdapter::new(&self.container),
+					"epicbox" => {
+						cli_message!("epicbox adapter");
+						EpicboxAdapter::new(&self.container)
+					}
 					"keybase" => KeybaseAdapter::new(&self.container),
 					_ => {
 						error!("unsupported payment method");
@@ -411,13 +417,15 @@ where
 
 				if adapter.supports_sync() {
 					slate = adapter.send_tx_sync(&sa.dest, &vslate)?.into();
+					cli_message!("send_tx_sync");
 				} else {
 					adapter.send_tx_async(&sa.dest, &vslate)?;
+					cli_message!("send_tx_async");
 				}
 				self.tx_lock_outputs(&slate, 0, Some(sa.dest.clone()))?;
 
 				cli_message!(
-					"Slate {} for {} grin sent successfully to {}",
+					"Slate {} for {} epic sent successfully to {}",
 					slate.id.to_string().bright_green(),
 					amount_to_hr_string(slate.amount, false).bright_green(),
 					format!("{}", parse_address(&sa.dest)?).bright_green()
@@ -570,8 +578,8 @@ where
 		tx_proof: &TxProof,
 	) -> Result<
 		(
-			GrinboxAddress,  // sender address
-			GrinboxAddress,  // receiver address
+			EpicboxAddress,  // sender address
+			EpicboxAddress,  // receiver address
 			u64,             // amount
 			Vec<Commitment>, // receiver outputs
 			Commitment,      // kernel excess
@@ -582,15 +590,15 @@ where
 	}
 
 	pub fn restore(&self) -> Result<(), Error> {
-		let grinbox = self.stop_listener(ListenerInterface::Grinbox)?;
+		let epicbox = self.stop_listener(ListenerInterface::Epicbox)?;
 
 		self.open_and_close(|c| {
 			let w = c.backend()?;
 			w.restore()
 		})?;
 
-		if grinbox {
-			self.start_listener(ListenerInterface::Grinbox)?;
+		if epicbox {
+			self.start_listener(ListenerInterface::Epicbox)?;
 		}
 
 		Ok(())

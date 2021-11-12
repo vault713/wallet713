@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["WalletInfo","a contained wallet info struct, so automated tests can parse wallet info can add more fields here over time as needed"]]});

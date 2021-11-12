@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["string_or_u64","Used to ensure u64s are serialised in json as strings by default, since it can’t be guaranteed that consumers will know what to do with u64 literals (e.g. Javascript). However, fields using this tag can be deserialized from literals or strings. From solutions on: https://github.com/serde-rs/json/issues/329"]]});

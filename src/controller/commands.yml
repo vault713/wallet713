@@ -1,5 +1,5 @@
 name: wallet713
-about: A Swiss Army knife for Grin
+about: A Swiss Army knife for Epic
 author: vault713
 settings:
   - NoBinaryName
@@ -24,7 +24,7 @@ subcommands:
   - accounts:
       about: Display available accounts
   - address:
-      about: Display current Grinbox address or switch to a different one
+      about: Display current Epicbox address or switch to a different one
       args:
         - next:
             help: Switch to next address index

@@ -13,24 +13,25 @@
 // limitations under the License.
 
 use crate::common::Result;
-use digest::generic_array::GenericArray;
 use epic_core::global::is_floonet;
 use epic_keychain::extkey_bip32::{BIP32Hasher, ChildNumber, ExtendedPrivKey};
 use epic_keychain::{Keychain, SwitchCommitmentType};
 use epic_util::secp::key::SecretKey;
-use hmac::{Hmac, Mac};
+use digest::generic_array::GenericArray;
+use digest::Digest;
+use hmac::{Hmac, Mac, NewMac};
 use ripemd160::Ripemd160;
-use sha2::{Digest, Sha256, Sha512};
+use sha2::{Sha256, Sha512};
 
 type HmacSha512 = Hmac<Sha512>;
 
 #[derive(Clone, Debug)]
-pub struct BIP32GrinboxHasher {
+pub struct BIP32EpicboxHasher {
 	is_floo: bool,
-	hmac_sha512: HmacSha512,
+	hmac_sha512: Hmac<Sha512>,
 }
 
-impl BIP32GrinboxHasher {
+impl BIP32EpicboxHasher {
 	/// New empty hasher
 	pub fn new(is_floo: bool) -> Self {
 		Self {
@@ -40,7 +41,7 @@ impl BIP32GrinboxHasher {
 	}
 }
 
-impl BIP32Hasher for BIP32GrinboxHasher {
+impl BIP32Hasher for BIP32EpicboxHasher {
 	fn network_priv(&self) -> [u8; 4] {
 		match self.is_floo {
 			true => [42, 0, 0, 42],
@@ -54,38 +55,38 @@ impl BIP32Hasher for BIP32GrinboxHasher {
 		}
 	}
 	fn master_seed() -> [u8; 12] {
-		b"Grinbox_seed".to_owned()
+		b"Epicbox_seed".to_owned()
 	}
 	fn init_sha512(&mut self, seed: &[u8]) {
-		self.hmac_sha512 = HmacSha512::new_varkey(seed).expect("HMAC can take key of any size");
+		self.hmac_sha512 = HmacSha512::new_from_slice(seed).expect("HMAC can take key of any size");
 	}
 	fn append_sha512(&mut self, value: &[u8]) {
-		self.hmac_sha512.input(value);
+		self.hmac_sha512.update(value);
 	}
 	fn result_sha512(&mut self) -> [u8; 64] {
 		let mut result = [0; 64];
-		result.copy_from_slice(self.hmac_sha512.result().code().as_slice());
+		result.copy_from_slice(&self.hmac_sha512.to_owned().finalize().into_bytes());
 		result
 	}
 	fn sha_256(&self, input: &[u8]) -> [u8; 32] {
 		let mut sha2_res = [0; 32];
 		let mut sha2 = Sha256::new();
-		sha2.input(input);
-		sha2_res.copy_from_slice(sha2.result().as_slice());
+		sha2.update(input);
+		sha2_res.copy_from_slice(sha2.finalize().as_slice());
 		sha2_res
 	}
 	fn ripemd_160(&self, input: &[u8]) -> [u8; 20] {
 		let mut ripemd_res = [0; 20];
 		let mut ripemd = Ripemd160::new();
-		ripemd.input(input);
-		ripemd_res.copy_from_slice(ripemd.result().as_slice());
+		ripemd.update(input);
+		ripemd_res.copy_from_slice(ripemd.finalize().as_slice());
 		ripemd_res
 	}
 }
 
 pub fn derive_address_key<K: Keychain>(keychain: &K, index: u32) -> Result<SecretKey> {
 	let root = keychain.derive_key(713, &K::root_key_id(), &SwitchCommitmentType::Regular)?;
-	let mut hasher = BIP32GrinboxHasher::new(is_floonet());
+	let mut hasher = BIP32EpicboxHasher::new(is_floonet());
 	let secp = keychain.secp();
 	let master = ExtendedPrivKey::new_master(secp, &mut hasher, &root.0)?;
 	Ok(master

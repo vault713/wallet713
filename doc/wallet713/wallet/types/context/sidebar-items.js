@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Context","Holds the context for a single aggsig transaction"]]});

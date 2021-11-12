@@ -167,7 +167,7 @@ where
 			};
 
 			cli_message!(
-				"Slate {} for {} grin received{}",
+				"Slate {} for {} epic received{}",
 				slate.id.to_string().bright_green(),
 				amount_to_hr_string(slate.amount, false).bright_green(),
 				from

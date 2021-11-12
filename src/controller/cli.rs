@@ -25,8 +25,8 @@ use crate::wallet::types::{NodeClient, TxProof, VersionedSlate, WalletBackend};
 use crate::wallet::Container;
 use clap::{crate_version, load_yaml, App, ArgMatches};
 use colored::Colorize;
-use failure::Error;
 use epic_core::core::amount_to_hr_string;
+use failure::Error;
 use rustyline::completion::{Completer, FilenameCompleter, Pair};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
@@ -156,7 +156,7 @@ where
 				} else {
 					&v.node_version
 				};
-				println!("The Grin Node in use (version {}) is outdated and incompatible with this wallet version.", version);
+				println!("The Epic Node in use (version {}) is outdated and incompatible with this wallet version.", version);
 				println!("Please update the node to version 2.0.0 or later and try again.");
 				return false;
 			}
@@ -166,8 +166,8 @@ where
 
 	fn start_listeners(&self) -> Result<(), Error> {
 		let config = self.api.config();
-		if config.grinbox_listener_auto_start() {
-			if let Err(e) = self.api.start_listener(ListenerInterface::Grinbox) {
+		if config.epicbox_listener_auto_start() {
+			if let Err(e) = self.api.start_listener(ListenerInterface::Epicbox) {
 				display::error(e);
 			}
 		}
@@ -283,29 +283,29 @@ where
 				display::accounts(self.api.accounts()?);
 			}
 			("address", Some(m)) => {
-				let mut idx = self.api.config().grinbox_address_index();
+				let mut idx = self.api.config().epicbox_address_index();
 				match args::address_command(m)? {
 					AddressArgs::Display => {
 						println!(
-							"Your grinbox address is {}",
-							self.api.grinbox_address()?.stripped().bright_green()
+							"Your epicbox address is {}",
+							self.api.epicbox_address()?.stripped().bright_green()
 						);
 					}
 					AddressArgs::Next => {
 						idx = idx.saturating_add(1);
-						self.api.set_grinbox_address_index(idx)?;
+						self.api.set_epicbox_address_index(idx)?;
 					}
 					AddressArgs::Prev => {
 						idx = idx.saturating_sub(1);
-						self.api.set_grinbox_address_index(idx)?;
+						self.api.set_epicbox_address_index(idx)?;
 					}
 					AddressArgs::Index(i) => {
 						idx = i;
-						self.api.set_grinbox_address_index(idx)?;
+						self.api.set_epicbox_address_index(idx)?;
 					}
 				};
 				cli_message!(
-					"Using grinbox address index {}",
+					"Using epicbox address index {}",
 					idx.to_string().bright_green()
 				);
 			}
@@ -355,7 +355,7 @@ where
 			}
 			("listen", Some(m)) => {
 				let interface = match args::listen_command(m)? {
-					("grinbox", _) | ("", _) => ListenerInterface::Grinbox,
+					("epicbox", _) | ("", _) => ListenerInterface::Epicbox,
 					("keybase", _) => ListenerInterface::Keybase,
 					("http", true) => ListenerInterface::OwnerHttp,
 					("http", false) => ListenerInterface::ForeignHttp,
@@ -466,7 +466,7 @@ where
 							.tx_lock_outputs(&slate, 0, Some("file".to_owned()))?;
 
 						println!(
-							"Slate {} for {} grin saved to {}",
+							"Slate {} for {} epic saved to {}",
 							slate.id.to_string().bright_green(),
 							amount_to_hr_string(slate.amount, false).bright_green(),
 							file_name.bright_green()
@@ -488,7 +488,7 @@ where
 			}
 			("stop", Some(m)) => {
 				let interface = match args::listen_command(m)? {
-					("grinbox", _) | ("", _) => ListenerInterface::Grinbox,
+					("epicbox", _) | ("", _) => ListenerInterface::Epicbox,
 					("keybase", _) => ListenerInterface::Keybase,
 					("http", true) => ListenerInterface::OwnerHttp,
 					("http", false) => ListenerInterface::ForeignHttp,

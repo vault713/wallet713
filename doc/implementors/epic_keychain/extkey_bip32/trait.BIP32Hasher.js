@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["wallet713"] = [{"text":"impl BIP32Hasher for <a class=\"struct\" href=\"wallet713/common/hasher/struct.BIP32EpicboxHasher.html\" title=\"struct wallet713::common::hasher::BIP32EpicboxHasher\">BIP32EpicboxHasher</a>","synthetic":false,"types":["wallet713::common::hasher::BIP32EpicboxHasher"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
