@@ -5,17 +5,17 @@
 
 Wallet713 is:
 
-- a wallet for Grin.
+- a wallet for Epic-Cash.
 
-   [Grin](https://github.com/mimblewimble/grin) is a blockchain-powered cryptocurrency that is an implementation of the MimbleWimble protocol, with a focus on privacy and scalability. In MimbleWimble, transactions are interactive, requiring the Sender and Recipient to interact over a single round trip in order to build the transaction.
+   [Epic-Cash](https://github.com/epiccash/epic) is a blockchain-powered cryptocurrency that is an implementation of the MimbleWimble protocol, with a focus on privacy and scalability. In MimbleWimble, transactions are interactive, requiring the Sender and Recipient to interact over a single round trip in order to build the transaction.
 
-- extends the official grin wallet functionality.
+- extends the official Epic-Cash wallet functionality.
 
-   wallet713 makes it easy to store, send and soon also swap grins seamlessly through a single interface. Built on top of the standard Grin wallet reference implementation, wallet713 extends its functionality to improve usability and reduce friction. 
+   wallet713 makes it easy to store, send and soon also swap EPICs seamlessly through a single interface. Built on top of the standard Epic-Cash wallet reference implementation, wallet713 extends its functionality to improve usability and reduce friction. 
 
-- integrated with the grinbox messaging relay.
+- integrated with the epicbox messaging relay.
 
-   For better privacy and usability, the grinbox messaging relay allows the steps to build transactions (partial transactions, or "slates") to be routed via the relay, protecting the user from exposing their IP address, and with no impact to the safety of their funds.
+   For better privacy and usability, the epicbox messaging relay allows the steps to build transactions (partial transactions, or "slates") to be routed via the relay, protecting the user from exposing their IP address, and with no impact to the safety of their funds.
 
 <p align="center">
   <img width="600" src="demo.svg">
@@ -25,11 +25,11 @@ Wallet713 is:
 
 * **Get up and running fast.** Download a pre-compiled binary (or build yourself). We run a node for you (or run your own). 
 * **Everything in one interface.** Listen, send and receive using the same instance of the wallet.
-* **Use your public key as your address.** grinbox relies on public/private keypairs that are derived from your wallet seed to authenticate yourself and receive your messages.
-* **SSL & End-to-end encryption.** All grinbox traffic uses SSL and messages are end-to-end encrypted. Nobody beyond the intended recipient can read the contents of your transaction slates.  
-* **Process transactions easily.** Send to a recipient's grinbox or keybase profile and it takes care of itself. No need to deal with IP addresses, port forwarding, or manual file transfers.
+* **Use your public key as your address.** epicbox relies on public/private keypairs that are derived from your wallet seed to authenticate yourself and receive your messages.
+* **SSL & End-to-end encryption.** All epicbox traffic uses SSL and messages are end-to-end encrypted. Nobody beyond the intended recipient can read the contents of your transaction slates.  
+* **Process transactions easily.** Send to a recipient's epicbox or keybase profile and it takes care of itself. No need to deal with IP addresses, port forwarding, or manual file transfers.
 * **Receive transactions while you are offline.** Transactions persist, waiting for you to fetch them the next time you come online.
-* **Contacts.** No need to keep track of grinbox addresses or keybase account names. Add addresses to contacts stored locally on your machine, and sending 10 grin becomes as easy as `send 10 --to @alice`.
+* **Contacts.** No need to keep track of epicbox addresses or keybase account names. Add addresses to contacts stored locally on your machine, and sending 10 Epic-Cash becomes as easy as `send 10 --to @alice`.
 * **Remain in full control.** Only you have access to your private keys and your wallet balance, only you can read or sign your own transactions.
 
 ## Status
@@ -53,9 +53,9 @@ Running on mainnet. Under heavy development. Contributions are welcomed.
 
 ## Privacy considerations
 
-* **The relay does not store data.** grinbox does not store any data on completed transactions by design, but it would be possible for the relay to do so and as a result build a graph of meta-data activity between grinbox addresses.
+* **The relay does not store data.** epicbox does not store any data on completed transactions by design, but it would be possible for the relay to do so and as a result build a graph of meta-data activity between epicbox addresses.
 
-* **Your IP is your responsibility.** When you communicate with the grinbox relay service, you are exposing your IP to the relay. You can obfuscate your real IP address using services such as a VPN and/or TOR or i2p.
+* **Your IP is your responsibility.** When you communicate with the epicbox relay service, you are exposing your IP to the relay. You can obfuscate your real IP address using services such as a VPN and/or TOR or i2p.
 
 ## Credits
 
