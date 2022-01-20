@@ -25,11 +25,15 @@ use std::path::{Path, PathBuf};
 
 const WALLET713_HOME: &str = ".wallet713";
 const WALLET713_DEFAULT_CONFIG_FILENAME: &str = "wallet713.toml";
+const WALLET713_DEFAULT_LOG_CONFIG_FILENAME: &str = "wallet713_log.toml";
+const WALLET713_DEFAULT_LOG_FILENAME: &str = "wallet713.log";
 
 const DEFAULT_CONFIG: &str = r#"
 	wallet713_data_path = "wallet713_data"
 	epicbox_domain = "epicbox.io"
 	default_keybase_ttl = "24h"
+	owner_api = true
+	foreign_api = true
 "#;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -308,4 +312,55 @@ pub struct GlobalWalletConfigMembers {
 	pub wallet: WalletConfig,
 	/// Logging config
 	pub logging: Option<LoggingConfig>,
+}
+
+/// Load a [`LoggingConfig`] from `path` if it is [`Some`], otherwise create a default one.
+// TODO: Ideally the logging configuration should be part of Wallet713Config
+pub fn load_log_file(
+	path: Option<&str>,
+	wallet713_config: &Wallet713Config,
+) -> Result<LoggingConfig> {
+	let default_home = Wallet713Config::default_home_path(&wallet713_config.chain)?;
+	let default_config_file = {
+		let mut default_home = default_home.clone();
+		default_home.push(WALLET713_DEFAULT_LOG_CONFIG_FILENAME);
+		default_home
+	};
+	let default_log_file = {
+		let mut default_home = default_home;
+		default_home.push(WALLET713_DEFAULT_LOG_FILENAME);
+		default_home
+	};
+
+	// If the path to the config is passed, try to use it. Otherwise, try the default path
+	if let Some(path) = path {
+		let mut file = File::open(path)?;
+		let mut toml_str = String::new();
+		file.read_to_string(&mut toml_str)?;
+
+		let config = toml::from_str(&toml_str[..])?;
+
+		Ok(config)
+	} else if default_config_file.exists() {
+		let mut file = File::open(&default_config_file)?;
+		let mut toml_str = String::new();
+		file.read_to_string(&mut toml_str)?;
+
+		let config = toml::from_str(&toml_str[..])?;
+
+		Ok(config)
+	} else {
+		let config = LoggingConfig {
+			log_file_path: default_log_file.to_string_lossy().to_string(),
+			log_to_stdout: false,
+			..Default::default()
+		};
+
+		// save this configuration to the default config file
+		let toml_str = toml::to_string(&config)?;
+		let mut f = File::create(&default_config_file)?;
+		f.write_all(toml_str.as_bytes())?;
+
+		Ok(config)
+	}
 }

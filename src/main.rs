@@ -23,11 +23,12 @@ mod wallet;
 
 use clap::{crate_version, App, Arg, ArgMatches};
 use colored::*;
-use common::config::Wallet713Config;
+use common::config::{load_log_file, Wallet713Config};
 use common::{ErrorKind, Result, RuntimeMode};
 use contacts::{AddressBook, Backend};
 use controller::cli::CLI;
 use epic_core::global::{set_mining_mode, ChainTypes};
+use epic_util::logger::LogEntry;
 use wallet::create_container;
 
 fn do_config(
@@ -37,14 +38,13 @@ fn do_config(
 	new_address_index: Option<u32>,
 	config_path: Option<&str>,
 ) -> Result<Wallet713Config> {
-	let mut config;
 	let mut any_matches = false;
-	let exists = Wallet713Config::exists(config_path, &chain)?;
-	if exists {
-		config = Wallet713Config::from_file(config_path, &chain)?;
+	let exists = Wallet713Config::exists(config_path, chain)?;
+	let mut config = if exists {
+		Wallet713Config::from_file(config_path, chain)?
 	} else {
-		config = Wallet713Config::default(&chain)?;
-	}
+		Wallet713Config::default(chain)?
+	};
 
 	if let Some(data_path) = args.value_of("data-path") {
 		config.wallet713_data_path = data_path.to_string();
@@ -77,7 +77,9 @@ fn do_config(
 		any_matches = true;
 	}
 
-	config.to_file(config_path.map(|p| p.to_owned()))?;
+	if !exists {
+		config.to_file(config_path.map(|p| p.to_owned()))?;
+	}
 
 	if !any_matches && !silent {
 		cli_message!("{}", config);
@@ -126,6 +128,28 @@ fn main() {
 			e
 		);
 	});
+
+	match runtime_mode {
+		RuntimeMode::Cli => {
+			let log_config = load_log_file(matches.value_of("log-config-path"), &config)
+				.unwrap_or_else(|e| {
+					panic!(
+						"{}: could not load logging config! {}",
+						"ERROR".bright_red(),
+						e
+					);
+				});
+			let (logs_tx, _) = match log_config.tui_running {
+				Some(true) => {
+					let (logs_tx, logs_rx) = std::sync::mpsc::sync_channel::<LogEntry>(200);
+					(Some(logs_tx), Some(logs_rx))
+				}
+				_ => (None, None),
+			};
+			epic_util::init_logger(Some(log_config), logs_tx)
+		}
+		RuntimeMode::Daemon => env_logger::init(),
+	}
 
 	if runtime_mode == RuntimeMode::Daemon {
 		env_logger::init();
