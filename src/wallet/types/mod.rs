@@ -14,7 +14,6 @@
 
 mod acct_path_mapping;
 mod args;
-mod block_fees;
 mod block_identifier;
 mod cb_data;
 mod context;
@@ -34,7 +33,6 @@ mod wallet_inst;
 
 pub use self::acct_path_mapping::AcctPathMapping;
 pub use self::args::*;
-pub use self::block_fees::BlockFees;
 pub use self::block_identifier::BlockIdentifier;
 pub use self::cb_data::CbData;
 pub use self::context::Context;
@@ -60,3 +58,4 @@ pub use epic_core::core::hash::Hash;
 pub use epic_core::core::{Output, Transaction, TxKernel};
 pub use epic_keychain::{ChildNumber, ExtKeychain, Identifier, Keychain};
 pub use epic_util::secp::key::{PublicKey, SecretKey};
+pub use epic_core::core::block_fees::BlockFees;
