@@ -21,7 +21,7 @@ use std::convert::TryFrom;
 use v2::SlateV2;
 
 pub const CURRENT_SLATE_VERSION: u16 = 2;
-pub const EPIC_BLOCK_HEADER_VERSION: u16 = 6;
+pub const EPIC_BLOCK_HEADER_VERSION: u16 = 7;
 
 /// Existing versions of the slate
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
